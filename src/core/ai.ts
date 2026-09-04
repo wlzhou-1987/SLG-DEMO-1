@@ -14,9 +14,9 @@ export interface EnemyAction {
 }
 
 /**
- * 敌方占位 AI（M3）：枚举「落位 × 技能 × 目标」组合，
- * 击杀优先，否则期望净收益最高；无可攻击目标则向最近我方移动。
- * 完整三类激活/组集结在 M5。
+ * 敌方 AI 决策（§6）：枚举「落位 × 技能 × 目标」组合，
+ * 击杀优先，否则期望净收益最高；无可攻击目标时 BOSS 原地驻守、
+ * 其余向组共享目标集结移动。激活状态由调用方过滤（未激活单位不决策）。
  */
 export function decideEnemyAction(
   map: MapState,
@@ -25,7 +25,10 @@ export function decideEnemyAction(
 ): EnemyAction {
   const template = getTemplate(enemy.templateId)!;
   const players = units.filter(u => u.faction === 'player');
-  const moveRange = calcMovementRange(map, units, enemy.position, template.movePoints, template.flying);
+  // BOSS 驻守：不移动，仅射程覆盖当前位置时才攻击（§6）
+  const moveRange = enemy.aiKind === 'boss'
+    ? new Set([hexKey(enemy.position)])
+    : calcMovementRange(map, units, enemy.position, template.movePoints, template.flying);
 
   let best: EnemyAction | null = null;
   let bestScore = -Infinity;
@@ -60,15 +63,34 @@ export function decideEnemyAction(
 
   if (best) return best;
 
-  // 无可攻击目标：向最近我方单位移动
+  // BOSS 无射程内目标：原地驻守
+  if (enemy.aiKind === 'boss') {
+    return { dest: enemy.position, skill: null, target: null };
+  }
+
+  // 无可攻击目标：向组共享目标集结（§6 不散兵）——
+  // 共享目标 = 距组质心最近的我方单位；单人组/无组退化为距本人最近
+  const mates = enemy.groupId !== undefined
+    ? units.filter(u => u.faction === 'enemy' && u.groupId === enemy.groupId)
+    : [];
+  let from: HexCoord = enemy.position;
+  if (mates.length > 1) {
+    from = {
+      q: mates.reduce((s, u) => s + u.position.q, 0) / mates.length,
+      r: mates.reduce((s, u) => s + u.position.r, 0) / mates.length
+    };
+  }
+  const target = players.reduce((bestP, p) =>
+    distance(from, p.position) < distance(from, bestP.position) ? p : bestP);
+
   let dest = enemy.position;
-  let minDist = Infinity;
+  let bestDist = Infinity;
   for (const key of moveRange) {
     const [qStr, rStr] = key.split(',');
     const pos: HexCoord = { q: parseInt(qStr), r: parseInt(rStr) };
-    const nearest = Math.min(...players.map(p => distance(pos, p.position)));
-    if (nearest < minDist) {
-      minDist = nearest;
+    const d = distance(pos, target.position);
+    if (d < bestDist) {
+      bestDist = d;
       dest = pos;
     }
   }

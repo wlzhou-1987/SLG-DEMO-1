@@ -127,3 +127,52 @@ describe('组激活（§6）', () => {
     expect(a.activated).toBe(false);
   });
 });
+
+describe('BOSS 驻守与组集结（§6）', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+
+  function groupEnemy(
+    templateId: string, pos: HexCoord, groupId: string, aiKind: 'dormant' | 'aggressive' | 'boss'
+  ): UnitState {
+    const u = createUnitState(templateId, 'enemy', pos);
+    u.groupId = groupId;
+    u.aiKind = aiKind;
+    return u;
+  }
+
+  it('BOSS 射程内有目标 → 原地攻击不移动', () => {
+    const boss = groupEnemy('boss', { q: 10, r: 15 }, 'bossGroup', 'boss');
+    const player = createUnitState('lord', 'player', { q: 11, r: 15 });
+    const action = decideEnemyAction(map, [boss, player], boss);
+    expect(action.skill).not.toBeNull();
+    expect(action.dest).toEqual({ q: 10, r: 15 });
+  });
+
+  it('BOSS 射程外 → 原地驻守不攻击不移动', () => {
+    const boss = groupEnemy('boss', { q: 10, r: 15 }, 'bossGroup', 'boss');
+    const player = createUnitState('lord', 'player', { q: 10, r: 20 });  // 距离 5
+    const action = decideEnemyAction(map, [boss, player], boss);
+    expect(action.skill).toBeNull();
+    expect(action.dest).toEqual({ q: 10, r: 15 });
+  });
+
+  it('同组单位向共享目标集结（距组质心最近的我方），非各选各的', () => {
+    const a = groupEnemy('swordsman', { q: 10, r: 10 }, 'g1', 'aggressive');
+    const b = groupEnemy('swordsman', { q: 10, r: 19 }, 'g1', 'aggressive');
+    // 质心 (10,14.5)：南面目标距质心 12.5 < 北面 14.5 → 组共享目标=南；
+    // 但 a 单独看北面更近（10 < 17）——集结应压向共享目标而非各选各的
+    const north = createUnitState('lord', 'player', { q: 10, r: 0 });
+    const south = createUnitState('mage', 'player', { q: 10, r: 27 });
+    const units = [a, b, north, south];
+    const actionA = decideEnemyAction(map, units, a);
+    const actionB = decideEnemyAction(map, units, b);
+    expect(actionA.skill).toBeNull();
+    expect(actionB.skill).toBeNull();
+    expect(distance(actionA.dest, south.position)).toBeLessThan(distance(a.position, south.position));
+    expect(distance(actionB.dest, south.position)).toBeLessThan(distance(b.position, south.position));
+  });
+});
