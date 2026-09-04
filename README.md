@@ -4,28 +4,41 @@
 
 ## 当前状态
 
-**设计阶段**（2026-09-04）：已确定做火纹式回合制战棋单场战斗 DEMO，设计框架初稿完成，逐项确认中。
+**M2 进行中**（2026-09-04）：M1 设计定稿完成，正在实现六边形棋盘渲染与交互。
 
-- [ ] 设计定稿：逐项确认 GAME-DESIGN.md → [docs/GAME-DESIGN.md](docs/GAME-DESIGN.md)
-- [ ] 技术栈确认并初始化工程 → [docs/TECH-STACK.md](docs/TECH-STACK.md)
-- [ ] M2 棋盘与选中：渲染棋盘和单位，点选显示移动/攻击范围
+- [x] M1 设计定稿：逐项确认 [docs/GAME-DESIGN.md](docs/GAME-DESIGN.md) ✅
+- [ ] M2 棋盘与选中：渲染棋盘和单位，点选显示移动/攻击范围（进行中）
 - [ ] M3 战斗闭环：移动、攻击、结算（含反击/追击）、战斗预报
 - [ ] M4 回合与AI：敌方回合 AI、回合循环、胜负判定
 - [ ] M5 打磨：地形效果、信息面板、伤害反馈、数值平衡
 
-需求详见 [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)。
+## 技术栈
+
+Vite + TypeScript（strict）+ 原生 Canvas + Vitest，详见 [AGENTS.md](AGENTS.md)。
 
 ## 目录结构
 
 ```
 DEMO_1/
 ├── README.md              # 项目说明（本文件）
+├── AGENTS.md              # 项目纪律
+├── package.json
+├── tsconfig.json
+├── vite.config.ts
+├── index.html
+├── src/
+│   ├── main.ts            # 入口
+│   ├── style.css          # 全局样式
+│   ├── core/              # 逻辑层（纯 TS）
+│   ├── config/            # 数据驱动配置
+│   ├── render/            # Canvas 渲染层
+│   └── ui/                # HTML UI 元素
 └── docs/
-    ├── REQUIREMENTS.md    # 需求文档
-    ├── GAME-DESIGN.md     # 游戏设计文档（逐项确认中）
-    └── TECH-STACK.md      # 技术选型决策记录（建议方案待确认）
+    ├── GAME-DESIGN.md     # 游戏设计文档（M1 定稿）
+    └── prototypes/        # 原型参考
 ```
 
 ## 说明
 
-- 本目录是独立 Git 仓库，已在资料库根 `.gitignore` 中排除（同 `AI Native/` 的管理方式）。
+- 本目录是独立 Git 仓库，远端：`git@github.com:wlzhou-1987/SLG-DEMO-1.git`
+- Node.js 版本：≥ 18（项目根有 `.nvmrc`）
