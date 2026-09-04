@@ -18,6 +18,9 @@ import { showUnitInfo, clearUnitInfo, showTerrainInfo, clearTerrainInfo } from '
 import { showActionMenu, hideActionMenu } from './ui/action-menu';
 import { showForecastPanel, hideForecastPanel } from './ui/forecast';
 import { getTerrain } from './core/map';
+import { checkVictory, startPlayerPhase } from './core/turn';
+import type { VictoryState } from './core/turn';
+import { decideEnemyAction } from './core/ai';
 
 type Phase =
   | { mode: 'idle' }
@@ -26,7 +29,11 @@ type Phase =
   | { mode: 'targetSelect'; unit: UnitState; skill: SkillTemplate; originPos: HexCoord; targets: Set<string> }
   | { mode: 'forecast'; unit: UnitState; target: UnitState; skill: SkillTemplate; forecast: BattleForecast }
   | { mode: 'reMove'; unit: UnitState; moveRange: Set<string>; defaultFacing: number }
-  | { mode: 'facingConfirm'; unit: UnitState };
+  | { mode: 'facingConfirm'; unit: UnitState }
+  | { mode: 'enemyTurn' }
+  | { mode: 'gameOver' };
+
+const ENEMY_ACTION_DELAY_MS = 300;
 
 export class Game {
   private canvas: HTMLCanvasElement;
@@ -35,6 +42,7 @@ export class Game {
   private renderer: HexRenderer;
   private phase: Phase = { mode: 'idle' };
   private lastHoverKey = '';
+  private victory: VictoryState = 'ongoing';
   turn = 1;
   phaseLabel = '玩家';
   map: MapState;
@@ -96,6 +104,7 @@ export class Game {
 
   private handleClick(screenX: number, screenY: number) {
     const hex = this.screenToHex(screenX, screenY);
+    if (this.phase.mode === 'enemyTurn' || this.phase.mode === 'gameOver') return;
     if (!hex) { this.cancelToIdle(); return; }
     const unit = getUnitAt(this.units, hex);
     const key = hexKey(hex);
@@ -270,8 +279,13 @@ export class Game {
     unit.hp = result.attackerHp;
     target.hp = result.defenderHp;
     this.units = this.units.filter(u => u.hp > 0);
+    this.victory = checkVictory(this.units);
     this.updateTopbar();
 
+    if (this.victory !== 'ongoing') {
+      this.enterGameOver();
+      return;
+    }
     if (unit.hp <= 0) {
       // 攻方阵亡于反击
       this.cancelToIdle();
@@ -328,6 +342,11 @@ export class Game {
     unit.hasActed = true;
     this.phase = { mode: 'idle' };
     this.updateTopbar();
+    // 全部行动完毕自动进入敌方阶段（§2）
+    const players = this.units.filter(u => u.faction === 'player');
+    if (players.length > 0 && players.every(u => u.hasActed)) {
+      this.endPlayerPhase();
+    }
   }
 
   private cancelToIdle() {
@@ -356,7 +375,68 @@ export class Game {
   private updateTopbar() {
     const playerCount = this.units.filter(u => u.faction === 'player').length;
     const enemyCount = this.units.filter(u => u.faction === 'enemy').length;
-    updateTopbar(this.turn, this.phaseLabel, playerCount, enemyCount);
+    updateTopbar(this.turn, this.phaseLabel, playerCount, enemyCount,
+      this.phaseLabel === '玩家' && this.victory === 'ongoing'
+        ? () => this.endPlayerPhase()
+        : undefined);
+  }
+
+  /** 玩家阶段结束：进入敌方阶段 */
+  private endPlayerPhase() {
+    if (this.victory !== 'ongoing' || this.phase.mode === 'enemyTurn' || this.phase.mode === 'gameOver') return;
+    hideActionMenu();
+    hideForecastPanel();
+    this.phase = { mode: 'enemyTurn' };
+    this.phaseLabel = '敌方';
+    this.updateTopbar();
+    this.render();
+    void this.runEnemyPhase();
+  }
+
+  /** 敌方阶段：逐单位占位 AI 行动，短延时播放（§7.4 简化版） */
+  private async runEnemyPhase() {
+    const queue = this.units.filter(u => u.faction === 'enemy');
+    for (const enemy of queue) {
+      await new Promise(r => setTimeout(r, ENEMY_ACTION_DELAY_MS));
+      if (this.victory !== 'ongoing') return;
+      if (!this.units.includes(enemy)) continue;
+
+      const action = decideEnemyAction(this.map, this.units, enemy);
+      enemy.position = { ...action.dest };
+      if (action.skill && action.target) {
+        enemy.facing = directionBetween(enemy.position, action.target.position);
+        const result = resolveBattle(this.map, enemy, action.target, action.skill);
+        enemy.hp = result.attackerHp;
+        action.target.hp = result.defenderHp;
+        this.units = this.units.filter(u => u.hp > 0);
+        this.victory = checkVictory(this.units);
+      }
+      enemy.hasActed = true;
+      this.updateTopbar();
+      this.render();
+    }
+
+    if (this.victory !== 'ongoing') {
+      this.enterGameOver();
+      return;
+    }
+
+    // 回合推进：重置行动、基地回血
+    this.turn++;
+    startPlayerPhase(this.units, this.map);
+    this.phaseLabel = '玩家';
+    this.phase = { mode: 'idle' };
+    this.updateTopbar();
+    this.render();
+  }
+
+  private enterGameOver() {
+    hideActionMenu();
+    hideForecastPanel();
+    this.phase = { mode: 'gameOver' };
+    this.phaseLabel = this.victory === 'playerWin' ? '🏆 我方胜利' : '☠ 我方败北';
+    this.updateTopbar();
+    this.render();
   }
 
   /** 调整画布尺寸跟随容器 */
@@ -415,7 +495,9 @@ export class Game {
 
     this.renderer.drawUnits(this.units, this.camera, width, height);
 
-    if (this.phase.mode !== 'idle' && this.phase.mode !== 'forecast') {
+    if (this.phase.mode === 'unitSelected' || this.phase.mode === 'actionMenu' ||
+        this.phase.mode === 'targetSelect' || this.phase.mode === 'reMove' ||
+        this.phase.mode === 'facingConfirm') {
       this.renderer.drawSelectionIndicator(this.phase.unit.position, this.camera);
     }
   };
