@@ -7,7 +7,11 @@ import type { HexCoord, Facing } from './core/types';
 import { calcMovementRange, calcAttackRange } from './core/range';
 import { calcBattleForecast, resolveBattle } from './core/combat';
 import type { BattleForecast } from './core/combat';
+import { calcSpellForecast, resolveSpell } from './core/spell';
+import type { SpellForecast } from './core/spell';
 import type { SkillTemplate } from './config/units';
+import { isSpell } from './config/spells';
+import type { SpellTemplate } from './config/spells';
 import { MAP_OVERRIDES, INITIAL_UNITS } from './config/map';
 import { getTemplate } from './config/units';
 import { Camera } from './render/camera';
@@ -16,11 +20,12 @@ import { InputHandler } from './render/input';
 import { updateTopbar } from './ui/topbar';
 import { showUnitInfo, clearUnitInfo, showTerrainInfo, clearTerrainInfo } from './ui/sidepanel';
 import { showActionMenu, hideActionMenu } from './ui/action-menu';
-import { showForecastPanel, hideForecastPanel } from './ui/forecast';
+import { showForecastPanel, hideForecastPanel, showSpellForecastPanel } from './ui/forecast';
 import { getTerrain } from './core/map';
 import { checkVictory, startPlayerPhase } from './core/turn';
 import type { VictoryState } from './core/turn';
 import { decideEnemyAction } from './core/ai';
+import { interruptChant } from './core/status';
 
 type Phase =
   | { mode: 'idle' }
@@ -28,6 +33,7 @@ type Phase =
   | { mode: 'actionMenu'; unit: UnitState; originPos: HexCoord }
   | { mode: 'targetSelect'; unit: UnitState; skill: SkillTemplate; originPos: HexCoord; targets: Set<string> }
   | { mode: 'forecast'; unit: UnitState; target: UnitState; skill: SkillTemplate; forecast: BattleForecast }
+  | { mode: 'spellForecast'; unit: UnitState; target: UnitState; spell: SpellTemplate; forecast: SpellForecast }
   | { mode: 'reMove'; unit: UnitState; moveRange: Set<string>; defaultFacing: number }
   | { mode: 'facingConfirm'; unit: UnitState }
   | { mode: 'enemyTurn' }
@@ -126,7 +132,8 @@ export class Game {
         if (unit && unit !== this.phase.unit && unit.faction === 'player' && !unit.hasActed) {
           this.selectUnit(unit);  // 切换选中
         } else if (this.phase.moveRange.has(key) || unit === this.phase.unit) {
-          // 移动（含原地待命）；记录出发点供撤销
+          // 移动（含原地待命）；记录出发点供撤销；主动移动打断咏唱（§4.12）
+          interruptChant(this.phase.unit);
           const origin = this.phase.unit.position;
           this.phase.unit.position = { ...hex };
           this.openActionMenu(this.phase.unit, origin);
@@ -142,14 +149,19 @@ export class Game {
       }
       case 'targetSelect': {
         if (unit && this.phase.targets.has(key)) {
-          this.enterForecast(this.phase.unit, unit, this.phase.skill);
+          if (isSpell(this.phase.skill)) {
+            this.enterSpellForecast(this.phase.unit, unit, this.phase.skill);
+          } else {
+            this.enterForecast(this.phase.unit, unit, this.phase.skill);
+          }
         } else {
           // 点空/非目标 = 返回行动菜单
           this.openActionMenu(this.phase.unit, this.phase.originPos);
         }
         break;
       }
-      case 'forecast': {
+      case 'forecast':
+      case 'spellForecast': {
         break;  // 预报面板按钮驱动，画布点击忽略
       }
       case 'reMove': {
@@ -197,20 +209,34 @@ export class Game {
     this.phase = { mode: 'actionMenu', unit, originPos };
     const world = axialToPixel(unit.position, HEX_SIZE);
     const screen = this.camera.worldToScreen(world);
-    showActionMenu(screen.x, screen.y, [
-      { label: '攻击', value: 'attack' },
-      { label: '待机', value: 'wait' },
-      { label: '取消', value: 'cancel', kind: 'cancel' }
-    ], value => {
-      this.onMenuPick(value, unit, originPos);
+
+    const template = getTemplate(unit.templateId)!;
+    const attackSkills = template.skills.filter(s => !isSpell(s));
+    const spellSkills = template.skills.filter(isSpell);
+    const items: Array<{ label: string; value: string; kind?: 'normal' | 'cancel' }> = [];
+    if (attackSkills.length > 0) items.push({ label: '攻击', value: 'attack' });
+    if (spellSkills.length > 0) items.push({ label: '法术', value: 'spell' });
+    items.push({ label: '待机', value: 'wait' }, { label: '取消', value: 'cancel', kind: 'cancel' });
+
+    showActionMenu(screen.x, screen.y, items, value => {
+      this.onMenuPick(value, unit, originPos, attackSkills, spellSkills);
       this.render();
     });
   }
 
-  private onMenuPick(value: string, unit: UnitState, originPos: HexCoord) {
+  private onMenuPick(
+    value: string,
+    unit: UnitState,
+    originPos: HexCoord,
+    attackSkills: SkillTemplate[],
+    spellSkills: SkillTemplate[]
+  ) {
     switch (value) {
       case 'attack':
-        this.showSkillList(unit, originPos);
+        this.showSkillList(unit, originPos, '攻击', attackSkills);
+        break;
+      case 'spell':
+        this.showSkillList(unit, originPos, '法术', spellSkills);
         break;
       case 'wait': {
         // 默认朝向 = 最后一次移动方向（原地则保持）
@@ -225,18 +251,17 @@ export class Game {
     }
   }
 
-  private showSkillList(unit: UnitState, originPos: HexCoord) {
-    const template = getTemplate(unit.templateId)!;
+  private showSkillList(unit: UnitState, originPos: HexCoord, title: string, skills: SkillTemplate[]) {
     const world = axialToPixel(unit.position, HEX_SIZE);
     const screen = this.camera.worldToScreen(world);
     showActionMenu(screen.x, screen.y, [
-      ...template.skills.map(s => ({ label: `${s.name}`, value: `skill:${s.name}` })),
+      ...skills.map(s => ({ label: `${title}·${s.name}`, value: `skill:${s.name}` })),
       { label: '返回', value: 'back', kind: 'cancel' }
     ], value => {
       if (value === 'back') {
         this.openActionMenu(unit, originPos);
       } else {
-        const skill = template.skills.find(s => `skill:${s.name}` === value)!;
+        const skill = skills.find(s => `skill:${s.name}` === value)!;
         this.enterTargetSelect(unit, skill, originPos);
       }
       this.render();
@@ -244,9 +269,12 @@ export class Game {
   }
 
   private enterTargetSelect(unit: UnitState, skill: SkillTemplate, originPos: HexCoord) {
+    // 法术按 targetType 选择目标阵营，普通技能只打敌方
+    const wantAlly = isSpell(skill) && skill.targetType === 'ally';
     const targets = new Set<string>();
     for (const u of this.units) {
-      if (u.faction === unit.faction) continue;
+      const isEnemy = u.faction !== unit.faction;
+      if (isEnemy === wantAlly) continue;
       const d = distance(unit.position, u.position);
       if (d >= skill.rangeMin && d <= skill.rangeMax) {
         targets.add(hexKey(u.position));
@@ -270,6 +298,56 @@ export class Game {
       () => { this.confirmBattle(unit, target, skill); this.render(); },
       () => { this.enterTargetSelect(unit, skill, unit.position); this.render(); }
     );
+  }
+
+  private enterSpellForecast(unit: UnitState, target: UnitState, spell: SpellTemplate) {
+    hideActionMenu();
+    const forecast = calcSpellForecast(this.map, unit, target, spell);
+    this.phase = { mode: 'spellForecast', unit, target, spell, forecast };
+    const casterName = getTemplate(unit.templateId)?.name ?? unit.templateId;
+    const targetName = getTemplate(target.templateId)?.name ?? target.templateId;
+    showSpellForecastPanel(spell.name, casterName, targetName, forecast,
+      () => { this.confirmSpell(unit, target, spell); this.render(); },
+      () => { this.enterTargetSelect(unit, spell, unit.position); this.render(); }
+    );
+  }
+
+  /** 确认法术：即时释放立即结算/挂状态；咏唱释放挂咏唱状态（§4.12） */
+  private confirmSpell(unit: UnitState, target: UnitState, spell: SpellTemplate) {
+    hideForecastPanel();
+    interruptChant(unit);  // 释放其他法术打断已有咏唱
+
+    if (spell.castMode === 'chant') {
+      unit.statuses.push({
+        type: 'chant', skillName: spell.name,
+        turnsLeft: spell.chantTurns ?? 1,
+        appliedAtTurn: this.turn,
+        spell, targetId: target.id
+      });
+      const facing = directionBetween(unit.position, target.position);
+      this.enterFacingConfirm(unit, facing);
+      return;
+    }
+
+    resolveSpell(this.map, unit, target, spell);
+    this.units = this.units.filter(u => u.hp > 0);
+    this.victory = checkVictory(this.units);
+    this.updateTopbar();
+
+    if (this.victory !== 'ongoing') {
+      this.enterGameOver();
+      return;
+    }
+    if (unit.hp <= 0) {
+      this.cancelToIdle();
+      return;
+    }
+    const facing = directionBetween(unit.position, target.position);
+    if (getTemplate(unit.templateId)?.reMove) {
+      this.enterReMove(unit, facing);
+    } else {
+      this.enterFacingConfirm(unit, facing);
+    }
   }
 
   /** 确认预报：结算并应用，随后进入再移动或朝向确认 */
@@ -472,14 +550,15 @@ export class Game {
       this.renderer.drawRangeOverlay(this.phase.moveRange, this.camera, '#4a90d9', width, height);
       this.renderer.drawRangeOverlay(this.phase.attackRange, this.camera, '#d94a4a', width, height);
     }
-    if (this.phase.mode === 'targetSelect' || this.phase.mode === 'forecast') {
-      const target = this.phase.mode === 'forecast'
-        ? this.phase.target.position
-        : null;
-      const keys = this.phase.mode === 'forecast'
-        ? new Set([hexKey(target!)])
-        : this.phase.targets;
-      this.renderer.drawRangeOverlay(keys, this.camera, '#d94a4a', width, height);
+    if (this.phase.mode === 'targetSelect') {
+      const wantAlly = isSpell(this.phase.skill) && this.phase.skill.targetType === 'ally';
+      this.renderer.drawRangeOverlay(this.phase.targets, this.camera,
+        wantAlly ? '#4ade80' : '#d94a4a', width, height);
+    }
+    if (this.phase.mode === 'forecast' || this.phase.mode === 'spellForecast') {
+      this.renderer.drawRangeOverlay(
+        new Set([hexKey(this.phase.target.position)]), this.camera, '#d94a4a', width, height
+      );
     }
     if (this.phase.mode === 'reMove') {
       this.renderer.drawRangeOverlay(this.phase.moveRange, this.camera, '#4a90d9', width, height);
