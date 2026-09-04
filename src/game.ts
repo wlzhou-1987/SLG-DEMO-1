@@ -15,8 +15,9 @@ import type { SpellTemplate } from './config/spells';
 import { MAP_OVERRIDES, PLAYER_UNITS, ENEMY_GROUPS } from './config/map';
 import { getTemplate } from './config/units';
 import { Camera } from './render/camera';
-import { HexRenderer, HEX_SIZE } from './render/hex-renderer';
+import { HexRenderer, HEX_SIZE, FACTION_COLORS } from './render/hex-renderer';
 import { EffectSystem, FLOAT_COLOR } from './render/effects';
+import { Animator, MOVE_MS, LUNGE_MS, FLASH_MS, STRIKE_GAP_MS } from './render/animator';
 import { InputHandler } from './render/input';
 import { updateTopbar } from './ui/topbar';
 import { showUnitInfo, clearUnitInfo, showTerrainInfo, clearTerrainInfo } from './ui/sidepanel';
@@ -43,7 +44,6 @@ type Phase =
   | { mode: 'gameOver' };
 
 const ENEMY_ACTION_DELAY_MS = 300;
-const STRIKE_STAGGER_MS = 300;  // 逐击飘字间隔（§4.3 攻击→反击→追击）
 
 export class Game {
   private canvas: HTMLCanvasElement;
@@ -51,7 +51,9 @@ export class Game {
   private camera = new Camera();
   private renderer: HexRenderer;
   private effects = new EffectSystem();
+  private animator = new Animator();
   private animating = false;
+  private busy = false;  // 动画播放中，画布点击忽略
   private phase: Phase = { mode: 'idle' };
   private lastHoverKey = '';
   private victory: VictoryState = 'ongoing';
@@ -126,7 +128,7 @@ export class Game {
 
   private handleClick(screenX: number, screenY: number) {
     const hex = this.screenToHex(screenX, screenY);
-    if (this.phase.mode === 'enemyTurn' || this.phase.mode === 'gameOver') return;
+    if (this.phase.mode === 'enemyTurn' || this.phase.mode === 'gameOver' || this.busy) return;
     if (!hex) { this.cancelToIdle(); return; }
     const unit = getUnitAt(this.units, hex);
     const key = hexKey(hex);
@@ -149,10 +151,15 @@ export class Game {
           this.selectUnit(unit);  // 切换选中
         } else if (this.phase.moveRange.has(key) || unit === this.phase.unit) {
           // 移动（含原地待命）；记录出发点供撤销；主动移动打断咏唱（§4.12）
-          interruptChant(this.phase.unit);
-          const origin = this.phase.unit.position;
-          this.phase.unit.position = { ...hex };
-          this.openActionMenu(this.phase.unit, origin);
+          const mover = this.phase.unit;
+          interruptChant(mover);
+          const origin = mover.position;
+          mover.position = { ...hex };
+          this.busy = true;
+          void this.playMove(mover, origin, hex).then(() => {
+            this.busy = false;
+            this.openActionMenu(mover, origin);
+          });
         } else {
           this.cancelToIdle();
         }
@@ -183,9 +190,15 @@ export class Game {
       case 'reMove': {
         if (this.phase.moveRange.has(key)) {
           const dest = hex;
-          const facing = directionBetween(this.phase.unit.position, dest);
-          this.phase.unit.position = { ...dest };
-          this.enterFacingConfirm(this.phase.unit, facing);
+          const mover = this.phase.unit;
+          const from = mover.position;
+          const facing = directionBetween(from, dest);
+          mover.position = { ...dest };
+          this.busy = true;
+          void this.playMove(mover, from, dest).then(() => {
+            this.busy = false;
+            this.enterFacingConfirm(mover, facing);
+          });
         } else {
           this.enterFacingConfirm(this.phase.unit, this.phase.defaultFacing);
         }
@@ -311,7 +324,7 @@ export class Game {
     const atkName = getTemplate(unit.templateId)?.name ?? unit.templateId;
     const defName = getTemplate(target.templateId)?.name ?? target.templateId;
     showForecastPanel(forecast, atkName, defName,
-      () => { this.confirmBattle(unit, target, skill); this.render(); },
+      () => { void this.confirmBattle(unit, target, skill); },
       () => { this.enterTargetSelect(unit, skill, unit.position); this.render(); }
     );
   }
@@ -323,13 +336,13 @@ export class Game {
     const casterName = getTemplate(unit.templateId)?.name ?? unit.templateId;
     const targetName = getTemplate(target.templateId)?.name ?? target.templateId;
     showSpellForecastPanel(spell.name, casterName, targetName, forecast,
-      () => { this.confirmSpell(unit, target, spell); this.render(); },
+      () => { void this.confirmSpell(unit, target, spell); },
       () => { this.enterTargetSelect(unit, spell, unit.position); this.render(); }
     );
   }
 
   /** 确认法术：即时释放立即结算/挂状态；咏唱释放挂咏唱状态（§4.12） */
-  private confirmSpell(unit: UnitState, target: UnitState, spell: SpellTemplate) {
+  private async confirmSpell(unit: UnitState, target: UnitState, spell: SpellTemplate) {
     hideForecastPanel();
     interruptChant(unit);  // 释放其他法术打断已有咏唱
 
@@ -347,11 +360,21 @@ export class Game {
 
     const hpBefore = target.hp;
     const spellResult = resolveSpell(this.map, unit, target, spell);
-    this.showSpellResult(target, hpBefore, spellResult);
     if (target.faction === 'enemy') provokeGroup(this.units, target);  // 打一个引来一组
-    this.units = this.units.filter(u => u.hp > 0);
+    this.removeDead();
     this.victory = checkVictory(this.units);
     this.updateTopbar();
+    this.render();
+
+    // 伤害类法术播放突进+受击+飘字；增益类只飘字
+    if (spellResult.kind === 'damage') {
+      await this.playStrikes(unit, target, [{
+        byAttacker: true, hit: spellResult.hit === true, damage: spellResult.damage,
+        absorbed: 0, side: spellResult.side, skillName: spell.name
+      }]);
+    } else {
+      this.showSpellResult(target, hpBefore, spellResult);
+    }
 
     if (this.victory !== 'ongoing') {
       this.enterGameOver();
@@ -370,16 +393,18 @@ export class Game {
   }
 
   /** 确认预报：结算并应用，随后进入再移动或朝向确认 */
-  private confirmBattle(unit: UnitState, target: UnitState, skill: SkillTemplate) {
+  private async confirmBattle(unit: UnitState, target: UnitState, skill: SkillTemplate) {
     hideForecastPanel();
     const result = resolveBattle(this.map, unit, target, skill);
-    this.showStrikes(unit, target, result.strikes);
     unit.hp = result.attackerHp;
     target.hp = result.defenderHp;
     if (target.faction === 'enemy') provokeGroup(this.units, target);  // 打一个引来一组
-    this.units = this.units.filter(u => u.hp > 0);
+    this.removeDead();
     this.victory = checkVictory(this.units);
     this.updateTopbar();
+    this.render();
+
+    await this.playStrikes(unit, target, result.strikes);
 
     if (this.victory !== 'ongoing') {
       this.enterGameOver();
@@ -405,6 +430,10 @@ export class Game {
     this.kickAnimLoop();
   }
 
+  private sleep(ms: number): Promise<void> {
+    return new Promise(r => setTimeout(r, ms));
+  }
+
   /** 动画活跃时 rAF 重绘，静止即停（不跑常驻循环） */
   private kickAnimLoop(): void {
     if (this.animating) return;
@@ -412,7 +441,7 @@ export class Game {
     const step = () => {
       const now = performance.now();
       this.effects.prune(now);
-      if (!this.effects.active(now)) {
+      if (!this.effects.active(now) && !this.animator.active(now)) {
         this.animating = false;
         this.render();
         return;
@@ -423,19 +452,52 @@ export class Game {
     requestAnimationFrame(step);
   }
 
-  /** 战斗交换飘字：按 §4.3 序列逐击错开，扣血与护盾吸收分列 */
-  private showStrikes(unit: UnitState, target: UnitState, strikes: StrikeResult[]): void {
-    strikes.forEach((s, i) => {
-      const pos = (s.byAttacker ? target : unit).position;
-      const delay = i * STRIKE_STAGGER_MS;
-      if (!s.hit) {
-        this.floatText('MISS', FLOAT_COLOR.miss, pos, delay);
-        return;
+  /** 移动滑行：逻辑坐标已瞬时更新，渲染插值回起点（阻塞至动画完成） */
+  private async playMove(unit: UnitState, from: HexCoord, to: HexCoord): Promise<void> {
+    const fromW = axialToPixel(from, HEX_SIZE);
+    const toW = axialToPixel(to, HEX_SIZE);
+    this.animator.startMove(unit.id, fromW.x, fromW.y, toW.x, toW.y, performance.now());
+    this.kickAnimLoop();
+    await this.sleep(MOVE_MS);
+  }
+
+  /** 战斗交换序列动画（§4.3）：逐击突进→受击闪烁+飘字（阻塞至序列完成） */
+  private async playStrikes(unit: UnitState, target: UnitState, strikes: StrikeResult[]): Promise<void> {
+    for (const s of strikes) {
+      const atk = s.byAttacker ? unit : target;
+      const def = s.byAttacker ? target : unit;
+      const atkW = axialToPixel(atk.position, HEX_SIZE);
+      const defW = axialToPixel(def.position, HEX_SIZE);
+      this.animator.startLunge(atk.id, defW.x - atkW.x, defW.y - atkW.y, performance.now());
+      this.kickAnimLoop();
+      await this.sleep(LUNGE_MS);
+      if (s.hit) {
+        this.animator.startFlash(def.id, performance.now());
+        const hpLoss = s.damage - s.absorbed;
+        if (hpLoss > 0) this.floatText(`-${hpLoss}`, FLOAT_COLOR.damage, def.position);
+        if (s.absorbed > 0) this.floatText(`盾${s.absorbed}`, FLOAT_COLOR.shield, def.position, 0, -14);
+      } else {
+        this.floatText('MISS', FLOAT_COLOR.miss, def.position);
       }
-      const hpLoss = s.damage - s.absorbed;
-      if (hpLoss > 0) this.floatText(`-${hpLoss}`, FLOAT_COLOR.damage, pos, delay);
-      if (s.absorbed > 0) this.floatText(`盾${s.absorbed}`, FLOAT_COLOR.shield, pos, delay, -14);
-    });
+      this.kickAnimLoop();
+      await this.sleep(FLASH_MS + STRIKE_GAP_MS);
+    }
+  }
+
+  /** 清理阵亡单位并生成淡出幽灵 */
+  private removeDead(): void {
+    const dead = this.units.filter(u => u.hp <= 0);
+    if (dead.length === 0) return;
+    for (const u of dead) {
+      const world = axialToPixel(u.position, HEX_SIZE);
+      this.animator.startGhost(
+        getTemplate(u.templateId)?.label[0] ?? '?',
+        u.faction === 'player' ? FACTION_COLORS.player : FACTION_COLORS.enemy,
+        world.x, world.y, performance.now()
+      );
+    }
+    this.units = this.units.filter(u => u.hp > 0);
+    this.kickAnimLoop();
   }
 
   /** 法术结算飘字：伤害/MISS/治疗（过量治疗只显示实际回复） */
@@ -552,8 +614,10 @@ export class Game {
     const spawned = checkReinforcements(this.map, this.turn, this.units, this.reinforcementFired);
     if (spawned.length > 0) {
       this.units.push(...spawned);
+      for (const u of spawned) this.animator.startAppear(u.id, performance.now());
       showNotice(`⚔ 敌方增援登场（${spawned.length} 人）`);
       this.updateTopbar();
+      this.kickAnimLoop();
       this.render();
     }
 
@@ -569,15 +633,19 @@ export class Game {
 
       interruptChant(enemy);  // 敌方主动行动同样打断咏唱
       const action = decideEnemyAction(this.map, this.units, enemy);
+      const from = enemy.position;
       enemy.position = { ...action.dest };
+      await this.playMove(enemy, from, action.dest);
       if (action.skill && action.target) {
         enemy.facing = directionBetween(enemy.position, action.target.position);
         const result = resolveBattle(this.map, enemy, action.target, action.skill);
-        this.showStrikes(enemy, action.target, result.strikes);
         enemy.hp = result.attackerHp;
         action.target.hp = result.defenderHp;
-        this.units = this.units.filter(u => u.hp > 0);
+        this.removeDead();
         this.victory = checkVictory(this.units);
+        this.updateTopbar();
+        this.render();
+        await this.playStrikes(enemy, action.target, result.strikes);
       }
       enemy.hasActed = true;
       this.updateTopbar();
@@ -625,9 +693,10 @@ export class Game {
           if (u) this.floatText(`-${e.damage}`, FLOAT_COLOR.damage, u.position);
         }
       }
-      this.units = this.units.filter(u => u.hp > 0);
+      this.removeDead();
       this.victory = checkVictory(this.units);
       this.updateTopbar();
+      this.kickAnimLoop();
       this.render();
       if (this.victory !== 'ongoing') {
         this.enterGameOver();
@@ -700,7 +769,8 @@ export class Game {
       this.renderer.drawRangeOverlay(neighbors, this.camera, '#4ade80', width, height);
     }
 
-    this.renderer.drawUnits(this.units, this.camera, width, height);
+    this.renderer.drawUnits(this.units, this.camera, width, height, this.animator);
+    this.renderer.drawGhosts(this.animator.ghosts(performance.now()), this.camera);
 
     if (this.phase.mode === 'unitSelected' || this.phase.mode === 'actionMenu' ||
         this.phase.mode === 'targetSelect' || this.phase.mode === 'reMove' ||
