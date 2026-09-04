@@ -7,6 +7,8 @@ export interface InputCallbacks {
   onWheel(screenX: number, screenY: number, deltaY: number): void;
   /** 双击（画布内像素） */
   onDblClick(screenX: number, screenY: number): void;
+  /** 悬停（无按键时的移动，画布内像素） */
+  onHover(screenX: number, screenY: number): void;
 }
 
 const DRAG_THRESHOLD = 5;
@@ -28,10 +30,15 @@ export class InputHandler {
     });
 
     window.addEventListener('mousemove', e => {
-      if (!pointerDown) return;
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
+
+      if (!pointerDown) {
+        callbacks.onHover(x, y);
+        return;
+      }
+
       const dx = x - lastX;
       const dy = y - lastY;
 

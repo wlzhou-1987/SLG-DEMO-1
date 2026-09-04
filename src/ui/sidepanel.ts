@@ -11,8 +11,16 @@ const DAMAGE_LABELS: Record<DamageType, string> = {
   piercing: '穿刺', slashing: '斩击', blunt: '钝击', magic: '法术'
 };
 
+function unitEl(): HTMLElement | null {
+  return document.getElementById('panel-unit');
+}
+
+function terrainEl(): HTMLElement | null {
+  return document.getElementById('panel-terrain');
+}
+
 export function showUnitInfo(unit: UnitState): void {
-  const el = document.getElementById('sidepanel');
+  const el = unitEl();
   if (!el) return;
   const template = getTemplate(unit.templateId);
   if (!template) {
@@ -37,13 +45,18 @@ export function showUnitInfo(unit: UnitState): void {
     `<h4>技能</h4><ul>${skills}</ul>`;
 }
 
+export function clearUnitInfo(): void {
+  const el = unitEl();
+  if (el) el.innerHTML = '<p class="dim">点击单位查看信息</p>';
+}
+
 export function showTerrainInfo(terrain: TerrainType): void {
-  const el = document.getElementById('sidepanel');
+  const el = terrainEl();
   if (!el) return;
   const config = TERRAIN_CONFIGS[terrain];
   const costLabel = config.moveCost === Infinity ? '不可通行' : `${config.moveCost}`;
   el.innerHTML =
-    `<h3>${config.label}</h3>` +
+    `<h4>地形：${config.label}</h4>` +
     `<table>` +
     `<tr><td>移动消耗</td><td>${costLabel}</td></tr>` +
     `<tr><td>回避</td><td>+${config.evasion}</td></tr>` +
@@ -51,7 +64,7 @@ export function showTerrainInfo(terrain: TerrainType): void {
     `</table>`;
 }
 
-export function clearSidepanel(): void {
-  const el = document.getElementById('sidepanel');
-  if (el) el.innerHTML = '<p class="dim">点击单位查看信息</p>';
+export function clearTerrainInfo(): void {
+  const el = terrainEl();
+  if (el) el.innerHTML = '';
 }

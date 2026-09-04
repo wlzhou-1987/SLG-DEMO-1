@@ -10,7 +10,9 @@ import { Camera } from './render/camera';
 import { HexRenderer, HEX_SIZE } from './render/hex-renderer';
 import { InputHandler } from './render/input';
 import { updateTopbar } from './ui/topbar';
-import { showUnitInfo, clearSidepanel } from './ui/sidepanel';
+import { showUnitInfo, clearUnitInfo, showTerrainInfo, clearTerrainInfo } from './ui/sidepanel';
+import { getTerrain } from './core/map';
+import { hexKey } from './core/hex';
 
 interface Selection {
   unit: UnitState;
@@ -24,6 +26,7 @@ export class Game {
   private camera = new Camera();
   private renderer: HexRenderer;
   private selection: Selection | null = null;
+  private lastHoverKey = '';
   turn = 1;
   phase = '玩家';
   map: MapState;
@@ -46,20 +49,41 @@ export class Game {
         this.camera.zoomAt(sx, sy, Math.pow(1.1, -deltaY / 100));
         this.render();
       },
-      onDblClick: (sx, sy) => { this.handleDblClick(sx, sy); this.render(); }
+      onDblClick: (sx, sy) => { this.handleDblClick(sx, sy); this.render(); },
+      onHover: (sx, sy) => this.handleHover(sx, sy)
     });
 
     this.resizeCanvas();
     window.addEventListener('resize', () => {
       this.resizeCanvas();
-      this.fitCamera();
       this.render();
     });
-    this.fitCamera();
+    this.centerOnSpawn();
 
     this.updateTopbar();
-    clearSidepanel();
+    clearUnitInfo();
     this.render();
+  }
+
+  private handleHover(screenX: number, screenY: number) {
+    if (screenX < 0 || screenY < 0 || screenX >= this.canvas.width || screenY >= this.canvas.height) {
+      if (this.lastHoverKey !== '') {
+        this.lastHoverKey = '';
+        clearTerrainInfo();
+      }
+      return;
+    }
+    const hex = this.screenToHex(screenX, screenY);
+    const key = hex ? hexKey(hex) : '';
+    if (key === this.lastHoverKey) return;
+    this.lastHoverKey = key;
+
+    const terrain = hex ? getTerrain(this.map, hex) : undefined;
+    if (terrain !== undefined) {
+      showTerrainInfo(terrain);
+    } else {
+      clearTerrainInfo();
+    }
   }
 
   private handleClick(screenX: number, screenY: number) {
@@ -74,7 +98,7 @@ export class Game {
       showUnitInfo(unit);
     } else {
       this.selection = null;
-      clearSidepanel();
+      clearUnitInfo();
     }
   }
 
@@ -122,28 +146,17 @@ export class Game {
     this.canvas.height = wrap.clientHeight;
   }
 
-  /** 初始视野：整幅地图适配屏幕 */
-  private fitCamera() {
+  /** 初始视野：对准南方我方出生点 */
+  private centerOnSpawn() {
     const w = this.canvas.width;
     const h = this.canvas.height;
     if (w === 0 || h === 0) return;
 
-    const topLeft = axialToPixel({ q: 0, r: 0 }, HEX_SIZE);
-    const bottomRight = axialToPixel(
-      { q: this.map.width - 1, r: this.map.height - 1 },
-      HEX_SIZE
-    );
-    const hexWidth = Math.sqrt(3) * HEX_SIZE;
-    const mapW = bottomRight.x - topLeft.x + hexWidth;
-    const mapH = bottomRight.y - topLeft.y + 2 * HEX_SIZE;
-
-    this.camera.zoom = Math.min(w / mapW, h / mapH, 1);
-    this.camera.centerOn(
-      (topLeft.x + bottomRight.x) / 2,
-      (topLeft.y + bottomRight.y) / 2,
-      w,
-      h
-    );
+    const players = this.units.filter(u => u.faction === 'player');
+    const cx = players.reduce((s, u) => s + u.position.q, 0) / players.length;
+    const cy = players.reduce((s, u) => s + u.position.r, 0) / players.length;
+    const world = axialToPixel({ q: cx, r: cy }, HEX_SIZE);
+    this.camera.centerOn(world.x, world.y, w, h);
   }
 
   /** 按需渲染：状态变更后同步重绘（M2 无动画，不跑常驻 rAF 循环） */
