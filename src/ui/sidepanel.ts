@@ -33,6 +33,13 @@ export function showUnitInfo(unit: UnitState): void {
     .map(s => `<li>${s.name}（${DAMAGE_LABELS[s.damageType]}·射程 ${s.rangeMin}-${s.rangeMax}）</li>`)
     .join('');
 
+  const statuses = unit.statuses.map(s => {
+    if (s.type === 'shield') return `秘银护盾（吸收 ${s.absorbLeft}·剩 ${s.turnsLeft} 回合）`;
+    if (s.type === 'chant') return `咏唱 ${s.skillName}（剩 ${s.turnsLeft} 回合）`;
+    if (s.type === 'regen') return `再生（每回合 +${s.healPerTurn}·剩 ${s.turnsLeft} 回合）`;
+    return `咒杀（${s.turnsLeft} 回合后 -${s.damage}）`;
+  }).map(s => `<li>${s}</li>`).join('');
+
   el.innerHTML =
     `<h3>${template.name} <small>${factionLabel}</small></h3>` +
     `<p>HP ${unit.hp}/${unit.maxHp}</p>` +
@@ -42,6 +49,7 @@ export function showUnitInfo(unit: UnitState): void {
     `<tr><td>幸运</td><td>${template.lck}</td><td>护甲</td><td>${ARMOR_LABELS[template.armor]}</td></tr>` +
     `<tr><td>移动</td><td>${template.movePoints}</td><td>飞行</td><td>${template.flying ? '是' : '否'}</td></tr>` +
     `</table>` +
+    (statuses ? `<h4>当前状态</h4><ul>${statuses}</ul>` : '') +
     `<h4>技能</h4><ul>${skills}</ul>`;
 }
 

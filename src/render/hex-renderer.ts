@@ -104,6 +104,21 @@ export class HexRenderer {
       this.ctx.fillStyle = hpRatio > 0.5 ? '#4ade80' : hpRatio > 0.25 ? '#fbbf24' : '#ef4444';
       this.ctx.fillRect(barX, barY, barWidth * hpRatio, barHeight);
 
+      // 状态标记（§7.4：咏唱/延时/持续小图标 + 剩余回合）
+      if (unit.statuses.length > 0) {
+        const labels = unit.statuses.map(s => {
+          if (s.type === 'shield') return `盾${s.absorbLeft}`;
+          if (s.type === 'chant') return `咏${s.turnsLeft}`;
+          if (s.type === 'regen') return `再${s.turnsLeft}`;
+          return `咒${s.turnsLeft}`;
+        });
+        this.ctx.font = 'bold 10px sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'alphabetic';
+        this.ctx.fillStyle = '#ffd75e';
+        this.ctx.fillText(labels.join(' '), screen.x, screen.y - this.hexSize * 0.85);
+      }
+
       this.ctx.globalAlpha = 1;
     }
   }
