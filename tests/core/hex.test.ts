@@ -10,6 +10,7 @@ import {
   hexKey,
   isValidHex,
   facingToAngle,
+  directionBetween,
 } from '../../src/core/hex';
 import type { Facing } from '../../src/core/types';
 
@@ -34,6 +35,26 @@ describe('hex', () => {
       const a = { q: 2, r: -1 };
       const b = { q: -3, r: 4 };
       expect(distance(a, b)).toBe(distance(b, a));
+    });
+  });
+
+  describe('directionBetween', () => {
+    it('距离 1 精确返回六方向', () => {
+      expect(directionBetween({ q: 5, r: 5 }, { q: 6, r: 5 })).toBe(0); // E
+      expect(directionBetween({ q: 5, r: 5 }, { q: 6, r: 4 })).toBe(1); // NE
+      expect(directionBetween({ q: 5, r: 5 }, { q: 5, r: 4 })).toBe(2); // NW
+      expect(directionBetween({ q: 5, r: 5 }, { q: 4, r: 5 })).toBe(3); // W
+      expect(directionBetween({ q: 5, r: 5 }, { q: 4, r: 6 })).toBe(4); // SW
+      expect(directionBetween({ q: 5, r: 5 }, { q: 5, r: 6 })).toBe(5); // SE
+    });
+
+    it('距离 2 纯轴向量化正确', () => {
+      expect(directionBetween({ q: 5, r: 5 }, { q: 7, r: 5 })).toBe(0);  // 正东 ×2
+      expect(directionBetween({ q: 5, r: 5 }, { q: 7, r: 3 })).toBe(1);  // 正东北 ×2
+      expect(directionBetween({ q: 5, r: 5 }, { q: 5, r: 3 })).toBe(2);  // 正西北 ×2
+      expect(directionBetween({ q: 5, r: 5 }, { q: 3, r: 5 })).toBe(3);  // 正西 ×2
+      expect(directionBetween({ q: 5, r: 5 }, { q: 3, r: 7 })).toBe(4);  // 正西南 ×2
+      expect(directionBetween({ q: 5, r: 5 }, { q: 5, r: 7 })).toBe(5);  // 正东南 ×2
     });
   });
 

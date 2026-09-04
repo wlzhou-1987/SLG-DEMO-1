@@ -16,6 +16,22 @@ export function neighbor(coord: HexCoord, direction: Facing): HexCoord {
   return { q: coord.q + d.q, r: coord.r + d.r };
 }
 
+/** from 指向 to 的方向（量化到最近 6 方向；按屏幕角度划 60° 扇区） */
+export function directionBetween(from: HexCoord, to: HexCoord): Facing {
+  const dq = to.q - from.q;
+  const dr = to.r - from.r;
+  const angle = (Math.atan2(1.5 * dr, Math.sqrt(3) * (dq + dr / 2)) * 180) / Math.PI;
+  // 屏幕角度（顺时针从东）：E=0°, SE=60°, SW=120°, W=180°, NW=-120°, NE=-60°
+  const sector = Math.round(angle / 60); // -3..3
+  switch (sector) {
+    case 1: return 5;
+    case -1: return 1;
+    case 2: return 4;
+    case -2: return 2;
+    default: return sector === 0 ? 0 : 3;
+  }
+}
+
 /** 六边形距离（曼哈顿距离在轴坐标下的等价） */
 export function distance(a: HexCoord, b: HexCoord): number {
   const dq = a.q - b.q;
