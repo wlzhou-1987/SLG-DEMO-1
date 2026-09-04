@@ -66,3 +66,22 @@ html, body {
 #sidepanel td { padding: 2px 10px 2px 0; color: #c8d0dc; }
 #sidepanel td:nth-child(odd) { color: #9aa4b2; }
 #sidepanel ul { list-style: none; }
+
+.action-menu {
+  position: absolute;
+  background: #2a3140;
+  border: 1px solid #56617a;
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .5);
+  width: 130px;
+  z-index: 10;
+}
+.action-menu .item {
+  padding: 8px 12px;
+  border-bottom: 1px solid #39414f;
+  cursor: pointer;
+  font-size: 13px;
+}
+.action-menu .item:last-child { border-bottom: none; }
+.action-menu .item:hover { background: #35405a; }
+.action-menu .item.cancel { color: #98a2b3; }
