@@ -1,10 +1,13 @@
 import type { Faction, ArmorType, DamageType } from '../core/types';
+import { SPELLS } from './spells';
+import type { SpellTemplate } from './spells';
 
 export interface SkillTemplate {
   name: string;
   damageType: DamageType;
   rangeMin: number;
   rangeMax: number;
+  power?: number;  // 威力修正（缺省 0）
 }
 
 export interface UnitTemplate {
@@ -22,7 +25,8 @@ export interface UnitTemplate {
   spd: number;
   tec: number;
   lck: number;
-  skills: SkillTemplate[];
+  skills: (SkillTemplate | SpellTemplate)[];
+  traits?: string[];
 }
 
 export const PLAYER_TEMPLATES: UnitTemplate[] = [
@@ -57,6 +61,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     id: 'thief', name: '盗贼', label: '贼', faction: 'player',
     armor: 'none', movePoints: 6, flying: false, reMove: false,
     hp: 22, atk: 6, def: 3, spd: 12, tec: 11, lck: 8,
+    traits: ['backstab'],
     skills: [
       { name: '突刺', damageType: 'piercing', rangeMin: 1, rangeMax: 1 }
     ]
@@ -98,17 +103,14 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     id: 'priest', name: '牧师', label: '牧', faction: 'player',
     armor: 'none', movePoints: 5, flying: false, reMove: false,
     hp: 20, atk: 4, def: 3, spd: 6, tec: 8, lck: 6,
-    skills: [
-      { name: '治疗', damageType: 'magic', rangeMin: 2, rangeMax: 2 }
-    ]
+    traits: ['steady'],
+    skills: [SPELLS.heal, SPELLS.regen, SPELLS.mithrilShield]
   },
   {
     id: 'mage', name: '法师', label: '法', faction: 'player',
     armor: 'none', movePoints: 5, flying: false, reMove: false,
     hp: 20, atk: 8, def: 3, spd: 7, tec: 9, lck: 5,
-    skills: [
-      { name: '火球', damageType: 'magic', rangeMin: 2, rangeMax: 2 }
-    ]
+    skills: [SPELLS.fireball, SPELLS.meteor, SPELLS.curse]
   }
 ];
 
@@ -150,7 +152,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     id: 'mage_enemy', name: '敌方法师', label: '法', faction: 'enemy',
     armor: 'none', movePoints: 5, flying: false, reMove: false,
     hp: 15, atk: 6, def: 2, spd: 5, tec: 7, lck: 3,
-    skills: [{ name: '火球', damageType: 'magic', rangeMin: 2, rangeMax: 2 }]
+    skills: [SPELLS.fireball]
   },
   {
     id: 'boss', name: 'BOSS', label: 'B', faction: 'enemy',
