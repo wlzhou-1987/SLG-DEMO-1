@@ -7,6 +7,7 @@ import { getTemplate } from '../config/units';
 import { directionBetween, distance } from './hex';
 import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS } from '../config/combat';
 import { TERRAIN_CONFIGS } from '../config/terrain';
+import { TRAIT_CONFIGS } from '../config/traits';
 import { resolveArmor } from './status';
 
 export type PartSide = 'front' | 'side' | 'back';
@@ -58,15 +59,30 @@ export function calcStrike(
   // 守方护甲解析：活跃护盾覆盖类型（§4.10）；吸收在 resolveBattle 应用
   const { armor: defArmor } = resolveArmor(defender, defT);
 
+  // 特性修正（§4.7 管线：在修正点直接查询攻守双方特性）
+  const atkTraits = atkT.traits ?? [];
+  const defTraits = defT.traits ?? [];
+
   const base = Math.max(atkT.atk + (skill.power ?? 0) - defT.def - terrDef, 0);
   const matrix = DAMAGE_ARMOR_MATRIX[skill.damageType][defArmor];
-  const damage = Math.floor(base * matrix) + PART_BONUS[side].damage;
+  // 背刺：背面伤害 +3 加算改为乘算
+  const backstabMult = atkTraits.includes('backstab')
+    ? TRAIT_CONFIGS.backstab.backstabMultiplier ?? 1.5
+    : 1;
+  const damage = side === 'back' && backstabMult !== 1
+    ? Math.floor(base * matrix * backstabMult)
+    : Math.floor(base * matrix) + PART_BONUS[side].damage;
+
+  // 沉稳：守方受到的部位命中补正减半
+  const partHit = defTraits.includes('steady')
+    ? Math.floor(PART_BONUS[side].hit / 2)
+    : PART_BONUS[side].hit;
 
   const evade = defT.lck * COMBAT_PARAMS.evadePerLuck + terrEva;
   const rangePenalty = COMBAT_PARAMS.rangePenaltyPerHex * Math.max(0, dist - skill.rangeMax);
   const rawHit =
     COMBAT_PARAMS.hitBase + atkT.tec * COMBAT_PARAMS.hitPerTech - evade +
-    PART_BONUS[side].hit - rangePenalty;
+    partHit - rangePenalty;
   const hitRate = Math.max(COMBAT_PARAMS.hitMin, Math.min(COMBAT_PARAMS.hitMax, rawHit));
 
   return { skillName: skill.name, damageType: skill.damageType, side, damage, hitRate, count: 1 };

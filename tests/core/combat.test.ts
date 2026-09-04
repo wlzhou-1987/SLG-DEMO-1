@@ -277,3 +277,48 @@ describe('M4 战斗扩展：power 与护盾吸收', () => {
     expect(f.attacker.damage).toBe(3);
   });
 });
+
+describe('特性修正管线', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+
+  it('背刺：盗贼背面攻击伤害 +3 改为 ×1.5 乘算', () => {
+    // 盗贼 atk6 vs 剑士 def4 轻甲 突刺×1.0 → base 2
+    // 普通背面 = 2+3 = 5；背刺 = floor(2×1.5) = 3
+    const thief = createUnitState('thief', 'player', { q: 9, r: 15 });
+    const swordsman = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
+    swordsman.facing = 0;  // 朝东，盗贼在西 → 背面
+    const f = calcBattleForecast(map, thief, swordsman, getTemplate('thief')!.skills[0]);
+    expect(f.attacker.side).toBe('back');
+    expect(f.attacker.damage).toBe(3);
+    // 正面不受特性影响
+    const thief2 = createUnitState('thief', 'player', { q: 10, r: 14 });
+    const swordsman2 = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
+    swordsman2.facing = 2;  // 朝西北，盗贼在(10,14)西北方向 → 正面
+    const f2 = calcBattleForecast(map, thief2, swordsman2, getTemplate('thief')!.skills[0]);
+    expect(f2.attacker.damage).toBe(2);
+  });
+
+  it('沉稳：牧师受到的部位命中补正减半', () => {
+    // 剑士 tec8 攻牧师侧面：50+40−运6×3+补正；沉稳补正 10→5
+    // = 50+40−18+5 = 77（无特性应为 82）
+    const attacker = createUnitState('swordsman', 'enemy', { q: 10, r: 14 });
+    const priest = createUnitState('priest', 'player', { q: 10, r: 15 });
+    priest.facing = 0;  // 朝东，攻方在西北 → 侧面
+    const f = calcBattleForecast(map, attacker, priest, getTemplate('swordsman')!.skills[0]);
+    expect(f.attacker.side).toBe('side');
+    expect(f.attacker.hitRate).toBe(77);
+  });
+
+  it('无特性单位不受修正影响', () => {
+    // 剑士(无特性)攻剑士背面：伤害 +3、命中 +25 正常生效
+    const attacker = createUnitState('swordsman', 'player', { q: 9, r: 15 });
+    const defender = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
+    defender.facing = 0;
+    const f = calcBattleForecast(map, attacker, defender, getTemplate('swordsman')!.skills[0]);
+    expect(f.attacker.damage).toBe(1 + 3);  // base1×1.25 floor 1
+  });
+});

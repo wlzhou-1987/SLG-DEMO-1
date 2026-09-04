@@ -2,6 +2,7 @@ export interface TraitConfig {
   id: string;
   name: string;
   desc: string;
+  backstabMultiplier?: number;  // 背刺：背面伤害乘算倍率（替代 +3 加算）
 }
 
 /** 特性修正层示例（§4.7）：结算管线直接在修正点查询攻守双方特性 */
@@ -9,7 +10,8 @@ export const TRAIT_CONFIGS: Record<string, TraitConfig> = {
   backstab: {
     id: 'backstab',
     name: '背刺',
-    desc: '背面攻击伤害加成由 +3 改为 ×1.5 乘算'
+    desc: '背面攻击伤害加成由 +3 改为 ×1.5 乘算',
+    backstabMultiplier: 1.5
   },
   steady: {
     id: 'steady',
