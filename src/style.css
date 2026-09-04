@@ -86,6 +86,23 @@ html, body {
 .action-menu .item:hover { background: #35405a; }
 .action-menu .item.cancel { color: #98a2b3; }
 
+.battle-notice {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(150, 40, 40, .92);
+  color: #fff;
+  padding: 8px 22px;
+  border-radius: 4px;
+  font-size: 14px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .25s;
+  z-index: 20;
+}
+.battle-notice.visible { opacity: 1; }
+
 .forecast {
   position: absolute;
   left: 16px;

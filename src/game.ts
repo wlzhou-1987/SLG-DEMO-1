@@ -24,8 +24,10 @@ import { showForecastPanel, hideForecastPanel, showSpellForecastPanel } from './
 import { getTerrain } from './core/map';
 import { checkVictory, startPlayerPhase } from './core/turn';
 import type { VictoryState } from './core/turn';
-import { decideEnemyAction } from './core/ai';
+import { decideEnemyAction, checkGroupActivation, provokeGroup } from './core/ai';
+import { checkReinforcements } from './core/reinforce';
 import { interruptChant, tickStatuses } from './core/status';
+import { showNotice } from './ui/notice';
 
 type Phase =
   | { mode: 'idle' }
@@ -49,6 +51,7 @@ export class Game {
   private phase: Phase = { mode: 'idle' };
   private lastHoverKey = '';
   private victory: VictoryState = 'ongoing';
+  private reinforcementFired = new Map<string, number>();
   turn = 1;
   phaseLabel = '玩家';
   map: MapState;
@@ -339,6 +342,7 @@ export class Game {
     }
 
     resolveSpell(this.map, unit, target, spell);
+    if (target.faction === 'enemy') provokeGroup(this.units, target);  // 打一个引来一组
     this.units = this.units.filter(u => u.hp > 0);
     this.victory = checkVictory(this.units);
     this.updateTopbar();
@@ -365,6 +369,7 @@ export class Game {
     const result = resolveBattle(this.map, unit, target, skill);
     unit.hp = result.attackerHp;
     target.hp = result.defenderHp;
+    if (target.faction === 'enemy') provokeGroup(this.units, target);  // 打一个引来一组
     this.units = this.units.filter(u => u.hp > 0);
     this.victory = checkVictory(this.units);
     this.updateTopbar();
@@ -480,13 +485,26 @@ export class Game {
     void this.runEnemyPhase();
   }
 
-  /** 敌方阶段：逐单位占位 AI 行动，短延时播放（§7.4 简化版） */
+  /** 敌方阶段：激活单位逐个 AI 行动，短延时播放（§6/§7.4 简化版） */
   private async runEnemyPhase() {
     // 敌方阶段开始：推进敌方单位状态（§4.12 计时规则）
     if (this.tickPhase('enemy') !== 'ongoing') return;
 
+    // 增援触发（§6）：登场即激活并参与本阶段行动
+    const spawned = checkReinforcements(this.map, this.turn, this.units, this.reinforcementFired);
+    if (spawned.length > 0) {
+      this.units.push(...spawned);
+      showNotice(`⚔ 敌方增援登场（${spawned.length} 人）`);
+      this.updateTopbar();
+      this.render();
+    }
+
+    // 警戒范围扫描（§6 待机型）：覆盖我方即全组激活
+    checkGroupActivation(this.map, this.units);
+
     const queue = this.units.filter(u => u.faction === 'enemy');
     for (const enemy of queue) {
+      if (!enemy.activated) continue;  // 待机未激活：本阶段不行动
       await new Promise(r => setTimeout(r, ENEMY_ACTION_DELAY_MS));
       if (this.victory !== 'ongoing') return;
       if (!this.units.includes(enemy)) continue;
@@ -534,6 +552,9 @@ export class Game {
           // 目标先亡则法术落空（§4.12）
           if (caster && target) {
             resolveSpell(this.map, caster, target, e.spell);
+            if (caster.faction === 'player' && target.faction === 'enemy') {
+              provokeGroup(this.units, target);
+            }
           }
         }
       }

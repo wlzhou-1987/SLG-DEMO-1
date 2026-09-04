@@ -40,10 +40,10 @@ export const PLAYER_UNITS: UnitPlacement[] = [
   { templateId: 'paladin', faction: 'player', position: { q: 12, r: 28 } },
   { templateId: 'thief', faction: 'player', position: { q: 6, r: 27 } },
   { templateId: 'knight', faction: 'player', position: { q: 14, r: 27 } },
-  { templateId: 'pegasus', faction: 'player', position: { q: 4, r: 26 } },
+  { templateId: 'pegasus', faction: 'player', position: { q: 5, r: 27 } },
   { templateId: 'axeman', faction: 'player', position: { q: 16, r: 26 } },
-  { templateId: 'archer', faction: 'player', position: { q: 9, r: 26 } },
-  { templateId: 'priest', faction: 'player', position: { q: 11, r: 26 } },
+  { templateId: 'archer', faction: 'player', position: { q: 9, r: 27 } },
+  { templateId: 'priest', faction: 'player', position: { q: 11, r: 27 } },
   { templateId: 'mage', faction: 'player', position: { q: 7, r: 29 } }
 ];
 

@@ -5,6 +5,9 @@ import { getTemplate, PLAYER_TEMPLATES, ENEMY_TEMPLATES } from '../../src/config
 import { hexKey } from '../../src/core/hex';
 import { SPELLS, isSpell } from '../../src/config/spells';
 import { getTrait } from '../../src/config/traits';
+import { checkGroupActivation } from '../../src/core/ai';
+import { resetUnitCounter, createUnitState } from '../../src/core/unit';
+import type { UnitState } from '../../src/core/unit';
 
 const allPlacements = () => [...PLAYER_UNITS, ...ENEMY_GROUPS.flatMap(g => g.units)];
 
@@ -70,6 +73,27 @@ describe('关卡 1 配置一致性', () => {
   it('所有模板 ID 存在', () => {
     for (const u of allPlacements()) {
       expect(getTemplate(u.templateId), `模板 ${u.templateId} 不存在`).toBeDefined();
+    }
+  });
+
+  it('开局任何我方单位不进入待机组警戒范围（前哨 A 等不被误激活）', () => {
+    resetUnitCounter();
+    const units: UnitState[] = [
+      ...PLAYER_UNITS.map(p => createUnitState(p.templateId, p.faction, p.position)),
+      ...ENEMY_GROUPS.flatMap(g =>
+        g.units.map(p => {
+          const u = createUnitState(p.templateId, p.faction, p.position);
+          u.groupId = g.id;
+          u.aiKind = g.aiType;
+          u.activated = g.aiType !== 'dormant';
+          return u;
+        })
+      )
+    ];
+    checkGroupActivation(map, units);
+    for (const u of units) {
+      if (u.aiKind !== 'dormant') continue;
+      expect(u.activated, `组 ${u.groupId} 的 ${u.templateId} 开局被误激活`).toBe(false);
     }
   });
 });
