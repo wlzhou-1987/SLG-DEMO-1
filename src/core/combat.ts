@@ -7,6 +7,7 @@ import { getTemplate } from '../config/units';
 import { directionBetween, distance } from './hex';
 import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS } from '../config/combat';
 import { TERRAIN_CONFIGS } from '../config/terrain';
+import { resolveArmor } from './status';
 
 export type PartSide = 'front' | 'side' | 'back';
 
@@ -38,7 +39,7 @@ export interface BattleForecast {
 }
 
 /** 单方打击预报（attacker 向 defender 发动 skill） */
-function calcStrike(
+export function calcStrike(
   map: MapState,
   attacker: UnitState,
   atkT: UnitTemplate,
@@ -54,8 +55,11 @@ function calcStrike(
   const terrDef = !defT.flying && terrain !== undefined ? TERRAIN_CONFIGS[terrain].defense : 0;
   const terrEva = !defT.flying && terrain !== undefined ? TERRAIN_CONFIGS[terrain].evasion : 0;
 
-  const base = Math.max(atkT.atk - defT.def - terrDef, 0);
-  const matrix = DAMAGE_ARMOR_MATRIX[skill.damageType][defT.armor];
+  // 守方护甲解析：活跃护盾覆盖类型（§4.10）；吸收在 resolveBattle 应用
+  const { armor: defArmor } = resolveArmor(defender, defT);
+
+  const base = Math.max(atkT.atk + (skill.power ?? 0) - defT.def - terrDef, 0);
+  const matrix = DAMAGE_ARMOR_MATRIX[skill.damageType][defArmor];
   const damage = Math.floor(base * matrix) + PART_BONUS[side].damage;
 
   const evade = defT.lck * COMBAT_PARAMS.evadePerLuck + terrEva;
@@ -144,9 +148,27 @@ export function resolveBattle(
   rng: () => number = Math.random
 ): BattleResult {
   const forecast = calcBattleForecast(map, attacker, defender, skill);
+  const atkT = getTemplate(attacker.templateId)!;
+  const defT = getTemplate(defender.templateId)!;
   const strikes: StrikeResult[] = [];
   let attackerHp = attacker.hp;
   let defenderHp = defender.hp;
+
+  /** 伤害应用：先扣护盾吸收，超出部分扣 HP（DEMO 简化：不重过兵甲矩阵） */
+  const applyDamage = (target: UnitState, targetT: UnitTemplate, amount: number) => {
+    const { shield } = resolveArmor(target, targetT);
+    let rest = amount;
+    if (shield && shield.absorbLeft > 0) {
+      const absorbed = Math.min(shield.absorbLeft, rest);
+      shield.absorbLeft -= absorbed;
+      rest -= absorbed;
+      if (shield.absorbLeft <= 0) {
+        target.statuses = target.statuses.filter(s => s !== shield);
+      }
+    }
+    target.hp = Math.max(0, target.hp - rest);
+    return target.hp;
+  };
 
   const strike = (s: StrikeForecast, byAttacker: boolean): boolean => {
     // 返回目标是否阵亡
@@ -154,10 +176,12 @@ export function resolveBattle(
     const damage = hit ? s.damage : 0;
     strikes.push({ byAttacker, hit, damage, side: s.side, skillName: s.skillName });
     if (byAttacker) {
-      defenderHp = Math.max(0, defenderHp - damage);
+      applyDamage(defender, defT, damage);
+      defenderHp = defender.hp;
       return defenderHp === 0;
     }
-    attackerHp = Math.max(0, attackerHp - damage);
+    applyDamage(attacker, atkT, damage);
+    attackerHp = attacker.hp;
     return attackerHp === 0;
   };
 

@@ -163,11 +163,12 @@ describe('resolveBattle 战斗结算', () => {
   it('命中按预报伤害扣血', () => {
     const attacker = createUnitState('lord', 'player', { q: 10, r: 15 });
     const defender = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    const hpBefore = defender.hp;
     const f = calcBattleForecast(map, attacker, defender, lordSkill);
     const r = resolveBattle(map, attacker, defender, lordSkill, () => 0);
     expect(r.strikes.length).toBeGreaterThan(0);
     expect(r.strikes[0].hit).toBe(true);
-    expect(r.defenderHp).toBe(defender.hp - f.attacker.damage * f.attacker.count);
+    expect(r.defenderHp).toBe(hpBefore - f.attacker.damage * f.attacker.count);
   });
 
   it('未命中不造成伤害', () => {
@@ -219,5 +220,60 @@ describe('resolveBattle 战斗结算', () => {
     // BOSS 反击挥砍 vs 无甲×1.0 → max(12-3,0)=9 ≥5 → 牧师亡，无后续
     expect(r.attackerHp).toBe(0);
     expect(r.strikes.map(s => s.byAttacker)).toEqual([true, false]);
+  });
+});
+
+describe('M4 战斗扩展：power 与护盾吸收', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+
+  it('护盾吸收：伤害先扣护盾再扣 HP', () => {
+    // 领主(轻甲)持秘银护盾(中甲, 吸收10)；剑士横斩 vs 中甲 挥砍×0.75 → max(5-6-0,0)=0…
+    // 换 BOSS 重锤(atk12 钝击) 打持盾领主：钝击 vs 中甲 ×1.25 → max(12-6,0)×1.25=7.5→7
+    const attacker = createUnitState('boss', 'enemy', { q: 10, r: 15 });
+    const defender = createUnitState('lord', 'player', { q: 11, r: 15 });
+    defender.statuses = [{
+      type: 'shield', skillName: '秘银护盾', turnsLeft: 3, appliedAtTurn: 1,
+      armorType: 'medium', absorbLeft: 10
+    }];
+    const r = resolveBattle(map, attacker, defender, getTemplate('boss')!.skills[0], () => 0);
+    // 伤害 7 全被护盾吸收
+    expect(r.attackerHp).toBe(40);
+    expect(r.defenderHp).toBe(26);
+    const shield = defender.statuses.find(s => s.type === 'shield');
+    expect(shield?.absorbLeft).toBe(3);
+  });
+
+  it('破盾：超出吸收的部分扣 HP 且状态移除', () => {
+    const attacker = createUnitState('boss', 'enemy', { q: 10, r: 15 });
+    const defender = createUnitState('lord', 'player', { q: 11, r: 15 });
+    defender.hp = 26;
+    defender.statuses = [{
+      type: 'shield', skillName: '秘银护盾', turnsLeft: 3, appliedAtTurn: 1,
+      armorType: 'medium', absorbLeft: 3
+    }];
+    // BOSS 重锤 ×2 击（boss spd6 vs lord spd9 差 3 无追击；伤害 7×1=7 > 吸收 3 → 破盾 4 入 HP
+    const r = resolveBattle(map, attacker, defender, getTemplate('boss')!.skills[0], () => 0);
+    expect(defender.hp).toBe(26 - 4);
+    expect(defender.statuses.some(s => s.type === 'shield')).toBe(false);
+    expect(r.defenderHp).toBe(22);
+  });
+
+  it('护盾覆盖矩阵：按护盾护甲类型结算', () => {
+    // 领主(轻甲)持中甲盾：法师火球(magic) vs 中甲 ×1.0（若无盾按轻甲也 ×1.0……
+    // 用斧兵重劈(挥砍)：vs 中甲 ×0.75、vs 轻甲 ×1.25 —— 持盾应按中甲
+    const attacker = createUnitState('axeman', 'player', { q: 10, r: 15 });
+    const defender = createUnitState('lord', 'player', { q: 11, r: 15 });
+    defender.faction = 'enemy';
+    defender.statuses = [{
+      type: 'shield', skillName: '秘银护盾', turnsLeft: 3, appliedAtTurn: 1,
+      armorType: 'medium', absorbLeft: 99
+    }];
+    const f = calcBattleForecast(map, attacker, defender, getTemplate('axeman')!.skills[0]);
+    // max(11-6,0)×0.75 = 3.75 → 3（若误按轻甲则为 floor(5×1.25)=6）
+    expect(f.attacker.damage).toBe(3);
   });
 });
