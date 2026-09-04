@@ -12,7 +12,7 @@ import type { SpellForecast } from './core/spell';
 import type { SkillTemplate } from './config/units';
 import { isSpell } from './config/spells';
 import type { SpellTemplate } from './config/spells';
-import { MAP_OVERRIDES, INITIAL_UNITS } from './config/map';
+import { MAP_OVERRIDES, PLAYER_UNITS, ENEMY_GROUPS } from './config/map';
 import { getTemplate } from './config/units';
 import { Camera } from './render/camera';
 import { HexRenderer, HEX_SIZE } from './render/hex-renderer';
@@ -60,9 +60,12 @@ export class Game {
     this.renderer = new HexRenderer(this.ctx);
 
     this.map = createMapState(MAP_OVERRIDES);
-    this.units = INITIAL_UNITS.map(p =>
-      createUnitState(p.templateId, p.faction, p.position)
-    );
+    this.units = [
+      ...PLAYER_UNITS.map(p => createUnitState(p.templateId, p.faction, p.position)),
+      ...ENEMY_GROUPS.flatMap(g =>
+        g.units.map(p => createUnitState(p.templateId, p.faction, p.position))
+      )
+    ];
 
     new InputHandler(canvas, {
       onClick: (sx, sy) => { this.handleClick(sx, sy); this.render(); },
