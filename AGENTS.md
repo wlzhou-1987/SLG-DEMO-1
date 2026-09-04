@@ -98,7 +98,7 @@ src/
   core/          # 逻辑层：hex数学、地图、单位、范围计算、战斗结算、AI
   config/        # 数据配置：地形、兵种、技能、法术、地图布局
   render/        # 渲染层：Camera、HexRenderer、InputHandler
-  ui/            # HTML UI：topbar、sidepanel
+  ui/            # HTML UI：topbar、sidepanel、battle-log
   game.ts        # 游戏主循环与状态协调
   main.ts        # 入口
 tests/

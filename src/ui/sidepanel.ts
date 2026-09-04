@@ -2,6 +2,7 @@ import type { UnitState } from '../core/unit';
 import type { ArmorType, DamageType, TerrainType } from '../core/types';
 import { getTemplate } from '../config/units';
 import { TERRAIN_CONFIGS } from '../config/terrain';
+import { getTrait } from '../config/traits';
 
 const ARMOR_LABELS: Record<ArmorType, string> = {
   none: '无甲', light: '轻甲', medium: '中甲', heavy: '重甲'
@@ -40,6 +41,12 @@ export function showUnitInfo(unit: UnitState): void {
     return `咒杀（${s.turnsLeft} 回合后 -${s.damage}）`;
   }).map(s => `<li>${s}</li>`).join('');
 
+  const traits = (template.traits ?? [])
+    .map(id => getTrait(id))
+    .filter((t): t is NonNullable<typeof t> => t !== undefined)
+    .map(t => `<li><b>${t.name}</b>：${t.desc}</li>`)
+    .join('');
+
   el.innerHTML =
     `<h3>${template.name} <small>${factionLabel}</small></h3>` +
     `<p>HP ${unit.hp}/${unit.maxHp}</p>` +
@@ -50,6 +57,7 @@ export function showUnitInfo(unit: UnitState): void {
     `<tr><td>移动</td><td>${template.movePoints}</td><td>飞行</td><td>${template.flying ? '是' : '否'}</td></tr>` +
     `</table>` +
     (statuses ? `<h4>当前状态</h4><ul>${statuses}</ul>` : '') +
+    (traits ? `<h4>特性</h4><ul>${traits}</ul>` : '') +
     `<h4>技能</h4><ul>${skills}</ul>`;
 }
 

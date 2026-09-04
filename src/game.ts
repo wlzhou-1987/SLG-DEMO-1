@@ -30,6 +30,7 @@ import { decideEnemyAction, checkGroupActivation, provokeGroup } from './core/ai
 import { checkReinforcements } from './core/reinforce';
 import { interruptChant, tickStatuses } from './core/status';
 import { showNotice } from './ui/notice';
+import { logBattle } from './ui/battle-log';
 
 type Phase =
   | { mode: 'idle' }
@@ -353,6 +354,7 @@ export class Game {
         appliedAtTurn: this.turn,
         spell, targetId: target.id
       });
+      logBattle(`${this.unitName(unit)} 开始咏唱 ${spell.name}`);
       const facing = directionBetween(unit.position, target.position);
       this.enterFacingConfirm(unit, facing);
       return;
@@ -373,7 +375,7 @@ export class Game {
         absorbed: 0, side: spellResult.side, skillName: spell.name
       }]);
     } else {
-      this.showSpellResult(target, hpBefore, spellResult);
+      this.showSpellResult(unit, target, spell.name, hpBefore, spellResult);
     }
 
     if (this.victory !== 'ongoing') {
@@ -434,6 +436,10 @@ export class Game {
     return new Promise(r => setTimeout(r, ms));
   }
 
+  private unitName(u: UnitState): string {
+    return getTemplate(u.templateId)?.name ?? u.templateId;
+  }
+
   /** 动画活跃时 rAF 重绘，静止即停（不跑常驻循环） */
   private kickAnimLoop(): void {
     if (this.animating) return;
@@ -476,8 +482,13 @@ export class Game {
         const hpLoss = s.damage - s.absorbed;
         if (hpLoss > 0) this.floatText(`-${hpLoss}`, FLOAT_COLOR.damage, def.position);
         if (s.absorbed > 0) this.floatText(`盾${s.absorbed}`, FLOAT_COLOR.shield, def.position, 0, -14);
+        logBattle(
+          `${this.unitName(atk)}·${s.skillName} → ${this.unitName(def)} 命中` +
+          (hpLoss > 0 ? ` -${hpLoss}` : '') + (s.absorbed > 0 ? `（盾吸收 ${s.absorbed}）` : '')
+        );
       } else {
         this.floatText('MISS', FLOAT_COLOR.miss, def.position);
+        logBattle(`${this.unitName(atk)}·${s.skillName} → ${this.unitName(def)} 落空`);
       }
       this.kickAnimLoop();
       await this.sleep(FLASH_MS + STRIKE_GAP_MS);
@@ -497,17 +508,33 @@ export class Game {
       );
     }
     this.units = this.units.filter(u => u.hp > 0);
+    for (const u of dead) {
+      logBattle(`${this.unitName(u)} 阵亡`);
+    }
     this.kickAnimLoop();
   }
 
-  /** 法术结算飘字：伤害/MISS/治疗（过量治疗只显示实际回复） */
-  private showSpellResult(target: UnitState, hpBefore: number, result: SpellResult): void {
+  /** 法术结算飘字与日志：伤害/MISS/治疗/状态施加（过量治疗只显示实际回复） */
+  private showSpellResult(caster: UnitState, target: UnitState, skillName: string, hpBefore: number, result: SpellResult): void {
+    const c = this.unitName(caster), t = this.unitName(target);
     if (result.kind === 'damage') {
-      if (result.hit) this.floatText(`-${result.damage}`, FLOAT_COLOR.damage, target.position);
-      else this.floatText('MISS', FLOAT_COLOR.miss, target.position);
+      if (result.hit) {
+        this.floatText(`-${result.damage}`, FLOAT_COLOR.damage, target.position);
+        logBattle(`${c}·${skillName} → ${t} 命中 -${result.damage}`);
+      } else {
+        this.floatText('MISS', FLOAT_COLOR.miss, target.position);
+        logBattle(`${c}·${skillName} → ${t} 落空`);
+      }
     } else if (result.kind === 'heal') {
       const healed = result.targetHp - hpBefore;
       if (healed > 0) this.floatText(`+${healed}`, FLOAT_COLOR.heal, target.position);
+      logBattle(`${c}·${skillName} → ${t} 回复 +${healed}`);
+    } else if (result.kind === 'regen') {
+      logBattle(`${c}·${skillName} → ${t} 获得再生（每回合 +${result.healPerTurn}·${result.turns} 回合）`);
+    } else if (result.kind === 'shield') {
+      logBattle(`${c}·${skillName} → ${t} 获得护盾（吸收 ${result.absorb}·${result.turns} 回合）`);
+    } else {
+      logBattle(`${c}·${skillName} → ${t} 被咒杀（${result.turns} 回合后 -${result.damage}）`);
     }
   }
 
@@ -600,6 +627,7 @@ export class Game {
     hideForecastPanel();
     this.phase = { mode: 'enemyTurn' };
     this.phaseLabel = '敌方';
+    logBattle(`── 回合 ${this.turn} · 敌方阶段 ──`, 'phase');
     this.updateTopbar();
     this.render();
     void this.runEnemyPhase();
@@ -616,6 +644,7 @@ export class Game {
       this.units.push(...spawned);
       for (const u of spawned) this.animator.startAppear(u.id, performance.now());
       showNotice(`⚔ 敌方增援登场（${spawned.length} 人）`);
+      logBattle(`敌方增援登场（${spawned.length} 人）`);
       this.updateTopbar();
       this.kickAnimLoop();
       this.render();
@@ -664,6 +693,7 @@ export class Game {
     startPlayerPhase(this.units, this.map);
     this.phaseLabel = '玩家';
     this.phase = { mode: 'idle' };
+    logBattle(`── 回合 ${this.turn} · 玩家阶段 ──`, 'phase');
     this.updateTopbar();
     this.render();
   }
@@ -680,17 +710,23 @@ export class Game {
           if (caster && target) {
             const hpBefore = target.hp;
             const r = resolveSpell(this.map, caster, target, e.spell);
-            this.showSpellResult(target, hpBefore, r);
+            this.showSpellResult(caster, target, e.spell.name, hpBefore, r);
             if (caster.faction === 'player' && target.faction === 'enemy') {
               provokeGroup(this.units, target);
             }
           }
         } else if (e.kind === 'regenTick') {
           const u = this.units.find(x => x.id === e.unitId);
-          if (u && e.healed > 0) this.floatText(`+${e.healed}`, FLOAT_COLOR.heal, u.position);
+          if (u && e.healed > 0) {
+            this.floatText(`+${e.healed}`, FLOAT_COLOR.heal, u.position);
+            logBattle(`${this.unitName(u)} 再生 +${e.healed}`);
+          }
         } else if (e.kind === 'delayedFire') {
           const u = this.units.find(x => x.id === e.unitId);
-          if (u) this.floatText(`-${e.damage}`, FLOAT_COLOR.damage, u.position);
+          if (u) {
+            this.floatText(`-${e.damage}`, FLOAT_COLOR.damage, u.position);
+            logBattle(`${this.unitName(u)} 咒杀爆发 -${e.damage}`);
+          }
         }
       }
       this.removeDead();
@@ -710,6 +746,7 @@ export class Game {
     hideForecastPanel();
     this.phase = { mode: 'gameOver' };
     this.phaseLabel = this.victory === 'playerWin' ? '🏆 我方胜利' : '☠ 我方败北';
+    logBattle(this.victory === 'playerWin' ? '🏆 我方胜利' : '☠ 我方败北', 'phase');
     this.updateTopbar();
     this.render();
   }

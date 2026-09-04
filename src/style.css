@@ -122,3 +122,14 @@ html, body {
 .forecast .btns button { padding: 5px 16px; border-radius: 4px; border: none; cursor: pointer; font-size: 13px; }
 .forecast .btn-confirm { background: #4a7c4e; color: #fff; }
 .forecast .btn-cancel { background: #39414f; color: #c8d0dc; }
+
+#panel-log { margin-top: 12px; }
+#log-entries { max-height: 260px; overflow-y: auto; }
+#log-entries .log-entry {
+  font-size: 12px;
+  color: #c8d0dc;
+  padding: 3px 0;
+  border-bottom: 1px solid #1c222c;
+  line-height: 1.4;
+}
+#log-entries .log-entry.phase { color: #8a93a5; text-align: center; }
