@@ -117,3 +117,64 @@ export function calcBattleForecast(
 
   return { attacker: attackerStrike, counter };
 }
+
+export interface StrikeResult {
+  byAttacker: boolean;
+  hit: boolean;
+  damage: number;
+  side: PartSide;
+  skillName: string;
+}
+
+export interface BattleResult {
+  strikes: StrikeResult[];
+  attackerHp: number;
+  defenderHp: number;
+}
+
+/**
+ * 战斗结算（§4.3 序列：攻方攻击 → 守方反击 → 追击方攻击，死亡即停）
+ * rng 返回 [0,1)，注入以获得确定性测试
+ */
+export function resolveBattle(
+  map: MapState,
+  attacker: UnitState,
+  defender: UnitState,
+  skill: SkillTemplate,
+  rng: () => number = Math.random
+): BattleResult {
+  const forecast = calcBattleForecast(map, attacker, defender, skill);
+  const strikes: StrikeResult[] = [];
+  let attackerHp = attacker.hp;
+  let defenderHp = defender.hp;
+
+  const strike = (s: StrikeForecast, byAttacker: boolean): boolean => {
+    // 返回目标是否阵亡
+    const hit = rng() < s.hitRate / 100;
+    const damage = hit ? s.damage : 0;
+    strikes.push({ byAttacker, hit, damage, side: s.side, skillName: s.skillName });
+    if (byAttacker) {
+      defenderHp = Math.max(0, defenderHp - damage);
+      return defenderHp === 0;
+    }
+    attackerHp = Math.max(0, attackerHp - damage);
+    return attackerHp === 0;
+  };
+
+  // 第一击：攻方
+  if (strike(forecast.attacker, true)) {
+    return { strikes, attackerHp, defenderHp };
+  }
+  // 第二击：守方反击
+  if (forecast.counter && strike(forecast.counter, false)) {
+    return { strikes, attackerHp, defenderHp };
+  }
+  // 第三击：追击（双方 count 里第二击即追击）
+  if (forecast.attacker.count === 2) {
+    strike(forecast.attacker, true);
+  } else if (forecast.counter && forecast.counter.count === 2) {
+    strike(forecast.counter, false);
+  }
+
+  return { strikes, attackerHp, defenderHp };
+}

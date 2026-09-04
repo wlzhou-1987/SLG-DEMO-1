@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { attackSide, calcBattleForecast } from '../../src/core/combat';
+import { attackSide, calcBattleForecast, resolveBattle } from '../../src/core/combat';
 import { createMapState } from '../../src/core/map';
 import { getTemplate } from '../../src/config/units';
 import { resetUnitCounter, createUnitState } from '../../src/core/unit';
@@ -149,5 +149,75 @@ describe('calcBattleForecast 战斗预报', () => {
     const f2 = calcBattleForecast(map, defender, attacker, getTemplate('swordsman')!.skills[0]);
     expect(f2.counter!.count).toBe(2);
     expect(f2.attacker.count).toBe(1);
+  });
+});
+
+describe('resolveBattle 战斗结算', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+  const lordSkill = getTemplate('lord')!.skills[0];
+
+  it('命中按预报伤害扣血', () => {
+    const attacker = createUnitState('lord', 'player', { q: 10, r: 15 });
+    const defender = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    const f = calcBattleForecast(map, attacker, defender, lordSkill);
+    const r = resolveBattle(map, attacker, defender, lordSkill, () => 0);
+    expect(r.strikes.length).toBeGreaterThan(0);
+    expect(r.strikes[0].hit).toBe(true);
+    expect(r.defenderHp).toBe(defender.hp - f.attacker.damage * f.attacker.count);
+  });
+
+  it('未命中不造成伤害', () => {
+    const attacker = createUnitState('lord', 'player', { q: 10, r: 15 });
+    const defender = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    const r = resolveBattle(map, attacker, defender, lordSkill, () => 0.99);
+    expect(r.strikes.every(s => !s.hit)).toBe(true);
+    expect(r.defenderHp).toBe(defender.hp);
+    expect(r.attackerHp).toBe(attacker.hp);
+  });
+
+  it('击杀目标则无反击', () => {
+    // BOSS(atk12) 重锤打剑士(18hp)：无甲? 剑士轻甲 钝击×0.75 → floor(max(12-4,0)×0.75)=6
+    // 用 BOSS 攻 hp 剩 5 的剑士——直接改 hp
+    const attacker = createUnitState('boss', 'enemy', { q: 10, r: 15 });
+    const defender = createUnitState('swordsman', 'player', { q: 11, r: 15 });
+    defender.hp = 5;
+    const r = resolveBattle(map, attacker, defender, getTemplate('boss')!.skills[0], () => 0);
+    expect(r.defenderHp).toBe(0);
+    expect(r.strikes.every(s => s.byAttacker)).toBe(true); // 无反击与追击
+  });
+
+  it('攻→反→守方追击的完整序列', () => {
+    // 盗贼(spd12, atk6) 攻 BOSS(spd6, hp40)：盗贼打 BOSS 重甲 突刺×0.75→floor(max(6-11,0)×..)=0
+    // 换：剑士(spd8) 攻 盗贼(spd12) → 守方快 4 → 守追击
+    const attacker = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
+    const defender = createUnitState('thief', 'player', { q: 11, r: 15 });
+    const r = resolveBattle(map, attacker, defender, getTemplate('swordsman')!.skills[0], () => 0);
+    // 序列：剑士攻 → 盗贼反 → 盗贼追击
+    expect(r.strikes.map(s => s.byAttacker)).toEqual([true, false, false]);
+  });
+
+  it('攻方追击：攻1→反1→攻2', () => {
+    // 盗贼(spd12) 攻 剑士(spd8)
+    const attacker = createUnitState('thief', 'player', { q: 10, r: 15 });
+    const defender = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    const r = resolveBattle(map, attacker, defender, getTemplate('thief')!.skills[0], () => 0);
+    expect(r.strikes.map(s => s.byAttacker)).toEqual([true, false, true]);
+  });
+
+  it('攻方阵亡于反击则无追击', () => {
+    // 牧师(hp20) 攻 BOSS：BOSS 反击 7×2 追击……直接构造：牧师 hp 剩 5
+    const attacker = createUnitState('priest', 'player', { q: 10, r: 15 });
+    attacker.hp = 5;
+    const defender = createUnitState('boss', 'enemy', { q: 11, r: 15 });
+    // 牧师无攻击技能（治疗 range2），用火球手 mage？mage 技能 range2 —— 直接调函数
+    const r = resolveBattle(map, attacker, defender, lordSkill, () => 0);
+    // 牧师(无甲) atk8? priest atk4：max(4-11,0)=0 伤害 0 → 打不死 BOSS
+    // BOSS 反击挥砍 vs 无甲×1.0 → max(12-3,0)=9 ≥5 → 牧师亡，无后续
+    expect(r.attackerHp).toBe(0);
+    expect(r.strikes.map(s => s.byAttacker)).toEqual([true, false]);
   });
 });
