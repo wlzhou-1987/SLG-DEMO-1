@@ -103,6 +103,7 @@ src/
   main.ts        # 入口
 tests/
   core/          # 逻辑层单测（与 src/core/ 镜像）
+  render/        # 渲染层纯逻辑单测（如飘字状态机）
 docs/
   GAME-DESIGN.md # 设计文档（权威）
   prototypes/    # UI 原型（参考用）

@@ -322,3 +322,43 @@ describe('特性修正管线', () => {
     expect(f.attacker.damage).toBe(1 + 3);  // base1×1.25 floor 1
   });
 });
+
+describe('M6-1 战斗反馈：打击结果上报吸收量', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+
+  it('无盾打击 absorbed 为 0', () => {
+    const attacker = createUnitState('boss', 'enemy', { q: 10, r: 15 });
+    const defender = createUnitState('lord', 'player', { q: 11, r: 15 });
+    const r = resolveBattle(map, attacker, defender, getTemplate('boss')!.skills[0], () => 0);
+    expect(r.strikes[0].hit).toBe(true);
+    expect(r.strikes[0].absorbed).toBe(0);
+  });
+
+  it('部分吸收：absorbed = 盾吸收量，实际扣血 = 伤害 - absorbed', () => {
+    const attacker = createUnitState('boss', 'enemy', { q: 10, r: 15 });
+    const defender = createUnitState('lord', 'player', { q: 11, r: 15 });
+    defender.statuses = [{
+      type: 'shield', skillName: '秘银护盾', turnsLeft: 3, appliedAtTurn: 1,
+      armorType: 'medium', absorbLeft: 3
+    }];
+    const r = resolveBattle(map, attacker, defender, getTemplate('boss')!.skills[0], () => 0);
+    expect(r.strikes[0].damage).toBe(7);
+    expect(r.strikes[0].absorbed).toBe(3);
+  });
+
+  it('全吸收：absorbed = 伤害全额', () => {
+    const attacker = createUnitState('boss', 'enemy', { q: 10, r: 15 });
+    const defender = createUnitState('lord', 'player', { q: 11, r: 15 });
+    defender.statuses = [{
+      type: 'shield', skillName: '秘银护盾', turnsLeft: 3, appliedAtTurn: 1,
+      armorType: 'medium', absorbLeft: 99
+    }];
+    const r = resolveBattle(map, attacker, defender, getTemplate('boss')!.skills[0], () => 0);
+    expect(r.strikes[0].damage).toBe(7);
+    expect(r.strikes[0].absorbed).toBe(7);
+  });
+});

@@ -6,9 +6,9 @@ import { axialToPixel, pixelToAxial, isValidHex, distance, hexKey, directionBetw
 import type { HexCoord, Facing } from './core/types';
 import { calcMovementRange, calcAttackRange } from './core/range';
 import { calcBattleForecast, resolveBattle } from './core/combat';
-import type { BattleForecast } from './core/combat';
+import type { BattleForecast, StrikeResult } from './core/combat';
 import { calcSpellForecast, resolveSpell } from './core/spell';
-import type { SpellForecast } from './core/spell';
+import type { SpellForecast, SpellResult } from './core/spell';
 import type { SkillTemplate } from './config/units';
 import { isSpell } from './config/spells';
 import type { SpellTemplate } from './config/spells';
@@ -16,6 +16,7 @@ import { MAP_OVERRIDES, PLAYER_UNITS, ENEMY_GROUPS } from './config/map';
 import { getTemplate } from './config/units';
 import { Camera } from './render/camera';
 import { HexRenderer, HEX_SIZE } from './render/hex-renderer';
+import { EffectSystem, FLOAT_COLOR } from './render/effects';
 import { InputHandler } from './render/input';
 import { updateTopbar } from './ui/topbar';
 import { showUnitInfo, clearUnitInfo, showTerrainInfo, clearTerrainInfo } from './ui/sidepanel';
@@ -42,12 +43,15 @@ type Phase =
   | { mode: 'gameOver' };
 
 const ENEMY_ACTION_DELAY_MS = 300;
+const STRIKE_STAGGER_MS = 300;  // 逐击飘字间隔（§4.3 攻击→反击→追击）
 
 export class Game {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private camera = new Camera();
   private renderer: HexRenderer;
+  private effects = new EffectSystem();
+  private animating = false;
   private phase: Phase = { mode: 'idle' };
   private lastHoverKey = '';
   private victory: VictoryState = 'ongoing';
@@ -341,7 +345,9 @@ export class Game {
       return;
     }
 
-    resolveSpell(this.map, unit, target, spell);
+    const hpBefore = target.hp;
+    const spellResult = resolveSpell(this.map, unit, target, spell);
+    this.showSpellResult(target, hpBefore, spellResult);
     if (target.faction === 'enemy') provokeGroup(this.units, target);  // 打一个引来一组
     this.units = this.units.filter(u => u.hp > 0);
     this.victory = checkVictory(this.units);
@@ -367,6 +373,7 @@ export class Game {
   private confirmBattle(unit: UnitState, target: UnitState, skill: SkillTemplate) {
     hideForecastPanel();
     const result = resolveBattle(this.map, unit, target, skill);
+    this.showStrikes(unit, target, result.strikes);
     unit.hp = result.attackerHp;
     target.hp = result.defenderHp;
     if (target.faction === 'enemy') provokeGroup(this.units, target);  // 打一个引来一组
@@ -388,6 +395,57 @@ export class Game {
       this.enterReMove(unit, facing);
     } else {
       this.enterFacingConfirm(unit, facing);
+    }
+  }
+
+  /** 生成飘字并确保动画渲染循环运行 */
+  private floatText(text: string, color: string, pos: HexCoord, delayMs = 0, dyPx = 0): void {
+    const world = axialToPixel(pos, HEX_SIZE);
+    this.effects.spawn(text, color, world.x, world.y + dyPx, performance.now() + delayMs);
+    this.kickAnimLoop();
+  }
+
+  /** 动画活跃时 rAF 重绘，静止即停（不跑常驻循环） */
+  private kickAnimLoop(): void {
+    if (this.animating) return;
+    this.animating = true;
+    const step = () => {
+      const now = performance.now();
+      this.effects.prune(now);
+      if (!this.effects.active(now)) {
+        this.animating = false;
+        this.render();
+        return;
+      }
+      this.render();
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }
+
+  /** 战斗交换飘字：按 §4.3 序列逐击错开，扣血与护盾吸收分列 */
+  private showStrikes(unit: UnitState, target: UnitState, strikes: StrikeResult[]): void {
+    strikes.forEach((s, i) => {
+      const pos = (s.byAttacker ? target : unit).position;
+      const delay = i * STRIKE_STAGGER_MS;
+      if (!s.hit) {
+        this.floatText('MISS', FLOAT_COLOR.miss, pos, delay);
+        return;
+      }
+      const hpLoss = s.damage - s.absorbed;
+      if (hpLoss > 0) this.floatText(`-${hpLoss}`, FLOAT_COLOR.damage, pos, delay);
+      if (s.absorbed > 0) this.floatText(`盾${s.absorbed}`, FLOAT_COLOR.shield, pos, delay, -14);
+    });
+  }
+
+  /** 法术结算飘字：伤害/MISS/治疗（过量治疗只显示实际回复） */
+  private showSpellResult(target: UnitState, hpBefore: number, result: SpellResult): void {
+    if (result.kind === 'damage') {
+      if (result.hit) this.floatText(`-${result.damage}`, FLOAT_COLOR.damage, target.position);
+      else this.floatText('MISS', FLOAT_COLOR.miss, target.position);
+    } else if (result.kind === 'heal') {
+      const healed = result.targetHp - hpBefore;
+      if (healed > 0) this.floatText(`+${healed}`, FLOAT_COLOR.heal, target.position);
     }
   }
 
@@ -515,6 +573,7 @@ export class Game {
       if (action.skill && action.target) {
         enemy.facing = directionBetween(enemy.position, action.target.position);
         const result = resolveBattle(this.map, enemy, action.target, action.skill);
+        this.showStrikes(enemy, action.target, result.strikes);
         enemy.hp = result.attackerHp;
         action.target.hp = result.defenderHp;
         this.units = this.units.filter(u => u.hp > 0);
@@ -551,11 +610,19 @@ export class Game {
           const target = this.units.find(u => u.id === e.targetId);
           // 目标先亡则法术落空（§4.12）
           if (caster && target) {
-            resolveSpell(this.map, caster, target, e.spell);
+            const hpBefore = target.hp;
+            const r = resolveSpell(this.map, caster, target, e.spell);
+            this.showSpellResult(target, hpBefore, r);
             if (caster.faction === 'player' && target.faction === 'enemy') {
               provokeGroup(this.units, target);
             }
           }
+        } else if (e.kind === 'regenTick') {
+          const u = this.units.find(x => x.id === e.unitId);
+          if (u && e.healed > 0) this.floatText(`+${e.healed}`, FLOAT_COLOR.heal, u.position);
+        } else if (e.kind === 'delayedFire') {
+          const u = this.units.find(x => x.id === e.unitId);
+          if (u) this.floatText(`-${e.damage}`, FLOAT_COLOR.damage, u.position);
         }
       }
       this.units = this.units.filter(u => u.hp > 0);
@@ -640,5 +707,7 @@ export class Game {
         this.phase.mode === 'facingConfirm') {
       this.renderer.drawSelectionIndicator(this.phase.unit.position, this.camera);
     }
+
+    this.effects.draw(this.ctx, this.camera, performance.now());
   };
 }

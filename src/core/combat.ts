@@ -142,6 +142,7 @@ export interface StrikeResult {
   byAttacker: boolean;
   hit: boolean;
   damage: number;
+  absorbed: number;  // 护盾吸收部分（表现层区分扣血与吸收）
   side: PartSide;
   skillName: string;
 }
@@ -170,12 +171,13 @@ export function resolveBattle(
   let attackerHp = attacker.hp;
   let defenderHp = defender.hp;
 
-  /** 伤害应用：先扣护盾吸收，超出部分扣 HP（DEMO 简化：不重过兵甲矩阵） */
+  /** 伤害应用：先扣护盾吸收，超出部分扣 HP（DEMO 简化：不重过兵甲矩阵）；返回吸收量 */
   const applyDamage = (target: UnitState, targetT: UnitTemplate, amount: number) => {
     const { shield } = resolveArmor(target, targetT);
     let rest = amount;
+    let absorbed = 0;
     if (shield && shield.absorbLeft > 0) {
-      const absorbed = Math.min(shield.absorbLeft, rest);
+      absorbed = Math.min(shield.absorbLeft, rest);
       shield.absorbLeft -= absorbed;
       rest -= absorbed;
       if (shield.absorbLeft <= 0) {
@@ -183,21 +185,20 @@ export function resolveBattle(
       }
     }
     target.hp = Math.max(0, target.hp - rest);
-    return target.hp;
+    return absorbed;
   };
 
   const strike = (s: StrikeForecast, byAttacker: boolean): boolean => {
     // 返回目标是否阵亡
     const hit = rng() < s.hitRate / 100;
     const damage = hit ? s.damage : 0;
-    strikes.push({ byAttacker, hit, damage, side: s.side, skillName: s.skillName });
-    if (byAttacker) {
-      applyDamage(defender, defT, damage);
-      defenderHp = defender.hp;
-      return defenderHp === 0;
-    }
-    applyDamage(attacker, atkT, damage);
+    const absorbed = byAttacker
+      ? applyDamage(defender, defT, damage)
+      : applyDamage(attacker, atkT, damage);
     attackerHp = attacker.hp;
+    defenderHp = defender.hp;
+    strikes.push({ byAttacker, hit, damage, absorbed, side: s.side, skillName: s.skillName });
+    if (byAttacker) return defenderHp === 0;
     return attackerHp === 0;
   };
 
