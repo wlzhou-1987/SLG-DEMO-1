@@ -2,9 +2,11 @@ import type { MapState } from './core/map';
 import { createMapState } from './core/map';
 import type { UnitState } from './core/unit';
 import { createUnitState, getUnitAt } from './core/unit';
-import { axialToPixel, pixelToAxial, isValidHex, distance, hexKey } from './core/hex';
-import type { HexCoord } from './core/types';
+import { axialToPixel, pixelToAxial, isValidHex, distance, hexKey, directionBetween, neighbor } from './core/hex';
+import type { HexCoord, Facing } from './core/types';
 import { calcMovementRange, calcAttackRange } from './core/range';
+import { calcBattleForecast, resolveBattle } from './core/combat';
+import type { BattleForecast } from './core/combat';
 import type { SkillTemplate } from './config/units';
 import { MAP_OVERRIDES, INITIAL_UNITS } from './config/map';
 import { getTemplate } from './config/units';
@@ -14,13 +16,17 @@ import { InputHandler } from './render/input';
 import { updateTopbar } from './ui/topbar';
 import { showUnitInfo, clearUnitInfo, showTerrainInfo, clearTerrainInfo } from './ui/sidepanel';
 import { showActionMenu, hideActionMenu } from './ui/action-menu';
+import { showForecastPanel, hideForecastPanel } from './ui/forecast';
 import { getTerrain } from './core/map';
 
 type Phase =
   | { mode: 'idle' }
   | { mode: 'unitSelected'; unit: UnitState; moveRange: Set<string>; attackRange: Set<string> }
   | { mode: 'actionMenu'; unit: UnitState; originPos: HexCoord }
-  | { mode: 'targetSelect'; unit: UnitState; skill: SkillTemplate; originPos: HexCoord; targets: Set<string> };
+  | { mode: 'targetSelect'; unit: UnitState; skill: SkillTemplate; originPos: HexCoord; targets: Set<string> }
+  | { mode: 'forecast'; unit: UnitState; target: UnitState; skill: SkillTemplate; forecast: BattleForecast }
+  | { mode: 'reMove'; unit: UnitState; moveRange: Set<string>; defaultFacing: number }
+  | { mode: 'facingConfirm'; unit: UnitState };
 
 export class Game {
   private canvas: HTMLCanvasElement;
@@ -127,11 +133,35 @@ export class Game {
       }
       case 'targetSelect': {
         if (unit && this.phase.targets.has(key)) {
-          // 预报与结算在 M3-5 接入；当前回到行动菜单
-          this.openActionMenu(this.phase.unit, this.phase.originPos);
+          this.enterForecast(this.phase.unit, unit, this.phase.skill);
         } else {
           // 点空/非目标 = 返回行动菜单
           this.openActionMenu(this.phase.unit, this.phase.originPos);
+        }
+        break;
+      }
+      case 'forecast': {
+        break;  // 预报面板按钮驱动，画布点击忽略
+      }
+      case 'reMove': {
+        if (this.phase.moveRange.has(key)) {
+          const dest = hex;
+          const facing = directionBetween(this.phase.unit.position, dest);
+          this.phase.unit.position = { ...dest };
+          this.enterFacingConfirm(this.phase.unit, facing);
+        } else {
+          this.enterFacingConfirm(this.phase.unit, this.phase.defaultFacing);
+        }
+        break;
+      }
+      case 'facingConfirm': {
+        // 点相邻格调整朝向
+        for (let dir = 0; dir < 6; dir++) {
+          const n = neighbor(this.phase.unit.position, dir as Facing);
+          if (n.q === hex.q && n.r === hex.r) {
+            this.phase.unit.facing = dir;
+            break;
+          }
         }
         break;
       }
@@ -173,9 +203,13 @@ export class Game {
       case 'attack':
         this.showSkillList(unit, originPos);
         break;
-      case 'wait':
-        this.finishAction(unit);
+      case 'wait': {
+        // 默认朝向 = 最后一次移动方向（原地则保持）
+        const moved = originPos.q !== unit.position.q || originPos.r !== unit.position.r;
+        const facing = moved ? directionBetween(originPos, unit.position) : unit.facing;
+        this.enterFacingConfirm(unit, facing);
         break;
+      }
       case 'cancel':
         this.undoMove({ mode: 'actionMenu', unit, originPos });
         break;
@@ -217,6 +251,70 @@ export class Game {
     this.phase = { mode: 'targetSelect', unit, skill, originPos, targets };
   }
 
+  private enterForecast(unit: UnitState, target: UnitState, skill: SkillTemplate) {
+    hideActionMenu();
+    const forecast = calcBattleForecast(this.map, unit, target, skill);
+    this.phase = { mode: 'forecast', unit, target, skill, forecast };
+    const atkName = getTemplate(unit.templateId)?.name ?? unit.templateId;
+    const defName = getTemplate(target.templateId)?.name ?? target.templateId;
+    showForecastPanel(forecast, atkName, defName,
+      () => { this.confirmBattle(unit, target, skill); this.render(); },
+      () => { this.enterTargetSelect(unit, skill, unit.position); this.render(); }
+    );
+  }
+
+  /** 确认预报：结算并应用，随后进入再移动或朝向确认 */
+  private confirmBattle(unit: UnitState, target: UnitState, skill: SkillTemplate) {
+    hideForecastPanel();
+    const result = resolveBattle(this.map, unit, target, skill);
+    unit.hp = result.attackerHp;
+    target.hp = result.defenderHp;
+    this.units = this.units.filter(u => u.hp > 0);
+    this.updateTopbar();
+
+    if (unit.hp <= 0) {
+      // 攻方阵亡于反击
+      this.cancelToIdle();
+      return;
+    }
+    const facing = directionBetween(unit.position, target.position);
+    if (getTemplate(unit.templateId)?.reMove) {
+      this.enterReMove(unit, facing);
+    } else {
+      this.enterFacingConfirm(unit, facing);
+    }
+  }
+
+  private enterReMove(unit: UnitState, defaultFacing: number) {
+    const template = getTemplate(unit.templateId)!;
+    const moveRange = calcMovementRange(
+      this.map, this.units, unit.position, template.movePoints, template.flying
+    );
+    this.phase = { mode: 'reMove', unit, moveRange, defaultFacing };
+    const world = axialToPixel(unit.position, HEX_SIZE);
+    const screen = this.camera.worldToScreen(world);
+    showActionMenu(screen.x, screen.y, [
+      { label: '待命', value: 'wait' }
+    ], () => {
+      this.enterFacingConfirm(unit, defaultFacing);
+      this.render();
+    });
+  }
+
+  private enterFacingConfirm(unit: UnitState, defaultFacing: number) {
+    hideActionMenu();
+    unit.facing = defaultFacing;
+    this.phase = { mode: 'facingConfirm', unit };
+    const world = axialToPixel(unit.position, HEX_SIZE);
+    const screen = this.camera.worldToScreen(world);
+    showActionMenu(screen.x, screen.y, [
+      { label: '确认朝向', value: 'ok' }
+    ], () => {
+      this.finishAction(unit);
+      this.render();
+    });
+  }
+
   /** 撤销移动：单位回出发点，重新选中 */
   private undoMove(phase: { mode: 'actionMenu' | 'targetSelect'; unit: UnitState; originPos: HexCoord }) {
     hideActionMenu();
@@ -234,6 +332,7 @@ export class Game {
 
   private cancelToIdle() {
     hideActionMenu();
+    hideForecastPanel();
     this.phase = { mode: 'idle' };
     clearUnitInfo();
   }
@@ -293,13 +392,30 @@ export class Game {
       this.renderer.drawRangeOverlay(this.phase.moveRange, this.camera, '#4a90d9', width, height);
       this.renderer.drawRangeOverlay(this.phase.attackRange, this.camera, '#d94a4a', width, height);
     }
-    if (this.phase.mode === 'targetSelect') {
-      this.renderer.drawRangeOverlay(this.phase.targets, this.camera, '#d94a4a', width, height);
+    if (this.phase.mode === 'targetSelect' || this.phase.mode === 'forecast') {
+      const target = this.phase.mode === 'forecast'
+        ? this.phase.target.position
+        : null;
+      const keys = this.phase.mode === 'forecast'
+        ? new Set([hexKey(target!)])
+        : this.phase.targets;
+      this.renderer.drawRangeOverlay(keys, this.camera, '#d94a4a', width, height);
+    }
+    if (this.phase.mode === 'reMove') {
+      this.renderer.drawRangeOverlay(this.phase.moveRange, this.camera, '#4a90d9', width, height);
+    }
+    if (this.phase.mode === 'facingConfirm') {
+      // 相邻 6 格高亮提示可点击调整朝向
+      const neighbors = new Set<string>();
+      for (let dir = 0; dir < 6; dir++) {
+        neighbors.add(hexKey(neighbor(this.phase.unit.position, dir as Facing)));
+      }
+      this.renderer.drawRangeOverlay(neighbors, this.camera, '#4ade80', width, height);
     }
 
     this.renderer.drawUnits(this.units, this.camera, width, height);
 
-    if (this.phase.mode === 'unitSelected' || this.phase.mode === 'actionMenu' || this.phase.mode === 'targetSelect') {
+    if (this.phase.mode !== 'idle' && this.phase.mode !== 'forecast') {
       this.renderer.drawSelectionIndicator(this.phase.unit.position, this.camera);
     }
   };

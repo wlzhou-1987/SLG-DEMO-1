@@ -85,3 +85,23 @@ html, body {
 .action-menu .item:last-child { border-bottom: none; }
 .action-menu .item:hover { background: #35405a; }
 .action-menu .item.cancel { color: #98a2b3; }
+
+.forecast {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  width: 380px;
+  background: rgba(26, 31, 42, .96);
+  border: 1px solid #56617a;
+  border-radius: 8px;
+  padding: 12px;
+  z-index: 10;
+}
+.forecast h3 { font-size: 14px; color: #ffd75e; margin-bottom: 8px; }
+.forecast .strike { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 4px 0; border-top: 1px solid #39414f; }
+.forecast .strike .who { color: #c8d0dc; }
+.forecast .strike.dim { color: #98a2b3; }
+.forecast .btns { display: flex; gap: 8px; margin-top: 8px; justify-content: flex-end; }
+.forecast .btns button { padding: 5px 16px; border-radius: 4px; border: none; cursor: pointer; font-size: 13px; }
+.forecast .btn-confirm { background: #4a7c4e; color: #fff; }
+.forecast .btn-cancel { background: #39414f; color: #c8d0dc; }
