@@ -3,6 +3,7 @@ import type { MapState } from './map';
 import type { UnitState } from './unit';
 import { getMoveCost, isPassable } from './map';
 import { neighbor, hexKey } from './hex';
+import { getUnitAt } from './unit';
 import type { Facing } from './types';
 
 export function calcMovementRange(
@@ -44,7 +45,10 @@ export function calcMovementRange(
       const existingCost = cost.get(nextKey);
       if (existingCost === undefined || newCost < existingCost) {
         cost.set(nextKey, newCost);
-        result.add(nextKey);
+        // 飞行可途经被占格继续扩展，但被占格不可作为落点
+        if (getUnitAt(units, nextPos) === undefined) {
+          result.add(nextKey);
+        }
 
         if (moveCost === 1) {
           deque.unshift({ pos: nextPos, totalCost: newCost });

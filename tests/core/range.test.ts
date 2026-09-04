@@ -57,7 +57,7 @@ describe('range', () => {
       expect(range.has('11,15')).toBe(false);
     });
 
-    it('飞行单位无视占据', () => {
+    it('飞行单位不可落在被占格', () => {
       const map = createMapState();
       const units: UnitState[] = [{
         id: 'u1',
@@ -70,7 +70,25 @@ describe('range', () => {
         hasActed: false
       }];
       const range = calcMovementRange(map, units, { q: 10, r: 15 }, 5, true);
-      expect(range.has('11,15')).toBe(true);
+      expect(range.has('11,15')).toBe(false);
+    });
+
+    it('飞行单位可飞越被占格继续扩展', () => {
+      const map = createMapState();
+      const units: UnitState[] = [{
+        id: 'u1',
+        templateId: 'lord',
+        faction: 'player',
+        position: { q: 11, r: 15 },
+        facing: 0,
+        hp: 26,
+        maxHp: 26,
+        hasActed: false
+      }];
+      const range = calcMovementRange(map, units, { q: 10, r: 15 }, 2, true);
+      // (11,15) 被占不可落，但可途经——(12,15) 消耗 2 仍可达
+      expect(range.has('12,15')).toBe(true);
+      expect(range.size).toBe(18); // 移动力 2 共 19 格，被占格从落点中剔除
     });
 
     it('移动力为 0 只返回起点', () => {
