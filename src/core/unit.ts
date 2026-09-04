@@ -1,4 +1,5 @@
 import type { HexCoord, Faction } from './types';
+import { getTemplate } from '../config/units';
 
 export interface UnitState {
   id: string;
@@ -22,6 +23,8 @@ export function createUnitState(
   faction: Faction,
   position: HexCoord
 ): UnitState {
+  const template = getTemplate(templateId);
+  if (!template) throw new Error(`未知单位模板: ${templateId}`);
   unitCounter++;
   return {
     id: `${faction}-${unitCounter}`,
@@ -29,8 +32,8 @@ export function createUnitState(
     faction,
     position: { ...position },
     facing: faction === 'player' ? 1 : 4,
-    hp: 20,
-    maxHp: 20,
+    hp: template.hp,
+    maxHp: template.hp,
     hasActed: false
   };
 }

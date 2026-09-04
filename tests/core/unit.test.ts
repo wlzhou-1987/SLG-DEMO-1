@@ -24,6 +24,15 @@ describe('unit', () => {
       expect(u1.id).toBe('player-1');
       expect(u2.id).toBe('player-2');
     });
+
+    it('HP 与 maxHp 取自模板', () => {
+      const lord = createUnitState('lord', 'player', { q: 0, r: 0 });
+      expect(lord.hp).toBe(26);
+      expect(lord.maxHp).toBe(26);
+      const boss = createUnitState('boss', 'enemy', { q: 10, r: 2 });
+      expect(boss.hp).toBe(40);
+      expect(boss.maxHp).toBe(40);
+    });
   });
 
   describe('getUnitAt', () => {
