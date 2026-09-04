@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { checkVictory, startPlayerPhase } from '../../src/core/turn';
 import { createMapState } from '../../src/core/map';
 import { resetUnitCounter, createUnitState } from '../../src/core/unit';
-import type { UnitState } from '../../src/core/unit';
 
 describe('turn', () => {
   beforeEach(() => {
