@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { decideEnemyAction } from '../../src/core/ai';
+import { decideEnemyAction, checkGroupActivation, provokeGroup } from '../../src/core/ai';
 import { createMapState } from '../../src/core/map';
 import { resetUnitCounter, createUnitState } from '../../src/core/unit';
+import type { UnitState } from '../../src/core/unit';
 import { distance } from '../../src/core/hex';
+import type { HexCoord } from '../../src/core/types';
 
 describe('decideEnemyAction 占位 AI', () => {
   beforeEach(() => {
@@ -63,5 +65,65 @@ describe('decideEnemyAction 占位 AI', () => {
     const target = createUnitState('lord', 'player', { q: 11, r: 15 });
     const action = decideEnemyAction(map, [enemy, target], enemy);
     expect(action.skill!.name).toBe('横扫');
+  });
+});
+
+describe('组激活（§6）', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();  // 全平原：警戒半径 = 移动 + 射程
+
+  function dormantEnemy(templateId: string, pos: HexCoord, groupId: string): UnitState {
+    const u = createUnitState(templateId, 'enemy', pos);
+    u.groupId = groupId;
+    u.aiKind = 'dormant';
+    u.activated = false;
+    return u;
+  }
+
+  it('我方进入警戒范围（移动+射程覆盖）→ 全组激活', () => {
+    // 剑士移动 5、射程 1 → 警戒半径 6；距离 6 恰在边界
+    const a = dormantEnemy('swordsman', { q: 10, r: 15 }, 'g1');
+    const b = dormantEnemy('swordsman', { q: 11, r: 15 }, 'g1');
+    const player = createUnitState('lord', 'player', { q: 10, r: 21 });
+    checkGroupActivation(map, [a, b, player]);
+    expect(a.activated).toBe(true);
+    expect(b.activated).toBe(true);
+  });
+
+  it('警戒范围外 → 不激活', () => {
+    const a = dormantEnemy('swordsman', { q: 10, r: 15 }, 'g1');
+    const player = createUnitState('lord', 'player', { q: 10, r: 22 });  // 距离 7
+    checkGroupActivation(map, [a, player]);
+    expect(a.activated).toBe(false);
+  });
+
+  it('组内任一成员警戒范围内即全组激活，他组不受波及', () => {
+    const a = dormantEnemy('swordsman', { q: 10, r: 15 }, 'g1');
+    // g2 成员距玩家 7（警戒半径 6 之外），但紧邻 g1——验证激活不越组传染
+    const c = dormantEnemy('swordsman', { q: 11, r: 14 }, 'g2');
+    const player = createUnitState('lord', 'player', { q: 10, r: 21 });
+    checkGroupActivation(map, [a, c, player]);
+    expect(a.activated).toBe(true);
+    expect(c.activated).toBe(false);
+  });
+
+  it('被攻击时全组激活（打一个引来一组，含已亡目标）', () => {
+    const a = dormantEnemy('swordsman', { q: 10, r: 15 }, 'g1');
+    const b = dormantEnemy('swordsman', { q: 11, r: 15 }, 'g1');
+    const c = dormantEnemy('swordsman', { q: 12, r: 15 }, 'g2');
+    a.hp = 0;  // 被击杀的目标
+    provokeGroup([a, b, c], a);
+    expect(b.activated).toBe(true);
+    expect(c.activated).toBe(false);
+  });
+
+  it('provokeGroup 对无 groupId 单位安全跳过', () => {
+    const a = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
+    a.activated = false;
+    provokeGroup([a], a);
+    expect(a.activated).toBe(false);
   });
 });

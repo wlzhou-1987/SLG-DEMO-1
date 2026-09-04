@@ -63,7 +63,13 @@ export class Game {
     this.units = [
       ...PLAYER_UNITS.map(p => createUnitState(p.templateId, p.faction, p.position)),
       ...ENEMY_GROUPS.flatMap(g =>
-        g.units.map(p => createUnitState(p.templateId, p.faction, p.position))
+        g.units.map(p => {
+          const u = createUnitState(p.templateId, p.faction, p.position);
+          u.groupId = g.id;
+          u.aiKind = g.aiType;
+          u.activated = g.aiType !== 'dormant';
+          return u;
+        })
       )
     ];
 
