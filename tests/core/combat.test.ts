@@ -49,18 +49,17 @@ describe('calcBattleForecast 战斗预报', () => {
   });
 
   it('基础伤害：攻−防 后乘矩阵系数', () => {
-    // 领主横斩(挥砍)攻剑士(轻甲)：max(8−4−0,0)×1.25 = 5
+    // 领主横斩(挥砍)攻剑士(轻甲)：max(10−4−0,0)×1.25 = 7.5 → 7
     const { attacker, defender } = makeUnits();
     const f = calcBattleForecast(map, attacker, defender, getTemplate('lord')!.skills[0]);
-    expect(f.attacker.damage).toBe(5);
+    expect(f.attacker.damage).toBe(7);
     expect(f.attacker.damageType).toBe('slashing');
   });
 
   it('伤害地板 0：攻低于防时为 0', () => {
-    // 牧师(atk4)治疗是 magic 射程 2——用法师火球(atk8, magic)打 BOSS(重甲 def11)
-    // max(8−11−0,0)=0 → 伤害 0
+    // 法师火球(atk8, magic)打防骑(重甲 def10)：max(8−10−0,0)=0 → 伤害 0
     const attacker = createUnitState('mage', 'player', { q: 10, r: 15 });
-    const defender = createUnitState('boss', 'enemy', { q: 12, r: 15 });
+    const defender = createUnitState('paladin', 'enemy', { q: 12, r: 15 });
     const f = calcBattleForecast(map, attacker, defender, getTemplate('mage')!.skills[0]);
     expect(f.attacker.damage).toBe(0);
   });
@@ -69,8 +68,8 @@ describe('calcBattleForecast 战斗预报', () => {
     const forestMap = createMapState({ forests: [{ q: 11, r: 15 }] });
     const { attacker, defender } = makeUnits();
     const f = calcBattleForecast(forestMap, attacker, defender, getTemplate('lord')!.skills[0]);
-    // max(8−4−1,0)×1.25 = floor(3.75) = 3
-    expect(f.attacker.damage).toBe(3);
+    // max(10−4−1,0)×1.25 = 6.25 → 6
+    expect(f.attacker.damage).toBe(6);
   });
 
   it('飞行守方不享地形防与回避加成', () => {
@@ -78,8 +77,8 @@ describe('calcBattleForecast 战斗预报', () => {
     const attacker = createUnitState('lord', 'player', { q: 10, r: 15 });
     const defender = createUnitState('pegasus', 'enemy', { q: 11, r: 15 });
     const f = calcBattleForecast(forestMap, attacker, defender, getTemplate('lord')!.skills[0]);
-    // 飞马 light：max(8−5−0,0)×1.25 = floor(3.75) = 3（若误吃森林+1 则为 2）
-    expect(f.attacker.damage).toBe(3);
+    // 飞马 light：max(10−5−0,0)×1.25 = 6.25 → 6（若误吃森林+1 则为 5）
+    expect(f.attacker.damage).toBe(6);
     // 回避 = 运×3 = 21（若误吃森林+20 则命中骤降 20）
     // 命中 = 50 + 10×5 − 21 = 79
     expect(f.attacker.hitRate).toBe(79);
@@ -99,7 +98,7 @@ describe('calcBattleForecast 战斗预报', () => {
     defender.facing = 0;
     const f = calcBattleForecast(map, attacker, defender, getTemplate('lord')!.skills[0]);
     expect(f.attacker.side).toBe('back');
-    expect(f.attacker.damage).toBe(5 + 3);
+    expect(f.attacker.damage).toBe(7 + 3);
     expect(f.attacker.hitRate).toBe(100); // 88+25=113 被 clamp 到上限
   });
 
@@ -129,14 +128,14 @@ describe('calcBattleForecast 战斗预报', () => {
 
   it('反击择优：覆盖射程的技能中期望伤害最高', () => {
     // 领主(轻甲)攻 BOSS：BOSS 技能序 [重锤(钝击), 横扫(挥砍)]
-    // 钝击 vs 轻甲 ×0.75 → floor(6×0.75)=4；挥砍 vs 轻甲 ×1.25 → floor(6×1.25)=7
+    // 钝击 vs 轻甲 ×0.75 → floor(4×0.75)=3；挥砍 vs 轻甲 ×1.25 → floor(4×1.25)=5
     // 择优应选横扫（虽排在技能列表第二位）
     const attacker = createUnitState('lord', 'player', { q: 10, r: 15 });
     const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });
     const f = calcBattleForecast(map, attacker, boss, getTemplate('lord')!.skills[0]);
     expect(f.counter).not.toBeNull();
     expect(f.counter!.skillName).toBe('横扫');
-    expect(f.counter!.damage).toBe(7);
+    expect(f.counter!.damage).toBe(5);
   });
 
   it('追击：速度差 ≥4 快方多打一次', () => {
@@ -181,11 +180,11 @@ describe('resolveBattle 战斗结算', () => {
   });
 
   it('击杀目标则无反击', () => {
-    // BOSS(atk12) 重锤打剑士(18hp)：无甲? 剑士轻甲 钝击×0.75 → floor(max(12-4,0)×0.75)=6
-    // 用 BOSS 攻 hp 剩 5 的剑士——直接改 hp
+    // BOSS(atk10) 重锤打剑士(轻甲 钝击×0.75)：floor(max(10-4,0)×0.75)=4
+    // 用 BOSS 攻 hp 剩 3 的剑士——直接改 hp
     const attacker = createUnitState('boss', 'enemy', { q: 10, r: 15 });
     const defender = createUnitState('swordsman', 'player', { q: 11, r: 15 });
-    defender.hp = 5;
+    defender.hp = 3;
     const r = resolveBattle(map, attacker, defender, getTemplate('boss')!.skills[0], () => 0);
     expect(r.defenderHp).toBe(0);
     expect(r.strikes.every(s => s.byAttacker)).toBe(true); // 无反击与追击
@@ -231,8 +230,7 @@ describe('M4 战斗扩展：power 与护盾吸收', () => {
   const map = createMapState();
 
   it('护盾吸收：伤害先扣护盾再扣 HP', () => {
-    // 领主(轻甲)持秘银护盾(中甲, 吸收10)；剑士横斩 vs 中甲 挥砍×0.75 → max(5-6-0,0)=0…
-    // 换 BOSS 重锤(atk12 钝击) 打持盾领主：钝击 vs 中甲 ×1.25 → max(12-6,0)×1.25=7.5→7
+    // BOSS 重锤(atk10 钝击) 打持盾领主：钝击 vs 中甲 ×1.25 → max(10-6,0)×1.25=5
     const attacker = createUnitState('boss', 'enemy', { q: 10, r: 15 });
     const defender = createUnitState('lord', 'player', { q: 11, r: 15 });
     defender.statuses = [{
@@ -240,11 +238,11 @@ describe('M4 战斗扩展：power 与护盾吸收', () => {
       armorType: 'medium', absorbLeft: 10
     }];
     const r = resolveBattle(map, attacker, defender, getTemplate('boss')!.skills[0], () => 0);
-    // 伤害 7 全被护盾吸收
-    expect(r.attackerHp).toBe(40);
-    expect(r.defenderHp).toBe(26);
+    // 伤害 5 全被护盾吸收；领主反击 BOSS(重甲 def6)：max(10−6,0)×1.0 = 4
+    expect(r.attackerHp).toBe(30);
+    expect(r.defenderHp).toBe(29);
     const shield = defender.statuses.find(s => s.type === 'shield');
-    expect(shield?.absorbLeft).toBe(3);
+    expect(shield?.absorbLeft).toBe(5);
   });
 
   it('破盾：超出吸收的部分扣 HP 且状态移除', () => {
@@ -255,11 +253,11 @@ describe('M4 战斗扩展：power 与护盾吸收', () => {
       type: 'shield', skillName: '秘银护盾', turnsLeft: 3, appliedAtTurn: 1,
       armorType: 'medium', absorbLeft: 3
     }];
-    // BOSS 重锤 ×2 击（boss spd6 vs lord spd9 差 3 无追击；伤害 7×1=7 > 吸收 3 → 破盾 4 入 HP
+    // BOSS 重锤 ×1 击（boss spd6 vs lord spd9 差 3 无追击；伤害 5 > 吸收 3 → 破盾 2 入 HP
     const r = resolveBattle(map, attacker, defender, getTemplate('boss')!.skills[0], () => 0);
-    expect(defender.hp).toBe(26 - 4);
+    expect(defender.hp).toBe(26 - 2);
     expect(defender.statuses.some(s => s.type === 'shield')).toBe(false);
-    expect(r.defenderHp).toBe(22);
+    expect(r.defenderHp).toBe(24);
   });
 
   it('护盾覆盖矩阵：按护盾护甲类型结算', () => {
@@ -273,8 +271,8 @@ describe('M4 战斗扩展：power 与护盾吸收', () => {
       armorType: 'medium', absorbLeft: 99
     }];
     const f = calcBattleForecast(map, attacker, defender, getTemplate('axeman')!.skills[0]);
-    // max(11-6,0)×0.75 = 3.75 → 3（若误按轻甲则为 floor(5×1.25)=6）
-    expect(f.attacker.damage).toBe(3);
+    // max(12-6,0)×0.75 = 4.5 → 4（若误按轻甲则为 floor(6×1.25)=7）
+    expect(f.attacker.damage).toBe(4);
   });
 });
 
@@ -286,20 +284,20 @@ describe('特性修正管线', () => {
   const map = createMapState();
 
   it('背刺：盗贼背面攻击伤害 +3 改为 ×1.5 乘算', () => {
-    // 盗贼 atk6 vs 剑士 def4 轻甲 突刺×1.0 → base 2
-    // 普通背面 = 2+3 = 5；背刺 = floor(2×1.5) = 3
+    // 盗贼 atk8 vs 剑士 def4 轻甲 突刺×1.0 → base 4
+    // 普通背面 = 4+3 = 7；背刺 = floor(4×1.5) = 6
     const thief = createUnitState('thief', 'player', { q: 9, r: 15 });
     const swordsman = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
     swordsman.facing = 0;  // 朝东，盗贼在西 → 背面
     const f = calcBattleForecast(map, thief, swordsman, getTemplate('thief')!.skills[0]);
     expect(f.attacker.side).toBe('back');
-    expect(f.attacker.damage).toBe(3);
+    expect(f.attacker.damage).toBe(6);
     // 正面不受特性影响
     const thief2 = createUnitState('thief', 'player', { q: 10, r: 14 });
     const swordsman2 = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
     swordsman2.facing = 2;  // 朝西北，盗贼在(10,14)西北方向 → 正面
     const f2 = calcBattleForecast(map, thief2, swordsman2, getTemplate('thief')!.skills[0]);
-    expect(f2.attacker.damage).toBe(2);
+    expect(f2.attacker.damage).toBe(4);
   });
 
   it('沉稳：牧师受到的部位命中补正减半', () => {
@@ -346,7 +344,7 @@ describe('M6-1 战斗反馈：打击结果上报吸收量', () => {
       armorType: 'medium', absorbLeft: 3
     }];
     const r = resolveBattle(map, attacker, defender, getTemplate('boss')!.skills[0], () => 0);
-    expect(r.strikes[0].damage).toBe(7);
+    expect(r.strikes[0].damage).toBe(5);
     expect(r.strikes[0].absorbed).toBe(3);
   });
 
@@ -358,7 +356,7 @@ describe('M6-1 战斗反馈：打击结果上报吸收量', () => {
       armorType: 'medium', absorbLeft: 99
     }];
     const r = resolveBattle(map, attacker, defender, getTemplate('boss')!.skills[0], () => 0);
-    expect(r.strikes[0].damage).toBe(7);
-    expect(r.strikes[0].absorbed).toBe(7);
+    expect(r.strikes[0].damage).toBe(5);
+    expect(r.strikes[0].absorbed).toBe(5);
   });
 });

@@ -47,15 +47,22 @@ describe('turn', () => {
       expect(units.every(u => !u.hasActed)).toBe(true);
     });
 
+    it('重置本回合已消耗移动力（§4.8 剩余移动力规则）', () => {
+      const units = [createUnitState('knight', 'player', { q: 10, r: 27 })];
+      units[0].moveSpent = 6;
+      startPlayerPhase(units, createMapState());
+      expect(units[0].moveSpent).toBe(0);
+    });
+
     it('驻基地单位回合开始回复 10% 最大 HP（上限截断）', () => {
       const map = createMapState({ bases: [{ q: 10, r: 2 }] });
       const u = createUnitState('boss', 'enemy', { q: 10, r: 2 });
-      u.hp = 35;
+      u.hp = 30;
       startPlayerPhase([u], map);
-      expect(u.hp).toBe(39); // 35 + ceil(40/10)
-      u.hp = 39;
+      expect(u.hp).toBe(34); // 30 + ceil(34/10)
+      u.hp = 33;
       startPlayerPhase([u], map);
-      expect(u.hp).toBe(40); // 不超过 maxHp
+      expect(u.hp).toBe(34); // 不超过 maxHp
     });
 
     it('不在基地的单位不回血', () => {

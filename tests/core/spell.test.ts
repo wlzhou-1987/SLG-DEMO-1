@@ -33,7 +33,7 @@ describe('calcSpellForecast 法术预报', () => {
     const priest = createUnitState('priest', 'player', { q: 10, r: 15 });
     const lord = createUnitState('lord', 'player', { q: 11, r: 15 });
     const f = calcSpellForecast(map, priest, lord, SPELLS.heal);
-    expect(f).toEqual({ kind: 'heal', amount: 8 });
+    expect(f).toEqual({ kind: 'heal', amount: 10 });
   });
 
   it('再生/护盾/咒杀预报读配置', () => {
@@ -56,7 +56,7 @@ describe('resolveSpell 法术结算（即时释放部分）', () => {
     const lord = createUnitState('lord', 'player', { q: 11, r: 15 });
     lord.hp = 20;
     resolveSpell(map, priest, lord, SPELLS.heal);
-    expect(lord.hp).toBe(26);  // min(20+8, 26)
+    expect(lord.hp).toBe(29);  // min(20+10, 29)
   });
 
   it('再生：目标获得 regen 状态', () => {
@@ -92,7 +92,7 @@ describe('resolveSpell 法术结算（即时释放部分）', () => {
     const swordsman = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
     const r1 = resolveSpell(map, mage, swordsman, SPELLS.fireball, () => 0);
     expect(r1.kind).toBe('damage');
-    expect(swordsman.hp).toBe(18 - 4);
+    expect(swordsman.hp).toBe(16 - 4);
     const r2 = resolveSpell(map, mage, swordsman, SPELLS.fireball, () => 0.99);
     if (r2.kind === 'damage') expect(r2.hit).toBe(false);
   });

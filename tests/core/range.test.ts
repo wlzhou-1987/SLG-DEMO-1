@@ -1,7 +1,44 @@
 import { describe, it, expect } from 'vitest';
-import { calcMovementRange, calcAttackRange } from '../../src/core/range';
+import { calcMovementRange, calcAttackRange, calcMovementCosts } from '../../src/core/range';
 import { createMapState } from '../../src/core/map';
 import type { UnitState } from '../../src/core/unit';
+
+describe('M6-4 calcMovementCosts（再移动剩余移动力 §4.8）', () => {
+  const emptyUnits: UnitState[] = [];
+
+  it('平原每格消耗 1，等于六边形距离', () => {
+    const map = createMapState();
+    const costs = calcMovementCosts(map, emptyUnits, { q: 10, r: 15 }, 5, false);
+    expect(costs.get('10,15')).toBe(0);
+    expect(costs.get('11,15')).toBe(1);
+    expect(costs.get('10,14')).toBe(1);
+    expect(costs.get('12,15')).toBe(2);
+  });
+
+  it('森林格消耗 2 计入路径', () => {
+    const map = createMapState({ forests: [{ q: 11, r: 15 }] });
+    const costs = calcMovementCosts(map, emptyUnits, { q: 10, r: 15 }, 5, false);
+    expect(costs.get('11,15')).toBe(2);
+    expect(costs.get('12,15')).toBe(3);
+  });
+
+  it('飞行途经被占格计入代价表（供已消耗移动力计算）', () => {
+    const map = createMapState();
+    const units: UnitState[] = [{
+      id: 'u1',
+      templateId: 'lord',
+      faction: 'player',
+      position: { q: 11, r: 15 },
+      facing: 0,
+      hp: 26,
+      maxHp: 26,
+      hasActed: false, statuses: [], activated: true, moveSpent: 0
+    }];
+    const costs = calcMovementCosts(map, units, { q: 10, r: 15 }, 2, true);
+    expect(costs.get('11,15')).toBe(1);  // 被占格：不可落但可途经
+    expect(costs.get('12,15')).toBe(2);
+  });
+});
 
 describe('range', () => {
   const emptyUnits: UnitState[] = [];
@@ -51,7 +88,7 @@ describe('range', () => {
         facing: 0,
         hp: 26,
         maxHp: 26,
-        hasActed: false, statuses: [], activated: true
+        hasActed: false, statuses: [], activated: true, moveSpent: 0
       }];
       const range = calcMovementRange(map, units, { q: 10, r: 15 }, 5, false);
       expect(range.has('11,15')).toBe(false);
@@ -67,7 +104,7 @@ describe('range', () => {
         facing: 0,
         hp: 26,
         maxHp: 26,
-        hasActed: false, statuses: [], activated: true
+        hasActed: false, statuses: [], activated: true, moveSpent: 0
       }];
       const range = calcMovementRange(map, units, { q: 10, r: 15 }, 5, true);
       expect(range.has('11,15')).toBe(false);
@@ -83,7 +120,7 @@ describe('range', () => {
         facing: 0,
         hp: 26,
         maxHp: 26,
-        hasActed: false, statuses: [], activated: true
+        hasActed: false, statuses: [], activated: true, moveSpent: 0
       }];
       const range = calcMovementRange(map, units, { q: 10, r: 15 }, 2, true);
       // (11,15) 被占不可落，但可途经——(12,15) 消耗 2 仍可达

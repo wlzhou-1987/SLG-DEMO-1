@@ -55,7 +55,7 @@ describe('tickStatuses 阶段推进', () => {
     expect(u.statuses).toHaveLength(1);
     expect(u.statuses[0].turnsLeft).toBe(1);
     tickStatuses([u], 'player');
-    expect(u.hp).toBe(26);  // 上限截断
+    expect(u.hp).toBe(29);  // 上限截断
     expect(u.statuses).toHaveLength(0);  // 到期移除
   });
 
@@ -63,9 +63,9 @@ describe('tickStatuses 阶段推进', () => {
     const u = withStatuses(createUnitState('lord', 'player', { q: 5, r: 5 }), [
       { type: 'regen', skillName: '再生术', turnsLeft: 1, appliedAtTurn: 1, healPerTurn: 5 }
     ]);
-    u.hp = 25;
+    u.hp = 27;
     tickStatuses([u], 'player');
-    expect(u.hp).toBe(26);  // maxHp 26
+    expect(u.hp).toBe(29);  // maxHp 29
   });
 
   it('咒杀：归零结算伤害', () => {
@@ -73,7 +73,7 @@ describe('tickStatuses 阶段推进', () => {
       { type: 'delayed', skillName: '咒杀', turnsLeft: 1, appliedAtTurn: 1, damage: 10 }
     ]);
     const events = tickStatuses([enemy], 'enemy');
-    expect(enemy.hp).toBe(18 - 10);
+    expect(enemy.hp).toBe(16 - 10);
     expect(enemy.statuses).toHaveLength(0);
     expect(events.some(e => e.kind === 'delayedFire')).toBe(true);
   });
@@ -83,7 +83,7 @@ describe('tickStatuses 阶段推进', () => {
       { type: 'delayed', skillName: '咒杀', turnsLeft: 3, appliedAtTurn: 1, damage: 10 }
     ]);
     tickStatuses([enemy], 'enemy');
-    expect(enemy.hp).toBe(18);
+    expect(enemy.hp).toBe(16);
     expect(enemy.statuses[0].turnsLeft).toBe(2);
   });
 

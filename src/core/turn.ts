@@ -14,10 +14,11 @@ export function checkVictory(units: UnitState[]): VictoryState {
   return 'ongoing';
 }
 
-/** 玩家阶段开始：重置行动标记，驻基地单位回复 10% 最大 HP（§3） */
+/** 玩家阶段开始：重置行动标记与本回合移动力消耗，驻基地单位回复 10% 最大 HP（§3） */
 export function startPlayerPhase(units: UnitState[], map: MapState): void {
   for (const u of units) {
     u.hasActed = false;
+    u.moveSpent = 0;
     if (getTerrain(map, u.position) === 'base') {
       u.hp = Math.min(u.maxHp, u.hp + Math.ceil(u.maxHp / 10));
     }

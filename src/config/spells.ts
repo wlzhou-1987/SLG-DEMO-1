@@ -27,7 +27,7 @@ export const SPELLS: Record<string, SpellTemplate> = {
   },
   heal: {
     name: '治疗', damageType: 'magic', rangeMin: 1, rangeMax: 2,
-    power: 8, castMode: 'instant', effectMode: 'instant', targetType: 'ally'
+    power: 10, castMode: 'instant', effectMode: 'instant', targetType: 'ally'
   },
   regen: {
     name: '再生术', damageType: 'magic', rangeMin: 1, rangeMax: 2,

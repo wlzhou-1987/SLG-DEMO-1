@@ -27,11 +27,11 @@ describe('unit', () => {
 
     it('HP 与 maxHp 取自模板', () => {
       const lord = createUnitState('lord', 'player', { q: 0, r: 0 });
-      expect(lord.hp).toBe(26);
-      expect(lord.maxHp).toBe(26);
+      expect(lord.hp).toBe(29);
+      expect(lord.maxHp).toBe(29);
       const boss = createUnitState('boss', 'enemy', { q: 10, r: 2 });
-      expect(boss.hp).toBe(40);
-      expect(boss.maxHp).toBe(40);
+      expect(boss.hp).toBe(34);
+      expect(boss.maxHp).toBe(34);
     });
   });
 
@@ -46,7 +46,7 @@ describe('unit', () => {
           facing: 0,
           hp: 26,
           maxHp: 26,
-          hasActed: false, statuses: [], activated: true
+          hasActed: false, statuses: [], activated: true, moveSpent: 0
         },
         {
           id: 'u2',
@@ -56,7 +56,7 @@ describe('unit', () => {
           facing: 1,
           hp: 26,
           maxHp: 26,
-          hasActed: false, statuses: [], activated: true
+          hasActed: false, statuses: [], activated: true, moveSpent: 0
         }
       ];
       expect(getUnitAt(units, { q: 3, r: 3 })).toBe(units[0]);
@@ -78,7 +78,7 @@ describe('unit', () => {
           facing: 0,
           hp: 26,
           maxHp: 26,
-          hasActed: false, statuses: [], activated: true
+          hasActed: false, statuses: [], activated: true, moveSpent: 0
         },
         {
           id: 'e1',
@@ -88,7 +88,7 @@ describe('unit', () => {
           facing: 3,
           hp: 18,
           maxHp: 18,
-          hasActed: false, statuses: [], activated: true
+          hasActed: false, statuses: [], activated: true, moveSpent: 0
         }
       ];
       expect(getUnitAt(units, { q: 3, r: 3 }, 'player')?.faction).toBe('player');

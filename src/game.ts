@@ -4,7 +4,7 @@ import type { UnitState } from './core/unit';
 import { createUnitState, getUnitAt } from './core/unit';
 import { axialToPixel, pixelToAxial, isValidHex, distance, hexKey, directionBetween, neighbor } from './core/hex';
 import type { HexCoord, Facing } from './core/types';
-import { calcMovementRange, calcAttackRange } from './core/range';
+import { calcMovementRange, calcAttackRange, calcMovementCosts } from './core/range';
 import { calcBattleForecast, resolveBattle } from './core/combat';
 import type { BattleForecast, StrikeResult } from './core/combat';
 import { calcSpellForecast, resolveSpell } from './core/spell';
@@ -34,7 +34,7 @@ import { logBattle } from './ui/battle-log';
 
 type Phase =
   | { mode: 'idle' }
-  | { mode: 'unitSelected'; unit: UnitState; moveRange: Set<string>; attackRange: Set<string> }
+  | { mode: 'unitSelected'; unit: UnitState; moveRange: Set<string>; attackRange: Set<string>; moveCosts: Map<string, number> }
   | { mode: 'actionMenu'; unit: UnitState; originPos: HexCoord }
   | { mode: 'targetSelect'; unit: UnitState; skill: SkillTemplate; originPos: HexCoord; targets: Set<string> }
   | { mode: 'forecast'; unit: UnitState; target: UnitState; skill: SkillTemplate; forecast: BattleForecast }
@@ -155,6 +155,7 @@ export class Game {
           const mover = this.phase.unit;
           interruptChant(mover);
           const origin = mover.position;
+          mover.moveSpent = this.phase.moveCosts.get(key) ?? 0;  // §4.8 剩余移动力
           mover.position = { ...hex };
           this.busy = true;
           void this.playMove(mover, origin, hex).then(() => {
@@ -223,6 +224,9 @@ export class Game {
     const template = getTemplate(unit.templateId);
     if (!template) return;
 
+    const moveCosts = calcMovementCosts(
+      this.map, this.units, unit.position, template.movePoints, template.flying
+    );
     const moveRange = calcMovementRange(
       this.map, this.units, unit.position, template.movePoints, template.flying
     );
@@ -230,7 +234,7 @@ export class Game {
     const rangeMax = Math.max(...template.skills.map(s => s.rangeMax));
     const attackRange = calcAttackRange(moveRange, rangeMin, rangeMax);
 
-    this.phase = { mode: 'unitSelected', unit, moveRange, attackRange };
+    this.phase = { mode: 'unitSelected', unit, moveRange, attackRange, moveCosts };
     showUnitInfo(unit);
   }
 
@@ -540,8 +544,10 @@ export class Game {
 
   private enterReMove(unit: UnitState, defaultFacing: number) {
     const template = getTemplate(unit.templateId)!;
+    // §4.8 再移动使用剩余移动力（已消耗在本回合移动时记录）
+    const remaining = Math.max(0, template.movePoints - unit.moveSpent);
     const moveRange = calcMovementRange(
-      this.map, this.units, unit.position, template.movePoints, template.flying
+      this.map, this.units, unit.position, remaining, template.flying
     );
     this.phase = { mode: 'reMove', unit, moveRange, defaultFacing };
     const world = axialToPixel(unit.position, HEX_SIZE);
@@ -572,6 +578,7 @@ export class Game {
   private undoMove(phase: { mode: 'actionMenu' | 'targetSelect'; unit: UnitState; originPos: HexCoord }) {
     hideActionMenu();
     phase.unit.position = { ...phase.originPos };
+    phase.unit.moveSpent = 0;
     this.selectUnit(phase.unit);
   }
 

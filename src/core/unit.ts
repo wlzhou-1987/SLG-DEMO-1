@@ -12,6 +12,7 @@ export interface UnitState {
   hp: number;
   maxHp: number;
   hasActed: boolean;
+  moveSpent: number;             // 本回合已消耗移动力（§4.8 再移动剩余移动力）
   statuses: ActiveStatus[];
   groupId?: string;              // 敌方组归属（集结/全组激活）
   aiKind?: GroupAiType;          // 敌方 AI 类型；玩家单位无
@@ -41,6 +42,7 @@ export function createUnitState(
     hp: template.hp,
     maxHp: template.hp,
     hasActed: false,
+    moveSpent: 0,
     statuses: [],
     activated: true
   };

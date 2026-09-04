@@ -6,18 +6,16 @@ import { neighbor, hexKey } from './hex';
 import { getUnitAt } from './unit';
 import type { Facing } from './types';
 
-export function calcMovementRange(
+/** 移动代价表：起点到各可达格的最小消耗（飞行途经被占格亦计入，供已消耗移动力计算） */
+export function calcMovementCosts(
   map: MapState,
   units: UnitState[],
   origin: HexCoord,
   movePoints: number,
   flying: boolean
-): Set<string> {
-  const result = new Set<string>();
+): Map<string, number> {
   const cost = new Map<string, number>();
   const originKey = hexKey(origin);
-
-  result.add(originKey);
   cost.set(originKey, 0);
 
   const deque: Array<{ pos: HexCoord; totalCost: number }> = [
@@ -45,10 +43,6 @@ export function calcMovementRange(
       const existingCost = cost.get(nextKey);
       if (existingCost === undefined || newCost < existingCost) {
         cost.set(nextKey, newCost);
-        // 飞行可途经被占格继续扩展，但被占格不可作为落点
-        if (getUnitAt(units, nextPos) === undefined) {
-          result.add(nextKey);
-        }
 
         if (moveCost === 1) {
           deque.unshift({ pos: nextPos, totalCost: newCost });
@@ -59,6 +53,27 @@ export function calcMovementRange(
     }
   }
 
+  return cost;
+}
+
+export function calcMovementRange(
+  map: MapState,
+  units: UnitState[],
+  origin: HexCoord,
+  movePoints: number,
+  flying: boolean
+): Set<string> {
+  const cost = calcMovementCosts(map, units, origin, movePoints, flying);
+  const result = new Set<string>();
+  for (const key of cost.keys()) {
+    const [qStr, rStr] = key.split(',');
+    const pos: HexCoord = { q: parseInt(qStr), r: parseInt(rStr) };
+    // 飞行可途经被占格继续扩展，但被占格不可作为落点
+    if (getUnitAt(units, pos) === undefined) {
+      result.add(key);
+    }
+  }
+  result.add(hexKey(origin));  // 起点恒可原地待命
   return result;
 }
 
