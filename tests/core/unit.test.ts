@@ -46,7 +46,7 @@ describe('unit', () => {
           facing: 0,
           hp: 26,
           maxHp: 26,
-          hasActed: false
+          hasActed: false, statuses: []
         },
         {
           id: 'u2',
@@ -56,7 +56,7 @@ describe('unit', () => {
           facing: 1,
           hp: 26,
           maxHp: 26,
-          hasActed: false
+          hasActed: false, statuses: []
         }
       ];
       expect(getUnitAt(units, { q: 3, r: 3 })).toBe(units[0]);
@@ -78,7 +78,7 @@ describe('unit', () => {
           facing: 0,
           hp: 26,
           maxHp: 26,
-          hasActed: false
+          hasActed: false, statuses: []
         },
         {
           id: 'e1',
@@ -88,7 +88,7 @@ describe('unit', () => {
           facing: 3,
           hp: 18,
           maxHp: 18,
-          hasActed: false
+          hasActed: false, statuses: []
         }
       ];
       expect(getUnitAt(units, { q: 3, r: 3 }, 'player')?.faction).toBe('player');

@@ -1,5 +1,6 @@
 import type { HexCoord, Faction } from './types';
 import { getTemplate } from '../config/units';
+import type { ActiveStatus } from './status';
 
 export interface UnitState {
   id: string;
@@ -10,6 +11,7 @@ export interface UnitState {
   hp: number;
   maxHp: number;
   hasActed: boolean;
+  statuses: ActiveStatus[];
 }
 
 let unitCounter = 0;
@@ -34,7 +36,8 @@ export function createUnitState(
     facing: faction === 'player' ? 1 : 4,
     hp: template.hp,
     maxHp: template.hp,
-    hasActed: false
+    hasActed: false,
+    statuses: []
   };
 }
 

@@ -51,7 +51,7 @@ describe('range', () => {
         facing: 0,
         hp: 26,
         maxHp: 26,
-        hasActed: false
+        hasActed: false, statuses: []
       }];
       const range = calcMovementRange(map, units, { q: 10, r: 15 }, 5, false);
       expect(range.has('11,15')).toBe(false);
@@ -67,7 +67,7 @@ describe('range', () => {
         facing: 0,
         hp: 26,
         maxHp: 26,
-        hasActed: false
+        hasActed: false, statuses: []
       }];
       const range = calcMovementRange(map, units, { q: 10, r: 15 }, 5, true);
       expect(range.has('11,15')).toBe(false);
@@ -83,7 +83,7 @@ describe('range', () => {
         facing: 0,
         hp: 26,
         maxHp: 26,
-        hasActed: false
+        hasActed: false, statuses: []
       }];
       const range = calcMovementRange(map, units, { q: 10, r: 15 }, 2, true);
       // (11,15) 被占不可落，但可途经——(12,15) 消耗 2 仍可达

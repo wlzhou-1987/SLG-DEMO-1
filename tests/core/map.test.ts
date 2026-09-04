@@ -56,7 +56,7 @@ describe('map', () => {
         facing: 0,
         hp: 26,
         maxHp: 26,
-        hasActed: false
+        hasActed: false, statuses: []
       }];
       expect(isPassable(map, { q: 3, r: 3 }, false, units)).toBe(false);
     });
@@ -71,7 +71,7 @@ describe('map', () => {
         facing: 0,
         hp: 26,
         maxHp: 26,
-        hasActed: false
+        hasActed: false, statuses: []
       }];
       expect(isPassable(map, { q: 3, r: 3 }, true, units)).toBe(true);
     });
