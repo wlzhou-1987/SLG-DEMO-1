@@ -25,7 +25,7 @@ import { getTerrain } from './core/map';
 import { checkVictory, startPlayerPhase } from './core/turn';
 import type { VictoryState } from './core/turn';
 import { decideEnemyAction } from './core/ai';
-import { interruptChant } from './core/status';
+import { interruptChant, tickStatuses } from './core/status';
 
 type Phase =
   | { mode: 'idle' }
@@ -473,12 +473,16 @@ export class Game {
 
   /** 敌方阶段：逐单位占位 AI 行动，短延时播放（§7.4 简化版） */
   private async runEnemyPhase() {
+    // 敌方阶段开始：推进敌方单位状态（§4.12 计时规则）
+    if (this.tickPhase('enemy') !== 'ongoing') return;
+
     const queue = this.units.filter(u => u.faction === 'enemy');
     for (const enemy of queue) {
       await new Promise(r => setTimeout(r, ENEMY_ACTION_DELAY_MS));
       if (this.victory !== 'ongoing') return;
       if (!this.units.includes(enemy)) continue;
 
+      interruptChant(enemy);  // 敌方主动行动同样打断咏唱
       const action = decideEnemyAction(this.map, this.units, enemy);
       enemy.position = { ...action.dest };
       if (action.skill && action.target) {
@@ -499,13 +503,40 @@ export class Game {
       return;
     }
 
-    // 回合推进：重置行动、基地回血
+    // 玩家阶段开始：推进玩家单位状态（咏唱触发/再生/咒杀结算），再重置行动
+    if (this.tickPhase('player') !== 'ongoing') return;
+
     this.turn++;
     startPlayerPhase(this.units, this.map);
     this.phaseLabel = '玩家';
     this.phase = { mode: 'idle' };
     this.updateTopbar();
     this.render();
+  }
+
+  /** 阶段开始推进状态并应用触发事件；返回胜负态 */
+  private tickPhase(faction: 'player' | 'enemy'): VictoryState {
+    const events = tickStatuses(this.units, faction);
+    if (events.length > 0) {
+      for (const e of events) {
+        if (e.kind === 'chantFire') {
+          const caster = this.units.find(u => u.id === e.unitId);
+          const target = this.units.find(u => u.id === e.targetId);
+          // 目标先亡则法术落空（§4.12）
+          if (caster && target) {
+            resolveSpell(this.map, caster, target, e.spell);
+          }
+        }
+      }
+      this.units = this.units.filter(u => u.hp > 0);
+      this.victory = checkVictory(this.units);
+      this.updateTopbar();
+      this.render();
+      if (this.victory !== 'ongoing') {
+        this.enterGameOver();
+      }
+    }
+    return this.victory;
   }
 
   private enterGameOver() {
