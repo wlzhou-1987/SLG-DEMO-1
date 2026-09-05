@@ -175,9 +175,9 @@ export class Game {
       case 'targetSelect': {
         if (unit && this.phase.targets.has(key)) {
           if (isSpell(this.phase.skill)) {
-            this.enterSpellForecast(this.phase.unit, unit, this.phase.skill);
+            this.enterSpellForecast(this.phase.unit, unit, this.phase.skill, this.phase.originPos);
           } else {
-            this.enterForecast(this.phase.unit, unit, this.phase.skill);
+            this.enterForecast(this.phase.unit, unit, this.phase.skill, this.phase.originPos);
           }
         } else {
           // 点空/非目标 = 返回行动菜单
@@ -322,7 +322,7 @@ export class Game {
     this.phase = { mode: 'targetSelect', unit, skill, originPos, targets };
   }
 
-  private enterForecast(unit: UnitState, target: UnitState, skill: SkillTemplate) {
+  private enterForecast(unit: UnitState, target: UnitState, skill: SkillTemplate, originPos: HexCoord) {
     hideActionMenu();
     const forecast = calcBattleForecast(this.map, unit, target, skill);
     this.phase = { mode: 'forecast', unit, target, skill, forecast };
@@ -330,11 +330,11 @@ export class Game {
     const defName = getTemplate(target.templateId)?.name ?? target.templateId;
     showForecastPanel(forecast, atkName, defName,
       () => { void this.confirmBattle(unit, target, skill); },
-      () => { this.enterTargetSelect(unit, skill, unit.position); this.render(); }
+      () => { this.enterTargetSelect(unit, skill, originPos); this.render(); }
     );
   }
 
-  private enterSpellForecast(unit: UnitState, target: UnitState, spell: SpellTemplate) {
+  private enterSpellForecast(unit: UnitState, target: UnitState, spell: SpellTemplate, originPos: HexCoord) {
     hideActionMenu();
     const forecast = calcSpellForecast(this.map, unit, target, spell);
     this.phase = { mode: 'spellForecast', unit, target, spell, forecast };
@@ -342,7 +342,7 @@ export class Game {
     const targetName = getTemplate(target.templateId)?.name ?? target.templateId;
     showSpellForecastPanel(spell.name, casterName, targetName, forecast,
       () => { void this.confirmSpell(unit, target, spell); },
-      () => { this.enterTargetSelect(unit, spell, unit.position); this.render(); }
+      () => { this.enterTargetSelect(unit, spell, originPos); this.render(); }
     );
   }
 
