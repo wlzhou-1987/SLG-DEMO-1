@@ -1,0 +1,16 @@
+{
+  "appId": "com.slgdemo1.app",
+  "productName": "SLG-DEMO-1",
+  "directories": {
+    "output": "../SLG-DEMO-1-release"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*"
+  ],
+  "win": {
+    "target": [
+      "portable"
+    ]
+  }
+}
