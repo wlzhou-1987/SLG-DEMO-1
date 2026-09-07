@@ -1,10 +1,12 @@
 # DEMO_1 — 项目纪律
 
-本文是 DEMO_1 的唯一执行纪律真源。冲突时依次遵循：用户显式指令 > 本文 > `docs/GAME-DESIGN.md` > 默认行为。默认使用中文。
+本文是 DEMO_1 的唯一执行纪律真源。冲突时依次遵循：用户显式指令 > 本文 > `docs/GAME-DESIGN.md` > `docs/BACKLOG.md` / `docs/ARCHITECTURE.md` > 默认行为。默认使用中文。
 
 ## 1. 真源与优先级
 
 - 设计规则以 `docs/GAME-DESIGN.md` 为权威来源，代码实现必须与文档一致
+- 进度与需求以 `docs/BACKLOG.md` 为唯一真源（M6 之后）；代码结构与文件职责以 `docs/ARCHITECTURE.md` 为真源
+- `docs/REQUIREMENTS.md`、`docs/TECH-STACK.md` 为历史定稿存档，只读；仅在发现事实错误时做纠正性修订
 - 无法确认的设计含义不凭经验补齐，标记"待确认"并向用户说明
 - 重要背景、决策、待确认项和验收结论必须留在仓库，不只留在对话
 
@@ -106,14 +108,29 @@ electron/
   main.cjs        # Electron 主进程：仅创建窗口加载游戏页面（dev 加载 vite，prod 加载 dist）
 tests/
   core/          # 逻辑层单测（与 src/core/ 镜像）
+  config/        # 配置校验单测
   render/        # 渲染层纯逻辑单测（如飘字状态机）
   balance/       # 平衡模拟对战（种子随机，统计胜率/回合）
 docs/
-  GAME-DESIGN.md # 设计文档（权威）
-  prototypes/    # UI 原型（参考用）
+  GAME-DESIGN.md  # 设计文档（权威；规则变更经 BACKLOG 流程回写）
+  BACKLOG.md      # 需求池与进度（M6 后唯一进度真源）
+  ARCHITECTURE.md # 代码地图（每源文件职责与设计/测试索引）
+  REQUIREMENTS.md # 历史存档：范围界定初稿（已定稿）
+  TECH-STACK.md   # 历史存档：技术选型决策记录（已确认落地）
+  prototypes/     # UI 原型（参考用）
 ```
 
-## 9. 里程碑
+## 9. 文档与进度纪律
+
+- **文档对应**：任何代码改动、功能开发或缺陷修复必须在文档中留下对应记录——规则变更回写 `docs/GAME-DESIGN.md`，文件增删/职责或公共接口变化同步 `docs/ARCHITECTURE.md`，进度与验收记录写入 `docs/BACKLOG.md` 的对应 issue；应记而未记视为本轮变更未完成
+- **进度单一真源**：M6 之后项目进度只在 `docs/BACKLOG.md` 记录；README、GAME-DESIGN §10、本文 §10 的里程碑为冻结快照，禁止回写。完成/未完成标注必须与代码事实一致，只有当轮验证证据（§6）支持时才可标记"已完成"
+- **说明文档同步**：`src/`、`electron/` 每个源文件必须在 `docs/ARCHITECTURE.md` 有对应条目；新增文件同一提交补条目，修改职责/接口同步条目，删除文件同步删条目
+- **先读文档再动手**：功能设计、评估、bug 定位必须先读文档定位上下文——BACKLOG 定位任务、GAME-DESIGN 定位规则、ARCHITECTURE 定位代码——再到源码核实；判断须基于文档或代码事实，证据要求遵循 §6，禁止凭记忆或猜测直接下结论或改代码
+- 文档改动与代码改动并入同一提交（同一主题时）或以紧随的 `docs:` 提交落地；含 commit hash 的完成记录允许在代码提交后回填，但须同一对话轮内完成
+
+## 10. 里程碑
+
+本表为历史里程碑（M1~M6 已全部完成，2026-09-04），至此冻结不再更新；后续需求与进度一律见 `docs/BACKLOG.md`。
 
 | 里程碑 | 内容 | 验收标准 |
 | --- | --- | --- |
