@@ -68,6 +68,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | 文件 | 职责（关键导出） | 设计章节 | 测试 |
 | --- | --- | --- | --- |
 | src/ui/topbar.ts | updateTopbar：顶栏回合/阶段/兵力与结束回合按钮 | §7.1 | — |
+| src/ui/prep.ts | createPrepScreen：战前准备界面——出场名单勾选 + 装备/技能/地图占位区块 + 实时校验提示 + 开战按钮（getRoster/setChecked/refresh/clickStart） | §7.0 | tests/ui/prep.test.ts |
 | src/ui/sidepanel.ts | showUnitInfo/clearUnitInfo、showTerrainInfo/clearTerrainInfo：右侧单位属性（含特性/状态）与地形面板 | §7.3 | — |
 | src/ui/action-menu.ts | showActionMenu/hideActionMenu：画布内浮动行动菜单 | §7.2 | — |
 | src/ui/forecast.ts | showForecastPanel/showSpellForecastPanel：战斗与法术预报面板（确认/取消） | §4.5/§4.12 | — |
@@ -79,8 +80,8 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | 文件 | 职责 | 设计章节 | 测试 |
 | --- | --- | --- | --- |
 | src/game.ts | Game 类：游戏主循环与状态协调枢纽——构造支持注入我方战前编成（缺省 PLAYER_UNITS、非法 throw，§7.0）、Phase 状态机（idle/unitSelected/actionMenu/targetSelect/forecast/spellForecast/reMove/facingConfirm/enemyTurn/gameOver）、输入分发、玩家/敌方行动流、动画编排、胜负呈现 | §2/§4.8/§7.0/§7.2 | tests/game.test.ts |
-| src/main.ts | 入口：挂载 canvas、实例化 Game | §9 | — |
-| src/style.css | 全局样式：布局与 UI 元素（topbar/面板/菜单/预报/日志） | §7.1 | — |
+| src/main.ts | 入口：两阶段编排——先挂战前准备界面，开战后按所选编成实例化 Game | §7.0/§9 | — |
+| src/style.css | 全局样式：布局与 UI 元素（topbar/面板/菜单/预报/日志/战前准备） | §7.0/§7.1 | — |
 | electron/main.cjs | Electron 主进程：仅创建窗口（dev 加载 127.0.0.1:5174，打包加载 dist/index.html） | §9 | — |
 
 ## 4. 维护规则

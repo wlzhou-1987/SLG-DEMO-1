@@ -111,6 +111,7 @@ tests/
   core/          # 逻辑层单测（与 src/core/ 镜像）
   config/        # 配置校验单测
   render/        # 渲染层纯逻辑单测（如飘字状态机）
+  ui/            # UI 层单测（DOM 桩，如战前准备界面）
   balance/       # 平衡模拟对战（种子随机，统计胜率/回合）
   game.test.ts   # Game 协调层集成测试
 docs/
