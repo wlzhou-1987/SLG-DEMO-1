@@ -12,7 +12,9 @@ import type { SpellForecast, SpellResult } from './core/spell';
 import type { SkillTemplate } from './config/units';
 import { isSpell } from './config/spells';
 import type { SpellTemplate } from './config/spells';
-import { MAP_OVERRIDES, PLAYER_UNITS, ENEMY_GROUPS } from './config/map';
+import { MAP_OVERRIDES, PLAYER_UNITS, ENEMY_GROUPS, DEPLOY_ZONE } from './config/map';
+import { validateDeployment } from './core/deployment';
+import type { RosterEntry } from './core/deployment';
 import { getTemplate } from './config/units';
 import { Camera } from './render/camera';
 import { HexRenderer, HEX_SIZE, FACTION_COLORS } from './render/hex-renderer';
@@ -64,14 +66,19 @@ export class Game {
   map: MapState;
   units: UnitState[];
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, roster?: RosterEntry[]) {
+    if (roster !== undefined) {
+      const check = validateDeployment(roster, DEPLOY_ZONE);
+      if (!check.ok) throw new Error(`非法编成：${check.errors.join('；')}`);
+    }
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.renderer = new HexRenderer(this.ctx);
 
     this.map = createMapState(MAP_OVERRIDES);
+    const playerRoster: RosterEntry[] = roster ?? PLAYER_UNITS;
     this.units = [
-      ...PLAYER_UNITS.map(p => createUnitState(p.templateId, p.faction, p.position)),
+      ...playerRoster.map(p => createUnitState(p.templateId, 'player', p.position)),
       ...ENEMY_GROUPS.flatMap(g =>
         g.units.map(p => {
           const u = createUnitState(p.templateId, p.faction, p.position);

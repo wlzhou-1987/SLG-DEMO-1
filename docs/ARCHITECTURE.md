@@ -78,7 +78,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 
 | 文件 | 职责 | 设计章节 | 测试 |
 | --- | --- | --- | --- |
-| src/game.ts | Game 类：游戏主循环与状态协调枢纽——Phase 状态机（idle/unitSelected/actionMenu/targetSelect/forecast/spellForecast/reMove/facingConfirm/enemyTurn/gameOver）、输入分发、玩家/敌方行动流、动画编排、胜负呈现 | §2/§4.8/§7.2 | tests/game.test.ts |
+| src/game.ts | Game 类：游戏主循环与状态协调枢纽——构造支持注入我方战前编成（缺省 PLAYER_UNITS、非法 throw，§7.0）、Phase 状态机（idle/unitSelected/actionMenu/targetSelect/forecast/spellForecast/reMove/facingConfirm/enemyTurn/gameOver）、输入分发、玩家/敌方行动流、动画编排、胜负呈现 | §2/§4.8/§7.0/§7.2 | tests/game.test.ts |
 | src/main.ts | 入口：挂载 canvas、实例化 Game | §9 | — |
 | src/style.css | 全局样式：布局与 UI 元素（topbar/面板/菜单/预报/日志） | §7.1 | — |
 | electron/main.cjs | Electron 主进程：仅创建窗口（dev 加载 127.0.0.1:5174，打包加载 dist/index.html） | §9 | — |

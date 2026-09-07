@@ -268,3 +268,39 @@ describe('撤销移动（取消行动）', () => {
     expect(game.phase.mode).toBe('unitSelected');
   });
 });
+
+describe('Game 编成注入（R1-2）', () => {
+  it('无参构造：默认 PLAYER_UNITS，我方 10 人含领主', () => {
+    const game = new Game(CANVAS_STUB) as unknown as GameDriver;
+    const players = game.units.filter(u => u.faction === 'player');
+    expect(players).toHaveLength(10);
+    expect(players.some(u => u.templateId === 'lord')).toBe(true);
+  });
+
+  it('注入子集编成：仅生成所选我方单位，敌方 40 人不变', () => {
+    const game = new Game(CANVAS_STUB, [
+      { templateId: 'lord', position: { q: 10, r: 27 } },
+      { templateId: 'knight', position: { q: 11, r: 28 } },
+      { templateId: 'priest', position: { q: 9, r: 28 } }
+    ]) as unknown as GameDriver;
+    const players = game.units.filter(u => u.faction === 'player');
+    const enemies = game.units.filter(u => u.faction === 'enemy');
+    expect(players.map(u => u.templateId).sort()).toEqual(['knight', 'lord', 'priest']);
+    expect(players.map(u => u.position)).toEqual([
+      { q: 10, r: 27 }, { q: 11, r: 28 }, { q: 9, r: 28 }
+    ]);
+    expect(enemies).toHaveLength(40);
+  });
+
+  it('非法编成（缺领主）throw', () => {
+    expect(() => new Game(CANVAS_STUB, [
+      { templateId: 'knight', position: { q: 10, r: 27 } }
+    ])).toThrow(/非法编成.*lord/);
+  });
+
+  it('非法编成（站位在部署区外）throw', () => {
+    expect(() => new Game(CANVAS_STUB, [
+      { templateId: 'lord', position: { q: 10, r: 20 } }
+    ])).toThrow(/非法编成.*部署区外/);
+  });
+});
