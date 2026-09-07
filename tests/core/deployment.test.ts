@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateDeployment, isInDeployZone, DEFAULT_DEPLOYMENT_RULES } from '../../src/core/deployment';
+import { validateDeployment, isInDeployZone, applyPlacement, DEFAULT_DEPLOYMENT_RULES } from '../../src/core/deployment';
 import type { RosterEntry } from '../../src/core/deployment';
 import { DEPLOY_ZONE, PLAYER_UNITS } from '../../src/config/map';
 
@@ -122,6 +122,41 @@ describe('deployment', () => {
       const r = validateDeployment(outOfTight, tightZone);
       expect(r.ok).toBe(false);
       expect(r.errors.some(e => e.includes('部署区外'))).toBe(true);
+    });
+  });
+
+  describe('applyPlacement', () => {
+    it('移动到部署区内空格：仅目标单位移过去', () => {
+      const roster = [entry('lord', 10, 27), entry('knight', 11, 28)];
+      const next = applyPlacement(roster, 0, { q: 5, r: 26 }, DEPLOY_ZONE);
+      expect(next).not.toBeNull();
+      expect(next![0].position).toEqual({ q: 5, r: 26 });
+      expect(next![1].position).toEqual({ q: 11, r: 28 });
+      expect(roster[0].position).toEqual({ q: 10, r: 27 });
+    });
+
+    it('目标在部署区外：返回 null', () => {
+      const roster = [entry('lord', 10, 27)];
+      expect(applyPlacement(roster, 0, { q: 10, r: 25 }, DEPLOY_ZONE)).toBeNull();
+    });
+
+    it('目标被己方占据：两单位交换位置', () => {
+      const roster = [entry('lord', 10, 27), entry('knight', 11, 28)];
+      const next = applyPlacement(roster, 0, { q: 11, r: 28 }, DEPLOY_ZONE);
+      expect(next).not.toBeNull();
+      expect(next![0].position).toEqual({ q: 11, r: 28 });
+      expect(next![1].position).toEqual({ q: 10, r: 27 });
+    });
+
+    it('目标为自身原位：原样返回', () => {
+      const roster = [entry('lord', 10, 27)];
+      const next = applyPlacement(roster, 0, { q: 10, r: 27 }, DEPLOY_ZONE);
+      expect(next).not.toBeNull();
+      expect(next![0].position).toEqual({ q: 10, r: 27 });
+    });
+
+    it('index 越界：返回 null', () => {
+      expect(applyPlacement([entry('lord', 10, 27)], 3, { q: 5, r: 26 }, DEPLOY_ZONE)).toBeNull();
     });
   });
 });

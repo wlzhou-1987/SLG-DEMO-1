@@ -76,3 +76,22 @@ export function validateDeployment(
   }
   return { ok: errors.length === 0, errors };
 }
+
+/** 战前站位调整：把 roster[index] 移到 target——空格=移动、被占=交换；区外或 index 越界返回 null */
+export function applyPlacement(
+  roster: RosterEntry[],
+  index: number,
+  target: HexCoord,
+  zone: DeployZone
+): RosterEntry[] | null {
+  const entry = roster[index];
+  if (!entry || !isInDeployZone(target, zone)) return null;
+  const other = roster.findIndex(
+    e => e !== entry && e.position.q === target.q && e.position.r === target.r
+  );
+  return roster.map((e, i) => {
+    if (i === index) return { ...e, position: { ...target } };
+    if (i === other) return { ...e, position: { ...entry.position } };
+    return e;
+  });
+}

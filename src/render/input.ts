@@ -14,6 +14,8 @@ export interface InputCallbacks {
 const DRAG_THRESHOLD = 5;
 
 export class InputHandler {
+  private cleanup: () => void;
+
   constructor(canvas: HTMLCanvasElement, callbacks: InputCallbacks) {
     let pointerDown = false;
     let dragging = false;
@@ -22,14 +24,13 @@ export class InputHandler {
     let startX = 0;
     let startY = 0;
 
-    canvas.addEventListener('mousedown', e => {
+    const onMouseDown = (e: MouseEvent): void => {
       pointerDown = true;
       dragging = false;
       lastX = startX = e.offsetX;
       lastY = startY = e.offsetY;
-    });
-
-    window.addEventListener('mousemove', e => {
+    };
+    const onMouseMove = (e: MouseEvent): void => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
@@ -51,24 +52,40 @@ export class InputHandler {
       }
       lastX = x;
       lastY = y;
-    });
-
-    window.addEventListener('mouseup', e => {
+    };
+    const onMouseUp = (e: MouseEvent): void => {
       if (!pointerDown) return;
       pointerDown = false;
       if (dragging) return;
 
       const rect = canvas.getBoundingClientRect();
       callbacks.onClick(e.clientX - rect.left, e.clientY - rect.top);
-    });
-
-    canvas.addEventListener('dblclick', e => {
+    };
+    const onDblClick = (e: MouseEvent): void => {
       callbacks.onDblClick(e.offsetX, e.offsetY);
-    });
-
-    canvas.addEventListener('wheel', e => {
+    };
+    const onWheel = (e: WheelEvent): void => {
       e.preventDefault();
       callbacks.onWheel(e.offsetX, e.offsetY, e.deltaY);
-    }, { passive: false });
+    };
+
+    canvas.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    canvas.addEventListener('dblclick', onDblClick);
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+
+    this.cleanup = (): void => {
+      canvas.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      canvas.removeEventListener('dblclick', onDblClick);
+      canvas.removeEventListener('wheel', onWheel);
+    };
+  }
+
+  /** 移除全部监听（战前画布让位给 Game 的 InputHandler 时调用） */
+  dispose(): void {
+    this.cleanup();
   }
 }

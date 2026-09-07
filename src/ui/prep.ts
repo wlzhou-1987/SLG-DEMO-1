@@ -9,12 +9,16 @@ export interface PrepScreen {
   errorList: HTMLElement;
   getRoster(): RosterEntry[];
   setChecked(templateId: string, checked: boolean): void;
+  setBoardRoster(next: RosterEntry[]): void;
   refresh(): void;
   clickStart(): void;
 }
 
-/** 战前准备界面（§7.0 R1）：出场名单勾选 + 占位区块 + 校验提示 + 开战按钮 */
-export function createPrepScreen(onStart: (roster: RosterEntry[]) => void): PrepScreen {
+/** 战前准备界面（§7.0 R1）：出场名单勾选 + 占位区块 + 校验提示 + 开战按钮；站位记忆画布调整结果 */
+export function createPrepScreen(
+  onStart: (roster: RosterEntry[]) => void,
+  onRosterUpdated?: () => void
+): PrepScreen {
   const root = document.createElement('div');
   root.className = 'prep-screen';
 
@@ -29,14 +33,17 @@ export function createPrepScreen(onStart: (roster: RosterEntry[]) => void): Prep
   rosterBlock.appendChild(rosterTitle);
 
   const checkboxes = new Map<string, HTMLInputElement>();
-  const defaultPos = new Map(PLAYER_UNITS.map(u => [u.templateId, u.position]));
+  const positions = new Map(PLAYER_UNITS.map(u => [u.templateId, { ...u.position }]));
   for (const u of PLAYER_UNITS) {
     const label = document.createElement('label');
     label.className = 'prep-unit';
     const box = document.createElement('input') as HTMLInputElement;
     box.type = 'checkbox';
     box.checked = true;
-    box.addEventListener('change', () => refresh());
+    box.addEventListener('change', () => {
+      refresh();
+      onRosterUpdated?.();
+    });
     const span = document.createElement('span');
     span.textContent = getTemplate(u.templateId)?.name ?? u.templateId;
     label.appendChild(box);
@@ -68,7 +75,7 @@ export function createPrepScreen(onStart: (roster: RosterEntry[]) => void): Prep
   function getRoster(): RosterEntry[] {
     return [...checkboxes.entries()]
       .filter(([, box]) => box.checked)
-      .map(([templateId]) => ({ templateId, position: { ...defaultPos.get(templateId)! } }));
+      .map(([templateId]) => ({ templateId, position: { ...positions.get(templateId)! } }));
   }
 
   function setChecked(templateId: string, checked: boolean): void {
@@ -76,6 +83,13 @@ export function createPrepScreen(onStart: (roster: RosterEntry[]) => void): Prep
     if (!box) return;
     box.checked = checked;
     refresh();
+    onRosterUpdated?.();
+  }
+
+  function setBoardRoster(next: RosterEntry[]): void {
+    for (const e of next) positions.set(e.templateId, { ...e.position });
+    refresh();
+    onRosterUpdated?.();
   }
 
   function refresh(): void {
@@ -90,5 +104,5 @@ export function createPrepScreen(onStart: (roster: RosterEntry[]) => void): Prep
   }
 
   refresh();
-  return { root, startButton, errorList, getRoster, setChecked, refresh, clickStart };
+  return { root, startButton, errorList, getRoster, setChecked, setBoardRoster, refresh, clickStart };
 }

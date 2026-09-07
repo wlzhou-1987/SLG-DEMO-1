@@ -96,4 +96,29 @@ describe('prep 战前准备界面（R1-3）', () => {
     prep.clickStart();
     expect(started).not.toBeNull(); // 仍是上次合法回调，未再次触发
   });
+
+  it('setBoardRoster 更新站位且保持校验通过', () => {
+    let updated = 0;
+    const prep2 = createPrepScreen(() => {}, () => { updated++; });
+    prep2.setChecked('mage', false);
+    const moved = prep2.getRoster().map(e =>
+      e.templateId === 'knight' ? { ...e, position: { q: 5, r: 26 } } : e
+    );
+    prep2.setBoardRoster(moved);
+    const knight = prep2.getRoster().find(e => e.templateId === 'knight');
+    expect(knight?.position).toEqual({ q: 5, r: 26 });
+    expect(prep2.startButton.disabled).toBe(false);
+    expect(updated).toBe(2); // setChecked 与 setBoardRoster 各触发一次
+  });
+
+  it('取消勾选再恢复：保留画布调整后的站位', () => {
+    const prep = make();
+    prep.setChecked('knight', false);
+    prep.setBoardRoster(
+      prep.getRoster().map(e => e.templateId === 'lord' ? { ...e, position: { q: 6, r: 26 } } : e)
+    );
+    prep.setChecked('knight', true);
+    const lord = prep.getRoster().find(e => e.templateId === 'lord');
+    expect(lord?.position).toEqual({ q: 6, r: 26 });
+  });
 });

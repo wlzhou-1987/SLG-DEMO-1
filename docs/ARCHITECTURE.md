@@ -32,7 +32,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/core/hex.ts | 六边形数学：neighbor/directionBetween/distance/inRange/ring、轴↔像素换算（axialToPixel/pixelToAxial）、hexCorners/isValidHex/facingToAngle | §3 | tests/core/hex.test.ts |
 | src/core/map.ts | 地图状态：createMapState（overrides 铺地形）、getTerrain/isPassable/getMoveCost；MAP_WIDTH/HEIGHT 常量 | §3 | tests/core/map.test.ts |
 | src/core/unit.ts | 单位实例：UnitState（含 moveSpent/statuses/groupId/activated）、createUnitState/getUnitAt/resetUnitCounter | §4.1/§4.8 | tests/core/unit.test.ts |
-| src/core/deployment.ts | 战前编成：RosterEntry/DeploymentRules、isInDeployZone、validateDeployment（区内/不重叠/模板存在与我方/不重复/人数上下限/必上模板，全参数化） | §7.0 | tests/core/deployment.test.ts |
+| src/core/deployment.ts | 战前编成：RosterEntry/DeploymentRules、isInDeployZone、validateDeployment（区内/不重叠/模板存在与我方/不重复/人数上下限/必上模板，全参数化）、applyPlacement（站位调整：空格移动/被占交换） | §7.0 | tests/core/deployment.test.ts |
 | src/core/range.ts | 范围计算：calcMovementCosts（Dijkstra 代价表）、calcMovementRange（飞行途经占位格不可落）、calcAttackRange（移动+射程并集减移动范围） | §3/§4.8 | tests/core/range.test.ts |
 | src/core/combat.ts | 战斗核心：attackSide（部位判定）、calcStrike/calcBattleForecast（预报）、resolveBattle（结算序列：攻击→反击→追击，护盾吸收，rng 注入） | §4.2~§4.5/§4.7 | tests/core/combat.test.ts |
 | src/core/spell.ts | 法术预报与结算：calcSpellForecast（damage/heal/regen/shield/curse 五类）、resolveSpell（即时结算或挂状态） | §4.10/§4.12 | tests/core/spell.test.ts |
@@ -61,14 +61,15 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/render/hex-renderer.ts | HexRenderer 类：地形/网格/单位（朝向箭头+HP 条+状态图标）/阵亡幽灵/范围覆盖/选中指示分层绘制；HEX_SIZE、FACTION_COLORS 常量 | §5.3/§7.4 | — |
 | src/render/animator.ts | Animator 类：移动滑行/突进/受击闪烁/登场渐入/阵亡幽灵动画状态机，随时间自衰减；时长常量 MOVE_MS 等 | §7.4 | tests/render/animator.test.ts |
 | src/render/effects.ts | EffectSystem 类：战场飘字（伤害/MISS/治疗/盾吸收），世界坐标锚定随镜头移动；FLOAT_COLOR | §7.4 | tests/render/effects.test.ts |
-| src/render/input.ts | InputHandler 类：画布鼠标事件（点击/拖动/滚轮/双击/悬停），拖动阈值区分点击与平移 | §7.1 | — |
+| src/render/input.ts | InputHandler 类：画布鼠标事件（点击/拖动/滚轮/双击/悬停），拖动阈值区分点击与平移；dispose 移除全部监听（战前画布让位时用） | §7.1 | — |
+| src/render/prep-board.ts | PrepBoard 类：战前画布——部署区高亮 + 我方站位渲染 + 点击调整（选中/移动/交换/区外 onInvalid），复用 Camera/HexRenderer/InputHandler | §7.0 | tests/render/prep-board.test.ts |
 
 ### UI 层 src/ui/（HTML DOM，无框架）
 
 | 文件 | 职责（关键导出） | 设计章节 | 测试 |
 | --- | --- | --- | --- |
 | src/ui/topbar.ts | updateTopbar：顶栏回合/阶段/兵力与结束回合按钮 | §7.1 | — |
-| src/ui/prep.ts | createPrepScreen：战前准备界面——出场名单勾选 + 装备/技能/地图占位区块 + 实时校验提示 + 开战按钮（getRoster/setChecked/refresh/clickStart） | §7.0 | tests/ui/prep.test.ts |
+| src/ui/prep.ts | createPrepScreen：战前准备面板（右侧）——出场名单勾选 + 装备/技能/地图占位区块 + 实时校验提示 + 开战按钮；站位记忆画布调整结果（getRoster/setChecked/setBoardRoster/refresh/clickStart） | §7.0 | tests/ui/prep.test.ts |
 | src/ui/sidepanel.ts | showUnitInfo/clearUnitInfo、showTerrainInfo/clearTerrainInfo：右侧单位属性（含特性/状态）与地形面板 | §7.3 | — |
 | src/ui/action-menu.ts | showActionMenu/hideActionMenu：画布内浮动行动菜单 | §7.2 | — |
 | src/ui/forecast.ts | showForecastPanel/showSpellForecastPanel：战斗与法术预报面板（确认/取消） | §4.5/§4.12 | — |
