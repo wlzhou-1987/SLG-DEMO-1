@@ -104,6 +104,7 @@ src/
   ui/            # HTML UI：topbar、sidepanel、battle-log
   game.ts        # 游戏主循环与状态协调
   main.ts        # 入口
+  style.css      # 全局样式（布局与 UI 元素）
 electron/
   main.cjs        # Electron 主进程：仅创建窗口加载游戏页面（dev 加载 vite，prod 加载 dist）
 tests/
@@ -111,6 +112,7 @@ tests/
   config/        # 配置校验单测
   render/        # 渲染层纯逻辑单测（如飘字状态机）
   balance/       # 平衡模拟对战（种子随机，统计胜率/回合）
+  game.test.ts   # Game 协调层集成测试
 docs/
   GAME-DESIGN.md  # 设计文档（权威；规则变更经 BACKLOG 流程回写）
   BACKLOG.md      # 需求池与进度（M6 后唯一进度真源）

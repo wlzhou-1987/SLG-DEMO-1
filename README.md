@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-M1~M6 已全部完成（2026-09-04，168 测试全绿），DEMO 可玩。后续需求与进度见 [docs/BACKLOG.md](docs/BACKLOG.md)，代码结构见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+M1~M6 已全部完成（2026-09-04），DEMO 可玩。后续需求与进度见 [docs/BACKLOG.md](docs/BACKLOG.md)，代码结构见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
 ## 技术栈
 
