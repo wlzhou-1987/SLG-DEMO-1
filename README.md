@@ -4,13 +4,7 @@
 
 ## 当前状态
 
-**M2 进行中**（2026-09-04）：M1 设计定稿完成，正在实现六边形棋盘渲染与交互。
-
-- [x] M1 设计定稿：逐项确认 [docs/GAME-DESIGN.md](docs/GAME-DESIGN.md) ✅
-- [ ] M2 棋盘与选中：渲染棋盘和单位，点选显示移动/攻击范围（进行中）
-- [ ] M3 战斗闭环：移动、攻击、结算（含反击/追击）、战斗预报
-- [ ] M4 回合与AI：敌方回合 AI、回合循环、胜负判定
-- [ ] M5 打磨：地形效果、信息面板、伤害反馈、数值平衡
+M1~M6 已全部完成（2026-09-04，168 测试全绿），DEMO 可玩。后续需求与进度见 [docs/BACKLOG.md](docs/BACKLOG.md)，代码结构见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
 ## 技术栈
 
@@ -55,8 +49,12 @@ DEMO_1/
 │   ├── render/            # Canvas 渲染层
 │   └── ui/                # HTML UI 元素
 └── docs/
-    ├── GAME-DESIGN.md     # 游戏设计文档（M1 定稿）
-    └── prototypes/        # 原型参考
+    ├── GAME-DESIGN.md   # 游戏设计文档（权威）
+    ├── BACKLOG.md       # 需求池与进度（唯一进度真源）
+    ├── ARCHITECTURE.md  # 代码地图（每源文件职责索引）
+    ├── REQUIREMENTS.md  # 历史存档：范围界定初稿
+    ├── TECH-STACK.md    # 历史存档：技术选型决策记录
+    └── prototypes/      # 原型参考
 ```
 
 ## 说明
