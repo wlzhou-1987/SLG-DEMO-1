@@ -32,6 +32,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/core/hex.ts | 六边形数学：neighbor/directionBetween/distance/inRange/ring、轴↔像素换算（axialToPixel/pixelToAxial）、hexCorners/isValidHex/facingToAngle | §3 | tests/core/hex.test.ts |
 | src/core/map.ts | 地图状态：createMapState（overrides 铺地形）、getTerrain/isPassable/getMoveCost；MAP_WIDTH/HEIGHT 常量 | §3 | tests/core/map.test.ts |
 | src/core/unit.ts | 单位实例：UnitState（含 moveSpent/statuses/groupId/activated）、createUnitState/getUnitAt/resetUnitCounter | §4.1/§4.8 | tests/core/unit.test.ts |
+| src/core/deployment.ts | 战前编成：RosterEntry/DeploymentRules、isInDeployZone、validateDeployment（区内/不重叠/模板存在与我方/不重复/人数上下限/必上模板，全参数化） | §7.0 | tests/core/deployment.test.ts |
 | src/core/range.ts | 范围计算：calcMovementCosts（Dijkstra 代价表）、calcMovementRange（飞行途经占位格不可落）、calcAttackRange（移动+射程并集减移动范围） | §3/§4.8 | tests/core/range.test.ts |
 | src/core/combat.ts | 战斗核心：attackSide（部位判定）、calcStrike/calcBattleForecast（预报）、resolveBattle（结算序列：攻击→反击→追击，护盾吸收，rng 注入） | §4.2~§4.5/§4.7 | tests/core/combat.test.ts |
 | src/core/spell.ts | 法术预报与结算：calcSpellForecast（damage/heal/regen/shield/curse 五类）、resolveSpell（即时结算或挂状态） | §4.10/§4.12 | tests/core/spell.test.ts |
@@ -49,7 +50,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/config/terrain.ts | 地形配置：TERRAIN_CONFIGS（移动消耗/回避/防御/颜色/标签） | §3 | — |
 | src/config/spells.ts | 法术定义：SpellTemplate（释放方式×生效方式）、SPELLS 六法术、getSpell/isSpell | §4.12 | —（tests/core/spell 间接） |
 | src/config/traits.ts | 特性修正：TRAIT_CONFIGS（背刺乘算/沉稳减补正）、getTrait | §4.7 | —（tests/core/combat 间接） |
-| src/config/map.ts | 关卡布局：MAP_OVERRIDES（地形）、PLAYER_UNITS（我方 10 人站位）、ENEMY_GROUPS（9 敌组含 aiType）、GroupAiType | §3/§5.2/§6 | tests/config/map.test.ts |
+| src/config/map.ts | 关卡布局：MAP_OVERRIDES（地形）、PLAYER_UNITS（我方 10 人站位）、DEPLOY_ZONE（部署区）、ENEMY_GROUPS（9 敌组含 aiType）、GroupAiType | §3/§5.2/§6/§7.0 | tests/config/map.test.ts |
 | src/config/reinforcements.ts | 增援事件：ReinforcementEvent、REINFORCEMENTS（回合触发/BOSS 半血触发） | §6 | —（tests/core/reinforce 间接） |
 
 ### 渲染层 src/render/

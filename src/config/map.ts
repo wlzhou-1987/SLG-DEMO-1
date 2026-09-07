@@ -17,6 +17,17 @@ export interface EnemyGroupConfig {
   units: UnitPlacement[];
 }
 
+/** 战前部署区（§7.0 R1）：可放置我方初始站位的矩形范围 */
+export interface DeployZone {
+  qMin: number;
+  qMax: number;
+  rMin: number;
+  rMax: number;
+}
+
+/** 部署区默认南端四行全宽（2026-09-07 拍板）；现 PLAYER_UNITS 站位全部落在区内 */
+export const DEPLOY_ZONE: DeployZone = { qMin: 0, qMax: 19, rMin: 26, rMax: 29 };
+
 export const MAP_OVERRIDES: MapOverrides = {
   forests: [
     { q: 5, r: 10 }, { q: 6, r: 10 }, { q: 5, r: 11 },
