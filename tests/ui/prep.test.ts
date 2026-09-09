@@ -180,13 +180,15 @@ describe('R3-5 技能配置区块', () => {
     expect(entries.find(e => e.id === 'regen')?.full).toBe(true);
   });
 
-  it('被动槽：出厂被动可移除；池中无 learnable 被动条目（结构就绪）', () => {
+  it('被动槽：出厂被动可移除；learnable 被动（真实视野，R3-6 入池）可装入', () => {
     const prep = make();
     prep.selectUnit('thief');
     expect([...prep.getEffectiveLoadout('thief').passive]).toEqual(['backstab']);
     prep.removeFromSlot('thief', 'passive', 0);
     expect([...prep.getEffectiveLoadout('thief').passive]).toEqual([]);
-    expect(prep.poolEntries('thief').some(e => e.kind === 'trait')).toBe(false);
+    expect(prep.poolEntries('thief').some(e => e.kind === 'trait')).toBe(true);
+    expect(prep.addToSlot('thief', 'true-sight')).toBe(true);
+    expect([...prep.getEffectiveLoadout('thief').passive]).toEqual(['true-sight']);
   });
 
   it('开战传参：编辑过的角色随编成传入装填，战斗内即锁定', () => {

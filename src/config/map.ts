@@ -1,11 +1,13 @@
 import type { HexCoord } from '../core/types';
 import type { MapOverrides } from '../core/map';
 import type { Faction } from '../core/types';
+import type { SkillLoadout } from '../core/unit';
 
 export interface UnitPlacement {
   templateId: string;
   faction: Faction;
   position: HexCoord;
+  loadout?: SkillLoadout;
 }
 
 /** 敌组 AI 激活类型（§6）：待机=警戒/被攻击激活；主动=登场即激活；boss=驻守不移动 */
@@ -67,10 +69,10 @@ export const ENEMY_GROUPS: EnemyGroupConfig[] = [
       { templateId: 'swordsman', faction: 'enemy', position: { q: 6, r: 20 } },
       { templateId: 'swordsman', faction: 'enemy', position: { q: 14, r: 20 } },
       { templateId: 'swordsman', faction: 'enemy', position: { q: 15, r: 20 } },
-      { templateId: 'archer_enemy', faction: 'enemy', position: { q: 5, r: 19 } },
-      { templateId: 'archer_enemy', faction: 'enemy', position: { q: 15, r: 19 } },
+      { templateId: 'archer_enemy', faction: 'enemy', position: { q: 5, r: 19 }, loadout: { active: ['snipe'], passive: ['true-sight'] } },
+      { templateId: 'archer_enemy', faction: 'enemy', position: { q: 15, r: 19 }, loadout: { active: ['snipe'], passive: ['true-sight'] } },
       { templateId: 'swordsman', faction: 'enemy', position: { q: 7, r: 18 } },
-      { templateId: 'archer_enemy', faction: 'enemy', position: { q: 13, r: 18 } }
+      { templateId: 'archer_enemy', faction: 'enemy', position: { q: 13, r: 18 }, loadout: { active: ['snipe'], passive: ['true-sight'] } }
     ]
   },
   {
@@ -79,7 +81,7 @@ export const ENEMY_GROUPS: EnemyGroupConfig[] = [
     units: [
       { templateId: 'swordsman', faction: 'enemy', position: { q: 9, r: 20 } },
       { templateId: 'swordsman', faction: 'enemy', position: { q: 11, r: 20 } },
-      { templateId: 'archer_enemy', faction: 'enemy', position: { q: 10, r: 19 } }
+      { templateId: 'archer_enemy', faction: 'enemy', position: { q: 10, r: 19 }, loadout: { active: ['snipe'], passive: ['true-sight'] } }
     ]
   },
   {
@@ -150,7 +152,7 @@ export const ENEMY_GROUPS: EnemyGroupConfig[] = [
     id: 'bossGroup', aiType: 'boss',
     // BOSS（单独成组，驻基地不移动）
     units: [
-      { templateId: 'boss', faction: 'enemy', position: { q: 10, r: 2 } }
+      { templateId: 'boss', faction: 'enemy', position: { q: 10, r: 2 }, loadout: { active: ['warHammer', 'sweep'], passive: ['true-sight'] } }
     ]
   }
 ];

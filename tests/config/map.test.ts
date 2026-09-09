@@ -5,6 +5,7 @@ import { getTemplate, getTemplateSkills, PLAYER_TEMPLATES, ENEMY_TEMPLATES } fro
 import { hexKey } from '../../src/core/hex';
 import { SPELLS, isSpell } from '../../src/config/spells';
 import { getTrait } from '../../src/config/traits';
+import { validateLoadoutForTemplate } from '../../src/config/pool';
 import { checkGroupActivation } from '../../src/core/ai';
 import { resetUnitCounter, createUnitState } from '../../src/core/unit';
 import type { UnitState } from '../../src/core/unit';
@@ -137,5 +138,51 @@ describe('法术与特性配置一致性', () => {
     expect(getTemplateSkills(mage).every(isSpell)).toBe(true);
     expect(priest.traits).toContain('steady');
     expect(getTemplate('thief')!.traits).toContain('backstab');
+  });
+});
+
+describe('R3-6 敌方关卡级配置', () => {
+  it('全部敌方条目通过双约束校验（模板存在 + loadout 合法）', () => {
+    for (const g of ENEMY_GROUPS) {
+      for (const p of g.units) {
+        const t = getTemplate(p.templateId);
+        expect(t).toBeDefined();
+        if (p.loadout) {
+          expect(validateLoadoutForTemplate(t!, p.loadout)).toEqual([]);
+        }
+      }
+    }
+  });
+
+  it('敌方首版内容：弓手出厂狙击+真实视野，BOSS 第二处真实视野（独立布防 ≥2）', () => {
+    const archers = ENEMY_GROUPS.flatMap(g => g.units).filter(p => p.templateId === 'archer_enemy');
+    expect(archers.length).toBeGreaterThanOrEqual(2);
+    for (const a of archers) {
+      expect(a.loadout?.active).toEqual(['snipe']);
+      expect(a.loadout?.passive).toContain('true-sight');
+    }
+    const boss = ENEMY_GROUPS.flatMap(g => g.units).find(p => p.templateId === 'boss')!;
+    expect(boss.loadout?.active).toEqual(['warHammer', 'sweep']);
+    expect(boss.loadout?.passive).toContain('true-sight');
+    expect(getTrait('true-sight')?.revealRange).toBeGreaterThan(0);
+  });
+
+  it('未配 loadout 的敌方默认走出厂（锤兵=重锤，纯普攻杂兵技能为空）', () => {
+    const hammer = ENEMY_GROUPS.flatMap(g => g.units).find(p => p.templateId === 'hammerman')!;
+    expect(hammer.loadout).toBeUndefined();
+    const unit = createUnitState('hammerman', 'enemy', hammer.position);
+    expect([...unit.loadout.active]).toEqual(['warHammer']);
+    const sword = ENEMY_GROUPS.flatMap(g => g.units).find(p => p.templateId === 'swordsman')!;
+    expect(sword.loadout).toBeUndefined();
+    const unit2 = createUnitState('swordsman', 'enemy', sword.position);
+    expect([...unit2.loadout.active]).toEqual([]);
+  });
+
+  it('非法配置拦截：武器不符与未注册 id 报错', () => {
+    const swordsman = getTemplate('swordsman')!;
+    const errs = validateLoadoutForTemplate(swordsman, { active: ['snipe'], passive: [] });
+    expect(errs.some(e => e.includes('武器'))).toBe(true);
+    const errs2 = validateLoadoutForTemplate(swordsman, { active: ['nonexistent'], passive: [] });
+    expect(errs2.some(e => e.includes('未注册'))).toBe(true);
   });
 });

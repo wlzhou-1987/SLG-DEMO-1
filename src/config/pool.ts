@@ -56,3 +56,42 @@ export function learnBlockReason(t: UnitTemplate, e: PoolEntry): LearnBlockReaso
 export function canLearn(t: UnitTemplate, e: PoolEntry): boolean {
   return learnBlockReason(t, e) === null;
 }
+
+/** id → 三表全量条目（含非 learnable 出厂条目；敌方配置校验用） */
+export function findRegisteredEntry(id: string): PoolEntry | undefined {
+  const skill = SKILLS[id];
+  if (skill) return { id: skill.id, name: skill.name, kind: 'skill', entry: skill };
+  const spell = SPELLS[id];
+  if (spell) return { id: spell.id, name: spell.name, kind: 'spell', entry: spell };
+  const trait = TRAIT_CONFIGS[id];
+  if (trait) return { id: trait.id, name: trait.name, kind: 'trait', entry: trait };
+  return undefined;
+}
+
+/** 装填对模板的合法性校验（R3-6 敌方关卡配置复用）：未注册 id、分组错误、双约束 */
+export function validateLoadoutForTemplate(
+  t: UnitTemplate,
+  loadout: { active: readonly string[]; passive: readonly string[] }
+): string[] {
+  const errors: string[] = [];
+  const check = (ids: readonly string[], group: 'active' | 'passive') => {
+    for (const id of ids) {
+      const entry = findRegisteredEntry(id);
+      if (!entry) {
+        errors.push(`未注册条目: ${id}（${group}）`);
+        continue;
+      }
+      const expected = entry.kind === 'trait' ? 'passive' : 'active';
+      if (expected !== group) {
+        errors.push(`分组错误: ${entry.name} 应装${expected === 'active' ? '主动' : '被动'}槽`);
+        continue;
+      }
+      const reason = learnBlockReason(t, entry);
+      if (reason === 'weapon') errors.push(`武器不符: ${entry.name}（${t.name}）`);
+      if (reason === 'resource') errors.push(`资源不符: ${entry.name}（${t.name}）`);
+    }
+  };
+  check(loadout.active, 'active');
+  check(loadout.passive, 'passive');
+  return errors;
+}

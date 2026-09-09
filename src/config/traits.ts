@@ -30,6 +30,13 @@ export const TRAIT_CONFIGS: Record<string, TraitConfig> = {
     name: '沉稳',
     desc: '受到的部位命中补正减半',
     learnable: false
+  },
+  'true-sight': {
+    id: 'true-sight',
+    name: '真实视野',
+    desc: '周围 revealRange 格内潜行单位对己方阵营可见、可选中攻击（潜行不取消）',
+    learnable: true,
+    revealRange: 3
   }
 };
 
