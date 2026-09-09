@@ -22,6 +22,9 @@ export interface PoolEntry {
 /** 不可学原因（R3-5 UI 置灰标注用；null = 可学） */
 export type LearnBlockReason = 'resource' | 'weapon';
 
+/** 学习槽位上限（§4.9 口径 A 全局统一可配常量；下限 0 = 普攻即保底） */
+export const SLOT_LIMITS = { active: 5, passive: 6 } as const;
+
 export function getPool(): PoolEntry[] {
   return [
     ...Object.values(SKILLS).filter(s => s.learnable)

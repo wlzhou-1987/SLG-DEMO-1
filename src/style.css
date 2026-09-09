@@ -155,3 +155,16 @@ html, body {
 .prep-errors { color: #ff8a8a; font-size: 13px; margin: 0; padding-left: 20px; min-height: 18px; list-style: disc; }
 .prep-start { margin-top: auto; padding: 10px 0; border-radius: 4px; border: none; cursor: pointer; font-size: 15px; background: #4a7c4e; color: #fff; }
 .prep-start:disabled { background: #39414f; color: #8a93a5; cursor: not-allowed; }
+
+/* R3-5 战前技能配置 */
+.skill-block .slot-group { margin: 8px 0; }
+.skill-block .slot-group h4 { margin: 0 0 4px; font-size: 13px; color: #c8d0dc; }
+.skill-block .slot-group ul { list-style: none; margin: 0; padding: 0; }
+.skill-block .slot-group li { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #dfe6f0; margin: 2px 0; }
+.skill-block .slot-remove { background: none; border: none; color: #8a93a5; cursor: pointer; padding: 0 4px; }
+.skill-block .slot-add { color: #7fa9d8; cursor: pointer; }
+.skill-block .pool-list { border-top: 1px solid #39414f; margin-top: 8px; padding-top: 6px; max-height: 200px; overflow-y: auto; }
+.skill-block .pool-item { font-size: 13px; color: #dfe6f0; padding: 2px 0; cursor: pointer; }
+.skill-block .pool-item small { color: #8a93a5; }
+.skill-block .pool-item.blocked { color: #5b6373; cursor: not-allowed; }
+.skill-block .pool-item.blocked small { color: #b06a6a; }
