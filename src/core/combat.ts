@@ -4,7 +4,7 @@ import { getTerrain } from './map';
 import type { UnitState } from './unit';
 import type { SkillTemplate } from '../config/skills';
 import type { UnitTemplate } from '../config/units';
-import { getTemplate, getTemplateSkills } from '../config/units';
+import { getTemplate, getTemplateSkills, basicAttackSkill } from '../config/units';
 import { directionBetween, distance } from './hex';
 import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS } from '../config/combat';
 import { TERRAIN_CONFIGS } from '../config/terrain';
@@ -89,7 +89,7 @@ export function calcStrike(
   return { skillName: skill.name, damageType: skill.damageType, side, damage, hitRate, count: 1 };
 }
 
-/** 守方反击技能：射程覆盖攻方位置者中期望伤害最高（§4.3 已确认规则） */
+/** 守方反击技能：普攻恒入候选，射程覆盖攻方位置者中期望伤害最高（§4.3/§4.9） */
 function pickCounterSkill(
   defT: UnitTemplate,
   atkT: UnitTemplate,
@@ -97,7 +97,7 @@ function pickCounterSkill(
 ): SkillTemplate | null {
   let best: SkillTemplate | null = null;
   let bestScore = -1;
-  for (const skill of getTemplateSkills(defT)) {
+  for (const skill of [basicAttackSkill(defT), ...getTemplateSkills(defT)]) {
     if (dist < skill.rangeMin || dist > skill.rangeMax) continue;
     const matrix = DAMAGE_ARMOR_MATRIX[skill.damageType][atkT.armor];
     if (matrix > bestScore) {

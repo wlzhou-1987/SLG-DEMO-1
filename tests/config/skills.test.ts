@@ -9,7 +9,8 @@ import {
   PLAYER_TEMPLATES,
   ENEMY_TEMPLATES,
   getTemplateSkills,
-  resolveSkill
+  resolveSkill,
+  basicAttackSkill
 } from '../../src/config/units';
 import { TRAIT_CONFIGS } from '../../src/config/traits';
 
@@ -22,12 +23,16 @@ describe('R3-1 三注册表与类型重构：SKILLS 注册表', () => {
     const names = new Set(entries.map(s => s.name));
     expect(ids.size).toBe(entries.length);
     expect(names.size).toBe(entries.length);
-    expect(entries.length).toBeGreaterThanOrEqual(9);
+    expect(entries.length).toBeGreaterThanOrEqual(5);
   });
 
-  it('现有内联技能已迁入注册表（盾突/盾击/重锤/狙击/横扫等）', () => {
-    for (const name of ['横斩', '盾突', '重锤', '盾击', '突刺', '重劈', '射击', '狙击', '横扫']) {
-      expect(Object.values(SKILLS).some(s => s.name === name)).toBe(true);
+  it('普攻吸收的四技能已删除，保留技能在注册表', () => {
+    const names = Object.values(SKILLS).map(s => s.name);
+    for (const name of ['盾突', '盾击', '重锤', '狙击', '横扫']) {
+      expect(names).toContain(name);
+    }
+    for (const name of ['横斩', '突刺', '重劈', '射击']) {
+      expect(names).not.toContain(name);
     }
   });
 
@@ -118,5 +123,36 @@ describe('R3-1 模板改造', () => {
   it('getSkill 按 id 取条目', () => {
     expect(getSkill('sweep')?.name).toBe('横扫');
     expect(getSkill('nonexistent')).toBeUndefined();
+  });
+});
+
+describe('R3-2 普攻口径：基础攻击=固有能力', () => {
+  it('basicAttackSkill 由模板普攻数据合成（弓远程、法杖近战钝伤）', () => {
+    const archer = PLAYER_TEMPLATES.find(t => t.id === 'archer')!;
+    const b = basicAttackSkill(archer);
+    expect(b.name).toBe('普攻');
+    expect(b.target).toBe('enemy');
+    expect(b.rangeMin).toBe(2);
+    expect(b.rangeMax).toBe(2);
+
+    const mage = PLAYER_TEMPLATES.find(t => t.id === 'mage')!;
+    const bm = basicAttackSkill(mage);
+    expect(bm.damageType).toBe('blunt');
+    expect(bm.rangeMin).toBe(1);
+    expect(bm.rangeMax).toBe(1);
+  });
+
+  it('敌方三杂兵纯普攻（skills 为空）', () => {
+    for (const id of ['swordsman', 'spearman', 'axeman_enemy']) {
+      const t = ENEMY_TEMPLATES.find(x => x.id === id)!;
+      expect(t.skills).toEqual([]);
+    }
+  });
+
+  it('被普攻吸收的四技能不再被任何模板引用', () => {
+    const gone = ['slash', 'thrust', 'heavyCleave', 'shoot'];
+    for (const t of ALL_TEMPLATES) {
+      for (const g of gone) expect(t.skills).not.toContain(g);
+    }
   });
 });

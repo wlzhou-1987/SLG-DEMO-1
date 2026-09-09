@@ -1,6 +1,6 @@
 import type { UnitState } from '../core/unit';
 import type { ArmorType, DamageType, TerrainType } from '../core/types';
-import { getTemplate, getTemplateSkills } from '../config/units';
+import { getTemplate, getTemplateSkills, basicAttackSkill } from '../config/units';
 import { TERRAIN_CONFIGS } from '../config/terrain';
 import { getTrait } from '../config/traits';
 
@@ -30,7 +30,7 @@ export function showUnitInfo(unit: UnitState): void {
   }
 
   const factionLabel = unit.faction === 'player' ? '我方' : '敌方';
-  const skills = getTemplateSkills(template)
+  const skills = [basicAttackSkill(template), ...getTemplateSkills(template)]
     .map(s => `<li>${s.name}（${DAMAGE_LABELS[s.damageType]}·射程 ${s.rangeMin}-${s.rangeMax}）</li>`)
     .join('');
 

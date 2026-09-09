@@ -10,7 +10,7 @@ import type { BattleForecast, StrikeResult } from './core/combat';
 import { calcSpellForecast, resolveSpell } from './core/spell';
 import type { SpellForecast, SpellResult } from './core/spell';
 import type { SkillTemplate } from './config/skills';
-import { getTemplate, getTemplateSkills, hasTemplateTrait } from './config/units';
+import { getTemplate, getTemplateSkills, hasTemplateTrait, basicAttackSkill } from './config/units';
 import { isSpell } from './config/spells';
 import type { SpellTemplate } from './config/spells';
 import { MAP_OVERRIDES, PLAYER_UNITS, ENEMY_GROUPS, DEPLOY_ZONE } from './config/map';
@@ -237,7 +237,7 @@ export class Game {
     const moveRange = calcMovementRange(
       this.map, this.units, unit.position, template.movePoints, template.flying
     );
-    const resolvedSkills = getTemplateSkills(template);
+    const resolvedSkills = [basicAttackSkill(template), ...getTemplateSkills(template)];
     const rangeMin = Math.min(...resolvedSkills.map(s => s.rangeMin));
     const rangeMax = Math.max(...resolvedSkills.map(s => s.rangeMax));
     const attackRange = calcAttackRange(moveRange, rangeMin, rangeMax);
@@ -254,10 +254,11 @@ export class Game {
 
     const template = getTemplate(unit.templateId)!;
     const resolved = getTemplateSkills(template);
-    const attackSkills = resolved.filter(s => !isSpell(s));
+    // R3-2：普攻恒为攻击选项（不占技能位，§4.9）
+    const attackSkills = [basicAttackSkill(template), ...resolved.filter(s => !isSpell(s))];
     const spellSkills = resolved.filter(isSpell);
     const items: Array<{ label: string; value: string; kind?: 'normal' | 'cancel' }> = [];
-    if (attackSkills.length > 0) items.push({ label: '攻击', value: 'attack' });
+    items.push({ label: '攻击', value: 'attack' });
     if (spellSkills.length > 0) items.push({ label: '法术', value: 'spell' });
     items.push({ label: '待机', value: 'wait' }, { label: '取消', value: 'cancel', kind: 'cancel' });
 

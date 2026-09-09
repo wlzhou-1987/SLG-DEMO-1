@@ -34,7 +34,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/core/unit.ts | 单位实例：UnitState（含 moveSpent/statuses/groupId/activated）、createUnitState/getUnitAt/resetUnitCounter | §4.1/§4.8 | tests/core/unit.test.ts |
 | src/core/deployment.ts | 战前编成：RosterEntry/DeploymentRules、isInDeployZone、validateDeployment（区内/不重叠/模板存在与我方/不重复/人数上下限/必上模板，全参数化）、applyPlacement（站位调整：空格移动/被占交换） | §7.0 | tests/core/deployment.test.ts |
 | src/core/range.ts | 范围计算：calcMovementCosts（Dijkstra 代价表）、calcMovementRange（飞行途经占位格不可落）、calcAttackRange（移动+射程并集减移动范围） | §3/§4.8 | tests/core/range.test.ts |
-| src/core/combat.ts | 战斗核心：attackSide（部位判定）、calcStrike/calcBattleForecast（预报）、resolveBattle（结算序列：攻击→反击→追击，护盾吸收，rng 注入） | §4.2~§4.5/§4.7 | tests/core/combat.test.ts |
+| src/core/combat.ts | 战斗核心：attackSide（部位判定）、calcStrike/calcBattleForecast（预报）、resolveBattle（结算序列：攻击→反击→追击，护盾吸收，rng 注入）；反击与攻击候选均含普攻（R3-2） | §4.2~§4.5/§4.7/§4.9 | tests/core/combat.test.ts |
 | src/core/spell.ts | 法术预报与结算：calcSpellForecast（damage/heal/regen/shield/curse 五类）、resolveSpell（即时结算或挂状态） | §4.10/§4.12 | tests/core/spell.test.ts |
 | src/core/status.ts | 状态系统：四种 ActiveStatus 定义、resolveArmor（护盾覆盖）、tickStatuses（阶段开始推进，返回事件）、interruptChant | §4.10/§4.12 | tests/core/status.test.ts |
 | src/core/turn.ts | 回合与胜负：checkVictory（全灭/领主阵亡）、startPlayerPhase（重置行动+基地回复） | §2/§3 | tests/core/turn.test.ts |
@@ -46,7 +46,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | 文件 | 职责（关键导出） | 设计章节 | 测试 |
 | --- | --- | --- | --- |
 | src/config/skills.ts | SKILLS 注册表（物理攻击+行为技能）：SkillTemplate（target 三值/主效果扁平伤害段/附属段声明/AoE 效果区域/资源与武器声明/瞬发/counters/learnable）、WeaponAtom 8 原子、主资源三枚举 | §4.9 | tests/config/skills.test.ts |
-| src/config/units.ts | 兵种模板：UnitTemplate（weapons 数组/resourceType/basicAttack 普攻数据/skills id 引用/traits 绑定被动）、SkillTemplate 已迁 skills.ts、PLAYER_TEMPLATES（10 我方）/ENEMY_TEMPLATES（7 敌方）、getTemplate、resolveSkill（SKILLS ∪ SPELLS）、getTemplateSkills、hasTemplateTrait | §4.9/§5.1/§5.2 | tests/config/skills.test.ts |
+| src/config/units.ts | 兵种模板：UnitTemplate（weapons 数组/resourceType/basicAttack 普攻数据/skills id 引用/traits 绑定被动）、SkillTemplate 已迁 skills.ts、PLAYER_TEMPLATES（10 我方）/ENEMY_TEMPLATES（7 敌方）、getTemplate、resolveSkill（SKILLS ∪ SPELLS）、getTemplateSkills、basicAttackSkill（普攻合成技能形态）、hasTemplateTrait | §4.9/§5.1/§5.2 | tests/config/skills.test.ts |
 | src/config/combat.ts | 战斗数值：DAMAGE_ARMOR_MATRIX（伤害×护甲矩阵）、PART_BONUS（部位补正）、COMBAT_PARAMS（命中/追击/超射程参数） | §4.2~§4.4/§4.7 | —（tests/core/combat 间接） |
 | src/config/terrain.ts | 地形配置：TERRAIN_CONFIGS（移动消耗/回避/防御/颜色/标签） | §3 | — |
 | src/config/spells.ts | 法术定义：SpellTemplate（继承 SkillTemplate，id/target/learnable；释放方式×生效方式）、SPELLS 六法术、getSpell/isSpell | §4.12 | —（tests/core/spell 间接） |

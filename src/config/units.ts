@@ -40,7 +40,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['sword'], resourceType: 'rage',
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
     hp: 29, atk: 10, def: 6, spd: 9, tec: 10, lck: 7,
-    skills: ['slash', 'shieldThrust']
+    skills: ['shieldThrust']
   },
   {
     id: 'defender', name: '防战', label: '战', faction: 'player',
@@ -48,7 +48,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['sword', 'shield'], resourceType: 'rage',
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
     hp: 33, atk: 8, def: 9, spd: 5, tec: 8, lck: 4,
-    skills: ['slash', 'shieldThrust']
+    skills: ['shieldThrust']
   },
   {
     id: 'paladin', name: '防骑', label: '骑', faction: 'player',
@@ -65,7 +65,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
     hp: 25, atk: 8, def: 3, spd: 12, tec: 11, lck: 8,
     traits: ['backstab'],
-    skills: ['thrust']
+    skills: []
   },
   {
     id: 'knight', name: '骑士', label: '骑', faction: 'player',
@@ -74,7 +74,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
     hp: 29, atk: 10, def: 7, spd: 8, tec: 8, lck: 5,
     traits: ['re-move'],
-    skills: ['thrust']
+    skills: []
   },
   {
     id: 'pegasus', name: '飞马', label: '马', faction: 'player',
@@ -82,7 +82,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['spear'], resourceType: 'focus',
     basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
     hp: 27, atk: 9, def: 5, spd: 11, tec: 9, lck: 7,
-    skills: ['thrust']
+    skills: []
   },
   {
     id: 'axeman', name: '斧兵', label: '斧', faction: 'player',
@@ -90,7 +90,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['axe'], resourceType: 'rage',
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
     hp: 31, atk: 12, def: 6, spd: 5, tec: 7, lck: 3,
-    skills: ['heavyCleave']
+    skills: []
   },
   {
     id: 'archer', name: '弓箭', label: '弓', faction: 'player',
@@ -98,7 +98,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['bow'], resourceType: 'focus',
     basicAttack: { damageType: 'piercing', rangeMin: 2, rangeMax: 2 },
     hp: 25, atk: 9, def: 4, spd: 7, tec: 9, lck: 5,
-    skills: ['shoot', 'snipe']
+    skills: ['snipe']
   },
   {
     id: 'priest', name: '牧师', label: '牧', faction: 'player',
@@ -126,7 +126,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     weapons: ['sword'], resourceType: 'rage',
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
     hp: 16, atk: 5, def: 4, spd: 8, tec: 8, lck: 4,
-    skills: ['slash']
+    skills: []
   },
   {
     id: 'spearman', name: '枪兵', label: '枪', faction: 'enemy',
@@ -134,7 +134,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     weapons: ['spear'], resourceType: 'rage',
     basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
     hp: 18, atk: 6, def: 5, spd: 4, tec: 6, lck: 3,
-    skills: ['thrust']
+    skills: []
   },
   {
     id: 'axeman_enemy', name: '斧兵', label: '斧', faction: 'enemy',
@@ -142,7 +142,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     weapons: ['axe'], resourceType: 'rage',
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
     hp: 19, atk: 8, def: 4, spd: 4, tec: 5, lck: 2,
-    skills: ['heavyCleave']
+    skills: []
   },
   {
     id: 'hammerman', name: '锤兵', label: '锤', faction: 'enemy',
@@ -158,7 +158,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     weapons: ['bow'], resourceType: 'focus',
     basicAttack: { damageType: 'piercing', rangeMin: 2, rangeMax: 2 },
     hp: 15, atk: 5, def: 3, spd: 5, tec: 7, lck: 3,
-    skills: ['shoot', 'snipe']
+    skills: ['snipe']
   },
   {
     id: 'mage_enemy', name: '敌方法师', label: '法', faction: 'enemy',
@@ -192,6 +192,20 @@ export function getTemplateSkills(t: UnitTemplate): (SkillTemplate | SpellTempla
   return t.skills
     .map(id => resolveSkill(id))
     .filter((s): s is SkillTemplate | SpellTemplate => s !== undefined);
+}
+
+/** 普攻合成为技能形态（§4.9：基础攻击=固有能力，不占技能位；结算走同一条管线） */
+export function basicAttackSkill(t: UnitTemplate): SkillTemplate {
+  return {
+    id: 'basic',
+    name: '普攻',
+    target: 'enemy',
+    damageType: t.basicAttack.damageType,
+    power: t.basicAttack.power,
+    rangeMin: t.basicAttack.rangeMin,
+    rangeMax: t.basicAttack.rangeMax,
+    learnable: false
+  };
 }
 
 /** 再移动判定（R8 reMove 技能化：改为模板绑定被动） */

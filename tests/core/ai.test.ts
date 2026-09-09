@@ -23,6 +23,15 @@ describe('decideEnemyAction 占位 AI', () => {
     expect(d).toBe(1); // 近战贴脸
   });
 
+  it('R3-2 纯普攻单位（技能集为空）可行动并择优选普攻', () => {
+    // 枪兵 R3-2 后 skills=[]，仅有普攻
+    const enemy = createUnitState('spearman', 'enemy', { q: 10, r: 15 });
+    const player = createUnitState('lord', 'player', { q: 11, r: 15 });
+    const action = decideEnemyAction(map, [enemy, player], enemy);
+    expect(action.skill?.name).toBe('普攻');
+    expect(action.target).toBe(player);
+  });
+
   it('能击杀的组合优先', () => {
     const enemy = createUnitState('boss', 'enemy', { q: 10, r: 15 });
     const fullHp = createUnitState('lord', 'player', { q: 10, r: 18 });

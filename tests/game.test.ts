@@ -214,7 +214,7 @@ describe('撤销移动（取消行动）', () => {
     expect(game.phase.mode).toBe('actionMenu');
 
     menuClick('攻击');
-    menuClick('攻击·横斩');
+    menuClick('攻击·普攻');
     expect(game.phase.mode).toBe('targetSelect');
 
     click(foe);

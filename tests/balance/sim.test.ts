@@ -4,7 +4,7 @@ import type { MapState } from '../../src/core/map';
 import { createUnitState, resetUnitCounter } from '../../src/core/unit';
 import type { UnitState } from '../../src/core/unit';
 import { MAP_OVERRIDES, PLAYER_UNITS, ENEMY_GROUPS } from '../../src/config/map';
-import { getTemplate, getTemplateSkills } from '../../src/config/units';
+import { getTemplate, getTemplateSkills, basicAttackSkill } from '../../src/config/units';
 import type { SkillTemplate } from '../../src/config/skills';
 import { isSpell } from '../../src/config/spells';
 import type { SpellTemplate } from '../../src/config/spells';
@@ -48,7 +48,9 @@ function occupied(units: UnitState[], pos: HexCoord, self: UnitState): boolean {
 
 function usableSkills(u: UnitState): SkillTemplate[] {
   const template = getTemplate(u.templateId)!;
-  return getTemplateSkills(template).filter(s => !isSpell(s) || s.targetType === 'enemy');
+  // R3-2：普攻恒为可用攻击选项（不占技能位）
+  return [basicAttackSkill(template),
+    ...getTemplateSkills(template).filter(s => !isSpell(s) || s.targetType === 'enemy')];
 }
 
 /** 启发式玩家行动：优先治疗重伤友军，否则落位攻击最近敌人 */

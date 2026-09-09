@@ -51,10 +51,6 @@ export interface SkillTemplate {
 }
 
 export const SKILLS: Record<string, SkillTemplate> = {
-  slash: {
-    id: 'slash', name: '横斩', target: 'enemy', damageType: 'slashing',
-    rangeMin: 1, rangeMax: 1, learnable: false
-  },
   shieldThrust: {
     id: 'shieldThrust', name: '盾突', target: 'enemy', damageType: 'blunt',
     rangeMin: 1, rangeMax: 1, weaponType: 'shield', learnable: false
@@ -66,18 +62,6 @@ export const SKILLS: Record<string, SkillTemplate> = {
   shieldStrike: {
     id: 'shieldStrike', name: '盾击', target: 'enemy', damageType: 'blunt',
     rangeMin: 1, rangeMax: 1, weaponType: 'shield', learnable: false
-  },
-  thrust: {
-    id: 'thrust', name: '突刺', target: 'enemy', damageType: 'piercing',
-    rangeMin: 1, rangeMax: 1, weaponType: 'spear', learnable: false
-  },
-  heavyCleave: {
-    id: 'heavyCleave', name: '重劈', target: 'enemy', damageType: 'slashing',
-    rangeMin: 1, rangeMax: 1, weaponType: 'axe', learnable: false
-  },
-  shoot: {
-    id: 'shoot', name: '射击', target: 'enemy', damageType: 'piercing',
-    rangeMin: 2, rangeMax: 2, weaponType: 'bow', learnable: false
   },
   snipe: {
     id: 'snipe', name: '狙击', target: 'enemy', damageType: 'piercing',
