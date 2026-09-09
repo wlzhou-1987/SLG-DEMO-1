@@ -1,8 +1,11 @@
+import type { WeaponAtom } from './skills';
+
 export interface TraitConfig {
   id: string;
   name: string;
   desc: string;
   learnable: boolean;          // F2：true=通用被动进池 / false=职业绑定仅模板引用
+  weaponType?: WeaponAtom | WeaponAtom[]; // 声明即过滤（被动也可声明武器要求，§4.9）
   backstabMultiplier?: number; // 背刺：背面伤害乘算倍率（替代 +3 加算）
   revealRange?: number;        // 真实视野（§6 反制；随 R3-8 生效）
 }
