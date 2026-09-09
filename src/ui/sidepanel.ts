@@ -1,6 +1,7 @@
 import type { UnitState } from '../core/unit';
+import { getUnitActiveSkills } from '../core/unit';
 import type { ArmorType, DamageType, TerrainType } from '../core/types';
-import { getTemplate, getTemplateSkills, basicAttackSkill } from '../config/units';
+import { getTemplate, basicAttackSkill } from '../config/units';
 import { TERRAIN_CONFIGS } from '../config/terrain';
 import { getTrait } from '../config/traits';
 
@@ -30,7 +31,7 @@ export function showUnitInfo(unit: UnitState): void {
   }
 
   const factionLabel = unit.faction === 'player' ? '我方' : '敌方';
-  const skills = [basicAttackSkill(template), ...getTemplateSkills(template)]
+  const skills = [basicAttackSkill(template), ...getUnitActiveSkills(unit)]
     .map(s => `<li>${s.name}（${DAMAGE_LABELS[s.damageType]}·射程 ${s.rangeMin}-${s.rangeMax}）</li>`)
     .join('');
 
@@ -41,7 +42,7 @@ export function showUnitInfo(unit: UnitState): void {
     return `咒杀（${s.turnsLeft} 回合后 -${s.damage}）`;
   }).map(s => `<li>${s}</li>`).join('');
 
-  const traits = (template.traits ?? [])
+  const traits = [...unit.loadout.passive]
     .map(id => getTrait(id))
     .filter((t): t is NonNullable<typeof t> => t !== undefined)
     .map(t => `<li><b>${t.name}</b>：${t.desc}</li>`)

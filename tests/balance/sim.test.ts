@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { createMapState } from '../../src/core/map';
 import type { MapState } from '../../src/core/map';
-import { createUnitState, resetUnitCounter } from '../../src/core/unit';
+import { createUnitState, resetUnitCounter, getUnitActiveSkills } from '../../src/core/unit';
 import type { UnitState } from '../../src/core/unit';
 import { MAP_OVERRIDES, PLAYER_UNITS, ENEMY_GROUPS } from '../../src/config/map';
-import { getTemplate, getTemplateSkills, basicAttackSkill } from '../../src/config/units';
+import { getTemplate, basicAttackSkill } from '../../src/config/units';
 import type { SkillTemplate } from '../../src/config/skills';
 import { isSpell } from '../../src/config/spells';
 import type { SpellTemplate } from '../../src/config/spells';
@@ -50,7 +50,7 @@ function usableSkills(u: UnitState): SkillTemplate[] {
   const template = getTemplate(u.templateId)!;
   // R3-2：普攻恒为可用攻击选项（不占技能位）
   return [basicAttackSkill(template),
-    ...getTemplateSkills(template).filter(s => !isSpell(s) || s.targetType === 'enemy')];
+    ...getUnitActiveSkills(u).filter(s => !isSpell(s) || s.targetType === 'enemy')];
 }
 
 /** 启发式玩家行动：优先治疗重伤友军，否则落位攻击最近敌人 */
@@ -102,7 +102,7 @@ function actPlayerUnit(map: MapState, units: UnitState[], u: UnitState, rng: () 
   }
 
   // 治疗类法术：射程内最重伤的友军（<70% HP）
-  const healSkill = getTemplateSkills(template).find(
+  const healSkill = getUnitActiveSkills(u).find(
     (s): s is SpellTemplate => isSpell(s) && s.targetType === 'ally'
   );
   if (healSkill) {

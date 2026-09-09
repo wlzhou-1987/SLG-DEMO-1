@@ -32,7 +32,8 @@ describe('M6-4 calcMovementCosts（再移动剩余移动力 §4.8）', () => {
       facing: 0,
       hp: 26,
       maxHp: 26,
-      hasActed: false, statuses: [], activated: true, moveSpent: 0
+      hasActed: false, statuses: [], activated: true, moveSpent: 0,
+          loadout: { active: [], passive: [] }
     }];
     const costs = calcMovementCosts(map, units, { q: 10, r: 15 }, 2, true);
     expect(costs.get('11,15')).toBe(1);  // 被占格：不可落但可途经
@@ -88,7 +89,8 @@ describe('range', () => {
         facing: 0,
         hp: 26,
         maxHp: 26,
-        hasActed: false, statuses: [], activated: true, moveSpent: 0
+        hasActed: false, statuses: [], activated: true, moveSpent: 0,
+          loadout: { active: [], passive: [] }
       }];
       const range = calcMovementRange(map, units, { q: 10, r: 15 }, 5, false);
       expect(range.has('11,15')).toBe(false);
@@ -104,7 +106,8 @@ describe('range', () => {
         facing: 0,
         hp: 26,
         maxHp: 26,
-        hasActed: false, statuses: [], activated: true, moveSpent: 0
+        hasActed: false, statuses: [], activated: true, moveSpent: 0,
+          loadout: { active: [], passive: [] }
       }];
       const range = calcMovementRange(map, units, { q: 10, r: 15 }, 5, true);
       expect(range.has('11,15')).toBe(false);
@@ -120,7 +123,8 @@ describe('range', () => {
         facing: 0,
         hp: 26,
         maxHp: 26,
-        hasActed: false, statuses: [], activated: true, moveSpent: 0
+        hasActed: false, statuses: [], activated: true, moveSpent: 0,
+          loadout: { active: [], passive: [] }
       }];
       const range = calcMovementRange(map, units, { q: 10, r: 15 }, 2, true);
       // (11,15) 被占不可落，但可途经——(12,15) 消耗 2 仍可达

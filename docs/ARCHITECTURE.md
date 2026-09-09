@@ -31,8 +31,8 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/core/types.ts | 全篇基础类型：HexCoord/PixelCoord/Facing/TerrainType/Faction/ArmorType/DamageType | §4.1 | —（纯类型） |
 | src/core/hex.ts | 六边形数学：neighbor/directionBetween/distance/inRange/ring、轴↔像素换算（axialToPixel/pixelToAxial）、hexCorners/isValidHex/facingToAngle | §3 | tests/core/hex.test.ts |
 | src/core/map.ts | 地图状态：createMapState（overrides 铺地形）、getTerrain/isPassable/getMoveCost；MAP_WIDTH/HEIGHT 常量 | §3 | tests/core/map.test.ts |
-| src/core/unit.ts | 单位实例：UnitState（含 moveSpent/statuses/groupId/activated）、createUnitState/getUnitAt/resetUnitCounter | §4.1/§4.8 | tests/core/unit.test.ts |
-| src/core/deployment.ts | 战前编成：RosterEntry/DeploymentRules、isInDeployZone、validateDeployment（区内/不重叠/模板存在与我方/不重复/人数上下限/必上模板，全参数化）、applyPlacement（站位调整：空格移动/被占交换） | §7.0 | tests/core/deployment.test.ts |
+| src/core/unit.ts | 单位实例：UnitState（含 moveSpent/statuses/loadout 技能装填·战斗内冻结/groupId/activated）、createUnitState（按编成或出厂装填初始化并冻结）、getUnitAt/getUnitActiveSkills（实例主动解析）/hasUnitTrait/resetUnitCounter | §4.1/§4.8/§4.9 | tests/core/unit.test.ts |
+| src/core/deployment.ts | 战前编成：RosterEntry（含可选技能装填 loadout）/DeploymentRules、isInDeployZone、validateDeployment（区内/不重叠/模板存在与我方/不重复/人数上下限/必上模板，全参数化）、applyPlacement（站位调整：空格移动/被占交换） | §7.0 | tests/core/deployment.test.ts |
 | src/core/range.ts | 范围计算：calcMovementCosts（Dijkstra 代价表）、calcMovementRange（飞行途经占位格不可落）、calcAttackRange（移动+射程并集减移动范围） | §3/§4.8 | tests/core/range.test.ts |
 | src/core/combat.ts | 战斗核心：attackSide（部位判定）、calcStrike/calcBattleForecast（预报）、resolveBattle（结算序列：攻击→反击→追击，护盾吸收，rng 注入）；反击与攻击候选均含普攻（R3-2） | §4.2~§4.5/§4.7/§4.9 | tests/core/combat.test.ts |
 | src/core/spell.ts | 法术预报与结算：calcSpellForecast（damage/heal/regen/shield/curse 五类）、resolveSpell（即时结算或挂状态） | §4.10/§4.12 | tests/core/spell.test.ts |

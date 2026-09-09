@@ -1,7 +1,7 @@
 import type { MapState } from './core/map';
 import { createMapState } from './core/map';
 import type { UnitState } from './core/unit';
-import { createUnitState, getUnitAt } from './core/unit';
+import { createUnitState, getUnitAt, getUnitActiveSkills, hasUnitTrait } from './core/unit';
 import { axialToPixel, pixelToAxial, isValidHex, distance, hexKey, directionBetween, neighbor } from './core/hex';
 import type { HexCoord, Facing } from './core/types';
 import { calcMovementRange, calcAttackRange, calcMovementCosts } from './core/range';
@@ -10,7 +10,7 @@ import type { BattleForecast, StrikeResult } from './core/combat';
 import { calcSpellForecast, resolveSpell } from './core/spell';
 import type { SpellForecast, SpellResult } from './core/spell';
 import type { SkillTemplate } from './config/skills';
-import { getTemplate, getTemplateSkills, hasTemplateTrait, basicAttackSkill } from './config/units';
+import { getTemplate, basicAttackSkill } from './config/units';
 import { isSpell } from './config/spells';
 import type { SpellTemplate } from './config/spells';
 import { MAP_OVERRIDES, PLAYER_UNITS, ENEMY_GROUPS, DEPLOY_ZONE } from './config/map';
@@ -78,7 +78,7 @@ export class Game {
     this.map = createMapState(MAP_OVERRIDES);
     const playerRoster: RosterEntry[] = roster ?? PLAYER_UNITS;
     this.units = [
-      ...playerRoster.map(p => createUnitState(p.templateId, 'player', p.position)),
+      ...playerRoster.map(p => createUnitState(p.templateId, 'player', p.position, p.loadout)),
       ...ENEMY_GROUPS.flatMap(g =>
         g.units.map(p => {
           const u = createUnitState(p.templateId, p.faction, p.position);
@@ -237,7 +237,7 @@ export class Game {
     const moveRange = calcMovementRange(
       this.map, this.units, unit.position, template.movePoints, template.flying
     );
-    const resolvedSkills = [basicAttackSkill(template), ...getTemplateSkills(template)];
+    const resolvedSkills = [basicAttackSkill(template), ...getUnitActiveSkills(unit)];
     const rangeMin = Math.min(...resolvedSkills.map(s => s.rangeMin));
     const rangeMax = Math.max(...resolvedSkills.map(s => s.rangeMax));
     const attackRange = calcAttackRange(moveRange, rangeMin, rangeMax);
@@ -253,7 +253,7 @@ export class Game {
     const screen = this.camera.worldToScreen(world);
 
     const template = getTemplate(unit.templateId)!;
-    const resolved = getTemplateSkills(template);
+    const resolved = getUnitActiveSkills(unit);
     // R3-2：普攻恒为攻击选项（不占技能位，§4.9）
     const attackSkills = [basicAttackSkill(template), ...resolved.filter(s => !isSpell(s))];
     const spellSkills = resolved.filter(isSpell);
@@ -401,8 +401,7 @@ export class Game {
       return;
     }
     const facing = directionBetween(unit.position, target.position);
-    const t = getTemplate(unit.templateId);
-    if (t && hasTemplateTrait(t, 're-move')) {
+    if (hasUnitTrait(unit, 're-move')) {
       this.enterReMove(unit, facing);
     } else {
       this.enterFacingConfirm(unit, facing);
@@ -433,8 +432,7 @@ export class Game {
       return;
     }
     const facing = directionBetween(unit.position, target.position);
-    const t = getTemplate(unit.templateId);
-    if (t && hasTemplateTrait(t, 're-move')) {
+    if (hasUnitTrait(unit, 're-move')) {
       this.enterReMove(unit, facing);
     } else {
       this.enterFacingConfirm(unit, facing);

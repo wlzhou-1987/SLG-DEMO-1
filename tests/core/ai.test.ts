@@ -185,3 +185,21 @@ describe('BOSS 驻守与组集结（§6）', () => {
     expect(distance(actionB.dest, south.position)).toBeLessThan(distance(b.position, south.position));
   });
 });
+
+describe('R3-3 AI 候选读实例装填', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+
+  it('清空技能装填后仅以普攻行动', () => {
+    const enemy = createUnitState('mage_enemy', 'enemy', { q: 10, r: 15 }, {
+      active: [], passive: []
+    });
+    const player = createUnitState('lord', 'player', { q: 10, r: 16 });
+    const action = decideEnemyAction(map, [enemy, player], enemy);
+    expect(action.skill?.name).toBe('普攻');
+    expect(action.target).toBe(player);
+  });
+});

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getUnitAt, createUnitState, resetUnitCounter } from '../../src/core/unit';
+import { getUnitAt, createUnitState, resetUnitCounter, getUnitActiveSkills, hasUnitTrait } from '../../src/core/unit';
 import type { UnitState } from '../../src/core/unit';
 
 describe('unit', () => {
@@ -46,7 +46,8 @@ describe('unit', () => {
           facing: 0,
           hp: 26,
           maxHp: 26,
-          hasActed: false, statuses: [], activated: true, moveSpent: 0
+          hasActed: false, statuses: [], activated: true, moveSpent: 0,
+          loadout: { active: [], passive: [] }
         },
         {
           id: 'u2',
@@ -56,7 +57,8 @@ describe('unit', () => {
           facing: 1,
           hp: 26,
           maxHp: 26,
-          hasActed: false, statuses: [], activated: true, moveSpent: 0
+          hasActed: false, statuses: [], activated: true, moveSpent: 0,
+          loadout: { active: [], passive: [] }
         }
       ];
       expect(getUnitAt(units, { q: 3, r: 3 })).toBe(units[0]);
@@ -78,7 +80,8 @@ describe('unit', () => {
           facing: 0,
           hp: 26,
           maxHp: 26,
-          hasActed: false, statuses: [], activated: true, moveSpent: 0
+          hasActed: false, statuses: [], activated: true, moveSpent: 0,
+          loadout: { active: [], passive: [] }
         },
         {
           id: 'e1',
@@ -88,11 +91,51 @@ describe('unit', () => {
           facing: 3,
           hp: 18,
           maxHp: 18,
-          hasActed: false, statuses: [], activated: true, moveSpent: 0
+          hasActed: false, statuses: [], activated: true, moveSpent: 0,
+          loadout: { active: [], passive: [] }
         }
       ];
       expect(getUnitAt(units, { q: 3, r: 3 }, 'player')?.faction).toBe('player');
       expect(getUnitAt(units, { q: 3, r: 3 }, 'enemy')?.faction).toBe('enemy');
     });
+  });
+});
+
+describe('R3-3 技能挂实例与战斗内锁定', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  it('默认装填 = 出厂装填（active=模板 skills、passive=模板 traits）', () => {
+    const lord = createUnitState('lord', 'player', { q: 0, r: 0 });
+    expect([...lord.loadout.active]).toEqual(['shieldThrust']);
+    expect([...lord.loadout.passive]).toEqual([]);
+    const thief = createUnitState('thief', 'player', { q: 0, r: 1 });
+    expect([...thief.loadout.passive]).toEqual(['backstab']);
+    const enemyArcher = createUnitState('archer_enemy', 'enemy', { q: 0, r: 2 });
+    expect([...enemyArcher.loadout.active]).toEqual(['snipe']);
+  });
+
+  it('传入自定义装填生效（编成条目 → 实例）', () => {
+    const u = createUnitState('lord', 'player', { q: 0, r: 0 }, {
+      active: ['snipe'], passive: ['steady']
+    });
+    expect([...u.loadout.active]).toEqual(['snipe']);
+    expect([...u.loadout.passive]).toEqual(['steady']);
+  });
+
+  it('战斗内锁定：装填冻结不可变', () => {
+    const u = createUnitState('lord', 'player', { q: 0, r: 0 });
+    expect(() => {
+      (u.loadout as unknown as { active: string[] }).active.push('snipe');
+    }).toThrow();
+    expect(() => { (u.loadout as unknown as { active: string[] }).active = []; }).toThrow();
+  });
+
+  it('getUnitActiveSkills 解析实例主动；hasUnitTrait 读实例被动', () => {
+    const mage = createUnitState('mage', 'player', { q: 0, r: 0 });
+    expect(getUnitActiveSkills(mage).map(s => s.name)).toEqual(['火球', '陨石术', '咒杀']);
+    const knight = createUnitState('knight', 'player', { q: 1, r: 0 });
+    expect(hasUnitTrait(knight, 're-move')).toBe(true);
   });
 });

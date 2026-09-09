@@ -61,8 +61,8 @@ export function calcStrike(
   const { armor: defArmor } = resolveArmor(defender, defT);
 
   // 特性修正（§4.7 管线：在修正点直接查询攻守双方特性）
-  const atkTraits = atkT.traits ?? [];
-  const defTraits = defT.traits ?? [];
+  const atkTraits = [...attacker.loadout.passive];
+  const defTraits = [...defender.loadout.passive];
 
   const base = Math.max(atkT.atk + (skill.power ?? 0) - defT.def - terrDef, 0);
   const matrix = DAMAGE_ARMOR_MATRIX[skill.damageType][defArmor];

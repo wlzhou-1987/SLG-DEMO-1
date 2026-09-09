@@ -1,7 +1,8 @@
 import type { MapState } from './map';
 import type { UnitState } from './unit';
 import type { SkillTemplate } from '../config/skills';
-import { getTemplate, getTemplateSkills, basicAttackSkill } from '../config/units';
+import { getTemplate, basicAttackSkill } from '../config/units';
+import { getUnitActiveSkills } from './unit';
 import { calcMovementRange, calcAttackRange } from './range';
 import { calcBattleForecast } from './combat';
 import { distance, hexKey } from './hex';
@@ -41,7 +42,7 @@ export function decideEnemyAction(
     for (const target of players) {
       const d = distance(dest, target.position);
       // R3-2：普攻恒入择优候选（纯普攻单位同规则，§6）
-      for (const skill of [basicAttackSkill(template), ...getTemplateSkills(template)]) {
+      for (const skill of [basicAttackSkill(template), ...getUnitActiveSkills(enemy)]) {
         if (d < skill.rangeMin || d > skill.rangeMax) continue;
 
         const forecast = calcBattleForecast(map, attackerAt, target, skill);
@@ -120,7 +121,7 @@ export function checkGroupActivation(map: MapState, units: UnitState[]): void {
       const template = getTemplate(m.templateId);
       if (!template) return false;
       const moveRange = calcMovementRange(map, units, m.position, template.movePoints, template.flying);
-      const resolved = [basicAttackSkill(template), ...getTemplateSkills(template)];
+      const resolved = [basicAttackSkill(template), ...getUnitActiveSkills(m)];
       const rangeMin = Math.min(...resolved.map(s => s.rangeMin));
       const rangeMax = Math.max(...resolved.map(s => s.rangeMax));
       const alert = calcAttackRange(moveRange, rangeMin, rangeMax);

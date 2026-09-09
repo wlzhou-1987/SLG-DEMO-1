@@ -388,3 +388,23 @@ describe('R3-2 普攻口径落地', () => {
     expect(f.attacker.damage).toBe(0);
   });
 });
+
+describe('R3-3 特性读取改自实例装填', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+
+  it('卸下背刺被动后背面攻击无乘算', () => {
+    const thiefNoTrait = createUnitState('thief', 'player', { q: 9, r: 15 }, {
+      active: [], passive: []
+    });
+    const swordsman = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
+    swordsman.facing = 0;  // 朝东，盗贼在西 → 背面
+    const f = calcBattleForecast(map, thiefNoTrait, swordsman, basicAttackSkill(getTemplate('thief')!));
+    // base4 背面 +3 = 7（无背刺乘算；装填含 backstab 时为 6）
+    expect(f.attacker.side).toBe('back');
+    expect(f.attacker.damage).toBe(7);
+  });
+});

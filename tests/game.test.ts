@@ -304,3 +304,20 @@ describe('Game 编成注入（R1-2）', () => {
     ])).toThrow(/非法编成.*部署区外/);
   });
 });
+
+describe('R3-3 编成装填注入', () => {
+  beforeEach(() => {
+    elements.clear();
+  });
+
+  it('RosterEntry.loadout 注入 Game：编成装填生效、敌方默认走出厂', () => {
+    const game = new Game(CANVAS_STUB, [
+      { templateId: 'lord', position: { q: 2, r: 26 }, loadout: { active: [], passive: [] } }
+    ]) as unknown as GameDriver;
+    const lord = game.units.find(u => u.templateId === 'lord')!;
+    expect([...lord.loadout.active]).toEqual([]);
+    expect([...lord.loadout.passive]).toEqual([]);
+    const enemyArcher = game.units.find(u => u.templateId === 'archer_enemy')!;
+    expect([...enemyArcher.loadout.active]).toEqual(['snipe']);
+  });
+});

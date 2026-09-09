@@ -1,11 +1,13 @@
 import type { HexCoord } from './types';
 import type { DeployZone } from '../config/map';
 import { getTemplate } from '../config/units';
+import type { SkillLoadout } from './unit';
 
-/** 出战编成条目（§7.0 R1）：出场名单成员 + 初始站位 */
+/** 出战编成条目（§7.0 R1）：出场名单成员 + 初始站位 + 可选技能装填（R3-3） */
 export interface RosterEntry {
   templateId: string;
   position: HexCoord;
+  loadout?: SkillLoadout;
 }
 
 /** 编成校验规则（全部参数化；领主约束 = 必含模板清单） */
