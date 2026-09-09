@@ -3,6 +3,7 @@ import type { UnitState } from './unit';
 import type { SkillTemplate } from '../config/skills';
 import { getTemplate, basicAttackSkill } from '../config/units';
 import { getUnitActiveSkills } from './unit';
+import { isVisibleTo } from './stealth';
 import { calcMovementRange, calcAttackRange } from './range';
 import { calcBattleForecast } from './combat';
 import { distance, hexKey } from './hex';
@@ -25,7 +26,14 @@ export function decideEnemyAction(
   enemy: UnitState
 ): EnemyAction {
   const template = getTemplate(enemy.templateId)!;
-  const players = units.filter(u => u.faction === 'player');
+  // R3-8 潜行感知全忽略：择优与集结均不计不可见单位（§6）
+  const players = units.filter(
+    u => u.faction === 'player' && u.hp > 0 && isVisibleTo(u, 'enemy', units)
+  );
+  // R3-8：全部我方不可见（潜行）→ 无可选目标，原地待命（fallback）
+  if (players.length === 0) {
+    return { dest: enemy.position, skill: null, target: null };
+  }
   // BOSS 驻守：不移动，仅射程覆盖当前位置时才攻击（§6）
   const moveRange = enemy.aiKind === 'boss'
     ? new Set([hexKey(enemy.position)])
@@ -104,7 +112,8 @@ export function decideEnemyAction(
  * 敌方阶段开始时调用。
  */
 export function checkGroupActivation(map: MapState, units: UnitState[]): void {
-  const players = units.filter(u => u.faction === 'player');
+  // R3-8：警戒扫描不含不可见（潜行）单位
+  const players = units.filter(u => u.faction === 'player' && isVisibleTo(u, 'enemy', units));
   if (players.length === 0) return;
 
   const groupIds = new Set(

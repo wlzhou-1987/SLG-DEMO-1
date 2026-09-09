@@ -6,6 +6,7 @@ import { MOVE_MS } from '../src/render/animator';
 import { axialToPixel } from '../src/core/hex';
 import type { HexCoord } from '../src/core/types';
 import type { UnitState } from '../src/core/unit';
+import { enterStealth } from '../src/core/stealth';
 
 /**
  * game.ts 协调层交互测试：node 环境下用极简 DOM/Canvas 桩驱动状态机。
@@ -319,5 +320,73 @@ describe('R3-3 编成装填注入', () => {
     expect([...lord.loadout.passive]).toEqual([]);
     const enemyArcher = game.units.find(u => u.templateId === 'archer_enemy')!;
     expect([...enemyArcher.loadout.active]).toEqual(['snipe']);
+  });
+});
+
+describe('R3-8 潜行：行为技能与取消三态（game 集成）', () => {
+  beforeEach(() => {
+    elements.clear();
+  });
+
+  it('行为技能「潜行」：菜单执行后进入潜行并结束行动', async () => {
+    const { game, click } = createGame();
+    const thief = game.units.find(u => u.templateId === 'thief')!;
+    const origin = thief.position;
+    click(origin);
+    click(origin);      // 原地待命 → 行动菜单
+    await waitMove();
+    menuClick('攻击');
+    menuClick('攻击·潜行');
+    expect(thief.statuses.some(s => s.type === 'stealth')).toBe(true);
+    expect(['facingConfirm', 'reMove']).toContain(game.phase.mode);
+  });
+
+  it('强化潜行：盗贼（出厂 stealth-move）移动不破隐', async () => {
+    const { game, click } = createGame();
+    const thief = game.units.find(u => u.templateId === 'thief')!;
+    enterStealth(thief);
+    const origin = thief.position;
+    const dest = { q: origin.q, r: origin.r - 1 };
+    click(origin);
+    click(dest);
+    await waitMove();
+    expect(thief.position).toEqual(dest);
+    expect(thief.statuses.some(s => s.type === 'stealth')).toBe(true);
+  });
+
+  it('攻击取消潜行（普通单位无强化）', async () => {
+    const { game, click } = createGame();
+    const lord = game.units.find(u => u.templateId === 'lord')!;
+    enterStealth(lord);
+    const origin = { q: 2, r: 24 };
+    const foe = { q: 3, r: 24 };
+    lord.position = { ...origin };
+    const enemy = game.units.find(u => u.faction === 'enemy')!;
+    enemy.position = { ...foe };
+    click(origin);
+    click(origin);
+    await waitMove();
+    menuClick('攻击');
+    menuClick('攻击·普攻');
+    click(foe);
+    // 预报确认
+    const panel = mapWrap().children.find(c => c.className === 'forecast');
+    if (panel) panel.querySelector('.btn-confirm')!.fire('click');
+    expect(lord.statuses.some(s => s.type === 'stealth')).toBe(false);
+  });
+
+  it('待机（歇息）不取消潜行', async () => {
+    const { game, click } = createGame();
+    const lord = game.units.find(u => u.templateId === 'lord')!;
+    enterStealth(lord);
+    const origin = lord.position;
+    click(origin);
+    click(origin);
+    await waitMove();
+    menuClick('待机');
+    const menu = mapWrap().children.find(c => c.className === 'action-menu');
+    const ok = menu?.children.find(c => c.textContent.includes('确认'));
+    ok?.fire('click');
+    expect(lord.statuses.some(s => s.type === 'stealth')).toBe(true);
   });
 });

@@ -10,6 +10,7 @@ import type { BattleForecast, StrikeResult } from './core/combat';
 import { calcSpellForecast, resolveSpell, resolveAoeSpell } from './core/spell';
 import type { SpellForecast, SpellResult } from './core/spell';
 import { getAreaCells, unitsInArea } from './core/area';
+import { enterStealth, cancelStealth, isStealthed } from './core/stealth';
 import type { SkillTemplate } from './config/skills';
 import { getTemplate, basicAttackSkill } from './config/units';
 import { isSpell } from './config/spells';
@@ -163,6 +164,10 @@ export class Game {
           // 移动（含原地待命）；记录出发点供撤销；主动移动打断咏唱（§4.12）
           const mover = this.phase.unit;
           interruptChant(mover);
+          // R3-8：移动取消潜行（强化潜行=移动不破隐豁免）；原地待命不取消
+          if (mover.position.q !== hex.q || mover.position.r !== hex.r) {
+            if (isStealthed(mover) && !hasUnitTrait(mover, 'stealth-move')) cancelStealth(mover);
+          }
           const origin = mover.position;
           mover.moveSpent = this.phase.moveCosts.get(key) ?? 0;  // §4.8 剩余移动力
           mover.position = { ...hex };
@@ -308,7 +313,9 @@ export class Game {
         this.openActionMenu(unit, originPos);
       } else {
         const skill = skills.find(s => `skill:${s.name}` === value)!;
-        if (skill.area) {
+        if (skill.behavior) {
+          this.executeBehaviorSkill(unit, skill);
+        } else if (skill.area) {
           this.enterAoeForecast(unit, skill, originPos);
         } else {
           this.enterTargetSelect(unit, skill, originPos);
@@ -316,6 +323,20 @@ export class Game {
       }
       this.render();
     });
+  }
+
+  /** 行为技能（§4.9 行为主效果）：当前仅潜行——执行行为后走行动收尾 */
+  private executeBehaviorSkill(unit: UnitState, skill: SkillTemplate) {
+    hideActionMenu();
+    if (skill.behavior?.kind === 'stealth') {
+      enterStealth(unit);
+      logBattle(`${this.unitName(unit)} 进入潜行`);
+    }
+    if (hasUnitTrait(unit, 're-move')) {
+      this.enterReMove(unit, unit.facing);
+    } else {
+      this.enterFacingConfirm(unit, unit.facing);
+    }
   }
 
   /** AoE 技能流程（§4.9）：自身为中心的旋风斩/神圣盾击——区域内敌人预报后确认 */
@@ -348,6 +369,7 @@ export class Game {
     targets: UnitState[]
   ) {
     hideForecastPanel();
+    cancelStealth(unit);
     const results = resolveAoeBattle(this.map, unit, targets, skill);
     for (const t of targets) {
       if (t.faction === 'enemy') provokeGroup(this.units, t);
@@ -430,6 +452,7 @@ export class Game {
   /** 确认法术：即时释放立即结算/挂状态；咏唱释放挂咏唱状态（§4.12） */
   private async confirmSpell(unit: UnitState, target: UnitState, spell: SpellTemplate) {
     hideForecastPanel();
+    cancelStealth(unit);
     interruptChant(unit);  // 释放其他法术打断已有咏唱
 
     if (spell.castMode === 'chant') {
@@ -483,6 +506,7 @@ export class Game {
   /** 确认预报：结算并应用，随后进入再移动或朝向确认 */
   private async confirmBattle(unit: UnitState, target: UnitState, skill: SkillTemplate) {
     hideForecastPanel();
+    cancelStealth(unit);
     const result = resolveBattle(this.map, unit, target, skill);
     unit.hp = result.attackerHp;
     target.hp = result.defenderHp;

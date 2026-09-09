@@ -39,6 +39,7 @@ export function showUnitInfo(unit: UnitState): void {
     if (s.type === 'shield') return `秘银护盾（吸收 ${s.absorbLeft}·剩 ${s.turnsLeft} 回合）`;
     if (s.type === 'chant') return `咏唱 ${s.skillName}（剩 ${s.turnsLeft} 回合）`;
     if (s.type === 'regen') return `再生（每回合 +${s.healPerTurn}·剩 ${s.turnsLeft} 回合）`;
+    if (s.type === 'stealth') return '潜行（对敌不可见，移动/攻击/技能取消）';
     return `咒杀（${s.turnsLeft} 回合后 -${s.damage}）`;
   }).map(s => `<li>${s}</li>`).join('');
 

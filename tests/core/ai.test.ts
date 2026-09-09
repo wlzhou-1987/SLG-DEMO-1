@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { decideEnemyAction, checkGroupActivation, provokeGroup } from '../../src/core/ai';
+import { enterStealth } from '../../src/core/stealth';
 import { createMapState } from '../../src/core/map';
 import { resetUnitCounter, createUnitState } from '../../src/core/unit';
 import type { UnitState } from '../../src/core/unit';
@@ -201,5 +202,57 @@ describe('R3-3 AI 候选读实例装填', () => {
     const action = decideEnemyAction(map, [enemy, player], enemy);
     expect(action.skill?.name).toBe('普攻');
     expect(action.target).toBe(player);
+  });
+});
+
+describe('R3-8 AI 感知全忽略（潜行交互）', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+
+  it('择优排除潜行目标：只打可见单位', () => {
+    const enemy = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
+    const hidden = createUnitState('thief', 'player', { q: 11, r: 15 });  // 贴脸但潜行
+    const visible = createUnitState('lord', 'player', { q: 10, r: 17 });
+    enterStealth(hidden);
+    const action = decideEnemyAction(map, [enemy, hidden, visible], enemy);
+    expect(action.target).toBe(visible);
+    expect(action.skill).not.toBeNull();
+  });
+
+  it('全部我方潜行时无可选目标：原地待命（fallback）', () => {
+    const enemy = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
+    const h1 = createUnitState('thief', 'player', { q: 11, r: 15 });
+    const h2 = createUnitState('lord', 'player', { q: 10, r: 16 });
+    enterStealth(h1);
+    enterStealth(h2);
+    const action = decideEnemyAction(map, [enemy, h1, h2], enemy);
+    expect(action.skill).toBeNull();
+    expect(action.target).toBeNull();
+    expect(action.dest).toEqual(enemy.position); // 不向不可见单位集结
+  });
+
+  it('警戒扫描不含潜行单位：潜行进入范围不激活，可见单位进入才激活', () => {
+    const guard = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
+    guard.groupId = 'g1';
+    guard.activated = false;
+    const hidden = createUnitState('thief', 'player', { q: 11, r: 15 });
+    enterStealth(hidden);
+    guard.aiKind = 'dormant';
+    checkGroupActivation(map, [guard, hidden]);
+    expect(guard.activated).toBe(false);
+    const visible = createUnitState('lord', 'player', { q: 10, r: 16 });
+    checkGroupActivation(map, [guard, hidden, visible]);
+    expect(guard.activated).toBe(true);
+  });
+
+  it('真实视野范围内的潜行单位被 AI 按普通单位处理（可选中）', () => {
+    const archer = createUnitState('archer_enemy', 'enemy', { q: 10, r: 15 }, { active: [], passive: ['true-sight'] });
+    const hidden = createUnitState('thief', 'player', { q: 11, r: 15 });      // 距离 1 ≤ 3 显形
+    enterStealth(hidden);
+    const action = decideEnemyAction(map, [archer, hidden], archer);
+    expect(action.target).toBe(hidden);
   });
 });

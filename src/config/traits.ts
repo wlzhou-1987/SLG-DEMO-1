@@ -37,6 +37,24 @@ export const TRAIT_CONFIGS: Record<string, TraitConfig> = {
     desc: '周围 revealRange 格内潜行单位对己方阵营可见、可选中攻击（潜行不取消）',
     learnable: true,
     revealRange: 3
+  },
+  'stealth-move': {
+    id: 'stealth-move',
+    name: '强化潜行',
+    desc: '潜行状态下移动不取消潜行（攻击/使用技能仍取消）',
+    learnable: false
+  },
+  ambush: {
+    id: 'ambush',
+    name: '突袭',
+    desc: '隐形状态破隐一击附加伤害（结算随 R3-10 攻击修饰）',
+    learnable: false
+  },
+  'shadow-hunter': {
+    id: 'shadow-hunter',
+    name: '隐秘猎手',
+    desc: '潜行中发起蓄力射击不破隐、破隐一击附加伤害（蓄力结构随 R3-10）',
+    learnable: false
   }
 };
 

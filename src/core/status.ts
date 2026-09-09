@@ -39,7 +39,15 @@ export interface ShieldStatus {
   absorbLeft: number;
 }
 
-export type ActiveStatus = ChantStatus | DelayedStatus | RegenStatus | ShieldStatus;
+/** 潜行状态（§4.9：绝对隐身；跨回合维持无自然到期，turnsLeft=-1，仅三类主动行为取消） */
+export interface StealthStatus {
+  type: 'stealth';
+  skillName: string;
+  turnsLeft: number;
+  appliedAtTurn: number;
+}
+
+export type ActiveStatus = ChantStatus | DelayedStatus | RegenStatus | ShieldStatus | StealthStatus;
 
 export type StatusEvent =
   | { kind: 'chantFire'; unitId: string; spell: SpellTemplate; targetId: string; targetPos?: HexCoord }

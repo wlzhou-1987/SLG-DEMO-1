@@ -84,7 +84,9 @@ export class HexRenderer {
       const template = getTemplate(unit.templateId);
       if (!template) continue;
       const baseColor = unit.faction === 'player' ? FACTION_COLORS.player : FACTION_COLORS.enemy;
-      const alpha = unit.hasActed ? 0.5 : 1;
+      // R3-8：潜行单位半透明渲染（对己方视角可见的表示，§7.4）
+      const stealthed = unit.statuses.some(s => s.type === 'stealth');
+      const alpha = unit.hasActed ? 0.5 : stealthed ? 0.45 : 1;
       const appear = animator ? animator.appearScale(unit.id, now) : 1;
       const flash = animator ? animator.flashAmount(unit.id, now) : 0;
       const size = this.hexSize * appear;
@@ -130,6 +132,7 @@ export class HexRenderer {
           if (s.type === 'shield') return `盾${s.absorbLeft}`;
           if (s.type === 'chant') return `咏${s.turnsLeft}`;
           if (s.type === 'regen') return `再${s.turnsLeft}`;
+          if (s.type === 'stealth') return '隐';
           return `咒${s.turnsLeft}`;
         });
         this.ctx.font = 'bold 10px sans-serif';

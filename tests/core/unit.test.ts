@@ -111,7 +111,7 @@ describe('R3-3 技能挂实例与战斗内锁定', () => {
     expect([...lord.loadout.active]).toEqual(['shieldThrust']);
     expect([...lord.loadout.passive]).toEqual([]);
     const thief = createUnitState('thief', 'player', { q: 0, r: 1 });
-    expect([...thief.loadout.passive]).toEqual(['backstab']);
+    expect([...thief.loadout.passive]).toEqual(['backstab', 'stealth-move', 'ambush']);
     const enemyArcher = createUnitState('archer_enemy', 'enemy', { q: 0, r: 2 });
     expect([...enemyArcher.loadout.active]).toEqual(['snipe']);
   });

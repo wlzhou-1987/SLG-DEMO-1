@@ -64,8 +64,8 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['dagger'], resourceType: 'focus',
     basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
     hp: 25, atk: 8, def: 3, spd: 12, tec: 11, lck: 8,
-    traits: ['backstab'],
-    skills: []
+    traits: ['backstab', 'stealth-move', 'ambush'],
+    skills: ['stealth']
   },
   {
     id: 'knight', name: '骑士', label: '骑', faction: 'player',
@@ -98,6 +98,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['bow'], resourceType: 'focus',
     basicAttack: { damageType: 'piercing', rangeMin: 2, rangeMax: 2 },
     hp: 25, atk: 9, def: 4, spd: 7, tec: 9, lck: 5,
+    traits: ['shadow-hunter'],
     skills: ['snipe']
   },
   {

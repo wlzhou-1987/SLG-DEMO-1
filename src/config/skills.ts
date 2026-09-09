@@ -50,9 +50,16 @@ export interface SkillTemplate {
   learnable: boolean;
   /** 附加伤害段（双伤害段结构，R3-7）：各段独立伤害线/威力过矩阵，与主段同侧同命中 */
   segments?: Array<{ damageType: DamageType; power?: number }>;
+  /** 行为主效果（行为技能）：主效果为行为段而非伤害段；damageType 为占位、不走伤害管线 */
+  behavior?: { kind: 'stealth' };
 }
 
 export const SKILLS: Record<string, SkillTemplate> = {
+  stealth: {
+    id: 'stealth', name: '潜行', target: 'self', damageType: 'piercing',
+    rangeMin: 0, rangeMax: 0, resourceType: 'focus',
+    behavior: { kind: 'stealth' }, learnable: true
+  },
   shieldThrust: {
     id: 'shieldThrust', name: '盾突', target: 'enemy', damageType: 'blunt',
     rangeMin: 1, rangeMax: 1, weaponType: 'shield', learnable: false

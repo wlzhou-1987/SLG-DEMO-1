@@ -2,6 +2,7 @@ import type { HexCoord, Faction, Facing } from './types';
 import { neighbor } from './hex';
 import type { EffectArea } from '../config/skills';
 import type { UnitState } from './unit';
+import { isVisibleTo } from './stealth';
 
 /**
  * 效果区域解算（§4.9）：
@@ -30,7 +31,7 @@ export function getAreaCells(
   ];
 }
 
-/** AoE 受影响者 = 区域内存活单位且属目标阵营（只影响目标阵营，§4.9） */
+/** AoE 受影响者 = 区域内存活单位、属目标阵营、且对施法者阵营可见（潜行不可见即排除，§4.9） */
 export function unitsInArea(
   units: UnitState[],
   cells: HexCoord[],
@@ -38,6 +39,9 @@ export function unitsInArea(
 ): UnitState[] {
   const keys = new Set(cells.map(c => `${c.q},${c.r}`));
   return units.filter(u =>
-    u.hp > 0 && u.faction !== casterFaction && keys.has(`${u.position.q},${u.position.r}`)
+    u.hp > 0 &&
+    u.faction !== casterFaction &&
+    keys.has(`${u.position.q},${u.position.r}`) &&
+    isVisibleTo(u, casterFaction, units)
   );
 }

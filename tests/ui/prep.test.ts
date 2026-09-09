@@ -183,12 +183,12 @@ describe('R3-5 技能配置区块', () => {
   it('被动槽：出厂被动可移除；learnable 被动（真实视野，R3-6 入池）可装入', () => {
     const prep = make();
     prep.selectUnit('thief');
-    expect([...prep.getEffectiveLoadout('thief').passive]).toEqual(['backstab']);
+    expect([...prep.getEffectiveLoadout('thief').passive]).toEqual(['backstab', 'stealth-move', 'ambush']);
     prep.removeFromSlot('thief', 'passive', 0);
-    expect([...prep.getEffectiveLoadout('thief').passive]).toEqual([]);
+    expect([...prep.getEffectiveLoadout('thief').passive]).toEqual(['stealth-move', 'ambush']);
     expect(prep.poolEntries('thief').some(e => e.kind === 'trait')).toBe(true);
     expect(prep.addToSlot('thief', 'true-sight')).toBe(true);
-    expect([...prep.getEffectiveLoadout('thief').passive]).toEqual(['true-sight']);
+    expect([...prep.getEffectiveLoadout('thief').passive]).toEqual(['stealth-move', 'ambush', 'true-sight']);
   });
 
   it('开战传参：编辑过的角色随编成传入装填，战斗内即锁定', () => {
