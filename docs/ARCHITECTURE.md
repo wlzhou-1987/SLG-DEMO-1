@@ -45,11 +45,12 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 
 | 文件 | 职责（关键导出） | 设计章节 | 测试 |
 | --- | --- | --- | --- |
-| src/config/units.ts | 兵种模板：SkillTemplate/UnitTemplate 类型、PLAYER_TEMPLATES（10 我方）/ENEMY_TEMPLATES（7 敌方）、getTemplate | §4.9/§5.1/§5.2 | —（数值经 tests/balance 覆盖） |
+| src/config/skills.ts | SKILLS 注册表（物理攻击+行为技能）：SkillTemplate（target 三值/主效果扁平伤害段/附属段声明/AoE 效果区域/资源与武器声明/瞬发/counters/learnable）、WeaponAtom 8 原子、主资源三枚举 | §4.9 | tests/config/skills.test.ts |
+| src/config/units.ts | 兵种模板：UnitTemplate（weapons 数组/resourceType/basicAttack 普攻数据/skills id 引用/traits 绑定被动）、SkillTemplate 已迁 skills.ts、PLAYER_TEMPLATES（10 我方）/ENEMY_TEMPLATES（7 敌方）、getTemplate、resolveSkill（SKILLS ∪ SPELLS）、getTemplateSkills、hasTemplateTrait | §4.9/§5.1/§5.2 | tests/config/skills.test.ts |
 | src/config/combat.ts | 战斗数值：DAMAGE_ARMOR_MATRIX（伤害×护甲矩阵）、PART_BONUS（部位补正）、COMBAT_PARAMS（命中/追击/超射程参数） | §4.2~§4.4/§4.7 | —（tests/core/combat 间接） |
 | src/config/terrain.ts | 地形配置：TERRAIN_CONFIGS（移动消耗/回避/防御/颜色/标签） | §3 | — |
-| src/config/spells.ts | 法术定义：SpellTemplate（释放方式×生效方式）、SPELLS 六法术、getSpell/isSpell | §4.12 | —（tests/core/spell 间接） |
-| src/config/traits.ts | 特性修正：TRAIT_CONFIGS（背刺乘算/沉稳减补正）、getTrait | §4.7 | —（tests/core/combat 间接） |
+| src/config/spells.ts | 法术定义：SpellTemplate（继承 SkillTemplate，id/target/learnable；释放方式×生效方式）、SPELLS 六法术、getSpell/isSpell | §4.12 | —（tests/core/spell 间接） |
+| src/config/traits.ts | 特性修正：TRAIT_CONFIGS（再移动/背刺/沉稳，learnable 标记、revealRange 声明先行）、getTrait | §4.7 | —（tests/core/combat 间接） |
 | src/config/map.ts | 关卡布局：MAP_OVERRIDES（地形）、PLAYER_UNITS（我方 10 人站位）、DEPLOY_ZONE（部署区）、ENEMY_GROUPS（9 敌组含 aiType）、GroupAiType | §3/§5.2/§6/§7.0 | tests/config/map.test.ts |
 | src/config/reinforcements.ts | 增援事件：ReinforcementEvent、REINFORCEMENTS（回合触发/BOSS 半血触发） | §6 | —（tests/core/reinforce 间接） |
 

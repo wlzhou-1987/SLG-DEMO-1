@@ -105,7 +105,7 @@
 
 | issue | 内容与验收标准 | 状态 / 完成记录 |
 | --- | --- | --- |
-| R3-1 | 三注册表与类型重构（配置+逻辑）：SKILLS（物理攻击+行为技能）/SPELLS/TRAIT_CONFIGS（+learnable）统一结构——target 三值、1 主效果+封闭附属段声明、AoE 效果区域（disc/sector）、resourceType?/weaponType?/瞬发?/counters?；WeaponAtom 8 种；普攻数据结构；现有 7 技能+6 法术+2 特性迁入注册表（去内联重复）；模板 skills 改 id 引用+出厂装填字段；reMove → 被动「再移动」迁移并删除模板字段。验收：迁移后全量测试绿（适配 combat/ai/game 引用点）；新增 ≥6 测试（注册表唯一性、模板引用有效、learnable 标记、武器原子校验）；npm test 全绿；build 无错 | 待开发 |
+| R3-1 | 三注册表与类型重构（配置+逻辑）：SKILLS（物理攻击+行为技能）/SPELLS/TRAIT_CONFIGS（+learnable）统一结构——target 三值、1 主效果+封闭附属段声明、AoE 效果区域（disc/sector）、resourceType?/weaponType?/瞬发?/counters?；WeaponAtom 8 种；普攻数据结构；现有 9 内联技能+6 法术+2 特性迁入注册表（去内联重复）；模板 skills 改 id 引用+出厂装填字段；reMove → 被动「再移动」迁移并删除模板字段。验收：迁移后全量测试绿（适配 combat/ai/game 引用点）；新增 ≥6 测试（注册表唯一性、模板引用有效、learnable 标记、武器原子校验）；npm test 全绿；build 无错 | ✅ 已完成（2026-09-09，commit 6b1d0a2：主效果暂以扁平伤害段承载、治疗/状态/行为段随 R3-7~R3-10 扩；traits 增 re-move/learnable+revealRange 声明先行；新增 tests/config/skills.test.ts 13 用例；全量 218 绿 + build 无错；ARCHITECTURE 已同步） |
 | R3-2 | 普攻口径落地（配置+逻辑+渲染）：基础攻击=固有能力——普攻数据（伤害线/威力/射程）挂 UnitTemplate；横斩/突刺/重劈/射击从技能体系删除；攻击流程默认含普攻选项；AI 择优含普攻（纯普攻单位同规则）；敌方剑士/枪兵/斧兵改纯普攻；保底校验移除。验收：新增 ≥6 测试（普攻结算走矩阵、三杂兵技能集为空时 AI 可行动、普攻射程取模板）；npm test 全绿；build 无错；浏览器验证攻击菜单含普攻 | 待开发 |
 | R3-3 | 技能挂实例与战斗内锁定（逻辑）：UnitState 增 skillLoadout（主动 ids+被动 traitIds），createUnitState 按编成条目或出厂装填初始化；RosterEntry 扩展可选装填字段；Game 构造注入并战斗内锁定。验收：新增 ≥6 测试（装填初始化、编成传入、锁定不可变）；npm test 全绿；build 无错 | 待开发 |
 | R3-4 | 通用池与双过滤（逻辑）：getPool() 三表 learnable 条目 union；canLearn(unit, skill)——资源过滤仅主动、武器声明即过滤（主动被动均适用）、未声明豁免、死配置不拦截；敌方配置校验复用。验收：新增 ≥8 测试（union 完整性、资源过滤两态、武器过滤单值与 one-of、豁免路径、被动免资源过滤）；npm test 全绿；build 无错 | 待开发 |

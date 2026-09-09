@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createMapState, isPassable } from '../../src/core/map';
 import { MAP_OVERRIDES, PLAYER_UNITS, ENEMY_GROUPS } from '../../src/config/map';
-import { getTemplate, PLAYER_TEMPLATES, ENEMY_TEMPLATES } from '../../src/config/units';
+import { getTemplate, getTemplateSkills, PLAYER_TEMPLATES, ENEMY_TEMPLATES } from '../../src/config/units';
 import { hexKey } from '../../src/core/hex';
 import { SPELLS, isSpell } from '../../src/config/spells';
 import { getTrait } from '../../src/config/traits';
@@ -133,8 +133,8 @@ describe('法术与特性配置一致性', () => {
   it('施法者技能池为法术模板', () => {
     const priest = getTemplate('priest')!;
     const mage = getTemplate('mage')!;
-    expect(priest.skills.every(isSpell)).toBe(true);
-    expect(mage.skills.every(isSpell)).toBe(true);
+    expect(getTemplateSkills(priest).every(isSpell)).toBe(true);
+    expect(getTemplateSkills(mage).every(isSpell)).toBe(true);
     expect(priest.traits).toContain('steady');
     expect(getTemplate('thief')!.traits).toContain('backstab');
   });

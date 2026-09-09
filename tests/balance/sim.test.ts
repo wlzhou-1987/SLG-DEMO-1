@@ -4,8 +4,8 @@ import type { MapState } from '../../src/core/map';
 import { createUnitState, resetUnitCounter } from '../../src/core/unit';
 import type { UnitState } from '../../src/core/unit';
 import { MAP_OVERRIDES, PLAYER_UNITS, ENEMY_GROUPS } from '../../src/config/map';
-import { getTemplate } from '../../src/config/units';
-import type { SkillTemplate } from '../../src/config/units';
+import { getTemplate, getTemplateSkills } from '../../src/config/units';
+import type { SkillTemplate } from '../../src/config/skills';
 import { isSpell } from '../../src/config/spells';
 import type { SpellTemplate } from '../../src/config/spells';
 import { calcMovementCosts } from '../../src/core/range';
@@ -48,7 +48,7 @@ function occupied(units: UnitState[], pos: HexCoord, self: UnitState): boolean {
 
 function usableSkills(u: UnitState): SkillTemplate[] {
   const template = getTemplate(u.templateId)!;
-  return template.skills.filter(s => !isSpell(s) || s.targetType === 'enemy');
+  return getTemplateSkills(template).filter(s => !isSpell(s) || s.targetType === 'enemy');
 }
 
 /** 启发式玩家行动：优先治疗重伤友军，否则落位攻击最近敌人 */
@@ -100,7 +100,7 @@ function actPlayerUnit(map: MapState, units: UnitState[], u: UnitState, rng: () 
   }
 
   // 治疗类法术：射程内最重伤的友军（<70% HP）
-  const healSkill = template.skills.find(
+  const healSkill = getTemplateSkills(template).find(
     (s): s is SpellTemplate => isSpell(s) && s.targetType === 'ally'
   );
   if (healSkill) {

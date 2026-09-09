@@ -1,7 +1,7 @@
 import type { MapState } from './map';
 import type { UnitState } from './unit';
-import type { SkillTemplate } from '../config/units';
-import { getTemplate } from '../config/units';
+import type { SkillTemplate } from '../config/skills';
+import { getTemplate, getTemplateSkills } from '../config/units';
 import { calcMovementRange, calcAttackRange } from './range';
 import { calcBattleForecast } from './combat';
 import { distance, hexKey } from './hex';
@@ -40,7 +40,7 @@ export function decideEnemyAction(
 
     for (const target of players) {
       const d = distance(dest, target.position);
-      for (const skill of template.skills) {
+      for (const skill of getTemplateSkills(template)) {
         if (d < skill.rangeMin || d > skill.rangeMax) continue;
 
         const forecast = calcBattleForecast(map, attackerAt, target, skill);
@@ -119,8 +119,9 @@ export function checkGroupActivation(map: MapState, units: UnitState[]): void {
       const template = getTemplate(m.templateId);
       if (!template) return false;
       const moveRange = calcMovementRange(map, units, m.position, template.movePoints, template.flying);
-      const rangeMin = Math.min(...template.skills.map(s => s.rangeMin));
-      const rangeMax = Math.max(...template.skills.map(s => s.rangeMax));
+      const resolved = getTemplateSkills(template);
+      const rangeMin = Math.min(...resolved.map(s => s.rangeMin));
+      const rangeMax = Math.max(...resolved.map(s => s.rangeMax));
       const alert = calcAttackRange(moveRange, rangeMin, rangeMax);
       return players.some(p => moveRange.has(hexKey(p.position)) || alert.has(hexKey(p.position)));
     });

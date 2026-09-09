@@ -2,8 +2,9 @@ import type { HexCoord, DamageType } from './types';
 import type { MapState } from './map';
 import { getTerrain } from './map';
 import type { UnitState } from './unit';
-import type { SkillTemplate, UnitTemplate } from '../config/units';
-import { getTemplate } from '../config/units';
+import type { SkillTemplate } from '../config/skills';
+import type { UnitTemplate } from '../config/units';
+import { getTemplate, getTemplateSkills } from '../config/units';
 import { directionBetween, distance } from './hex';
 import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS } from '../config/combat';
 import { TERRAIN_CONFIGS } from '../config/terrain';
@@ -96,7 +97,7 @@ function pickCounterSkill(
 ): SkillTemplate | null {
   let best: SkillTemplate | null = null;
   let bestScore = -1;
-  for (const skill of defT.skills) {
+  for (const skill of getTemplateSkills(defT)) {
     if (dist < skill.rangeMin || dist > skill.rangeMax) continue;
     const matrix = DAMAGE_ARMOR_MATRIX[skill.damageType][atkT.armor];
     if (matrix > bestScore) {

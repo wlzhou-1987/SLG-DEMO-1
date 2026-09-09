@@ -9,13 +9,13 @@ import { calcBattleForecast, resolveBattle } from './core/combat';
 import type { BattleForecast, StrikeResult } from './core/combat';
 import { calcSpellForecast, resolveSpell } from './core/spell';
 import type { SpellForecast, SpellResult } from './core/spell';
-import type { SkillTemplate } from './config/units';
+import type { SkillTemplate } from './config/skills';
+import { getTemplate, getTemplateSkills, hasTemplateTrait } from './config/units';
 import { isSpell } from './config/spells';
 import type { SpellTemplate } from './config/spells';
 import { MAP_OVERRIDES, PLAYER_UNITS, ENEMY_GROUPS, DEPLOY_ZONE } from './config/map';
 import { validateDeployment } from './core/deployment';
 import type { RosterEntry } from './core/deployment';
-import { getTemplate } from './config/units';
 import { Camera } from './render/camera';
 import { HexRenderer, HEX_SIZE, FACTION_COLORS } from './render/hex-renderer';
 import { EffectSystem, FLOAT_COLOR } from './render/effects';
@@ -237,8 +237,9 @@ export class Game {
     const moveRange = calcMovementRange(
       this.map, this.units, unit.position, template.movePoints, template.flying
     );
-    const rangeMin = Math.min(...template.skills.map(s => s.rangeMin));
-    const rangeMax = Math.max(...template.skills.map(s => s.rangeMax));
+    const resolvedSkills = getTemplateSkills(template);
+    const rangeMin = Math.min(...resolvedSkills.map(s => s.rangeMin));
+    const rangeMax = Math.max(...resolvedSkills.map(s => s.rangeMax));
     const attackRange = calcAttackRange(moveRange, rangeMin, rangeMax);
 
     this.phase = { mode: 'unitSelected', unit, moveRange, attackRange, moveCosts };
@@ -252,8 +253,9 @@ export class Game {
     const screen = this.camera.worldToScreen(world);
 
     const template = getTemplate(unit.templateId)!;
-    const attackSkills = template.skills.filter(s => !isSpell(s));
-    const spellSkills = template.skills.filter(isSpell);
+    const resolved = getTemplateSkills(template);
+    const attackSkills = resolved.filter(s => !isSpell(s));
+    const spellSkills = resolved.filter(isSpell);
     const items: Array<{ label: string; value: string; kind?: 'normal' | 'cancel' }> = [];
     if (attackSkills.length > 0) items.push({ label: '攻击', value: 'attack' });
     if (spellSkills.length > 0) items.push({ label: '法术', value: 'spell' });
@@ -398,7 +400,8 @@ export class Game {
       return;
     }
     const facing = directionBetween(unit.position, target.position);
-    if (getTemplate(unit.templateId)?.reMove) {
+    const t = getTemplate(unit.templateId);
+    if (t && hasTemplateTrait(t, 're-move')) {
       this.enterReMove(unit, facing);
     } else {
       this.enterFacingConfirm(unit, facing);
@@ -429,7 +432,8 @@ export class Game {
       return;
     }
     const facing = directionBetween(unit.position, target.position);
-    if (getTemplate(unit.templateId)?.reMove) {
+    const t = getTemplate(unit.templateId);
+    if (t && hasTemplateTrait(t, 're-move')) {
       this.enterReMove(unit, facing);
     } else {
       this.enterFacingConfirm(unit, facing);

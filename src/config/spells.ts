@@ -1,5 +1,5 @@
 import type { ArmorType } from '../core/types';
-import type { SkillTemplate } from './units';
+import type { SkillTemplate } from './skills';
 
 /** 法术是技能子类（§4.12），额外携带释放方式与生效方式两个维度 */
 export interface SpellTemplate extends SkillTemplate {
@@ -14,27 +14,33 @@ export interface SpellTemplate extends SkillTemplate {
 
 export const SPELLS: Record<string, SpellTemplate> = {
   fireball: {
-    name: '火球', damageType: 'magic', rangeMin: 1, rangeMax: 2,
+    id: 'fireball', name: '火球', target: 'enemy', learnable: true,
+    damageType: 'magic', rangeMin: 1, rangeMax: 2,
     power: 0, castMode: 'instant', effectMode: 'instant', targetType: 'enemy'
   },
   meteor: {
-    name: '陨石术', damageType: 'magic', rangeMin: 1, rangeMax: 2,
+    id: 'meteor', name: '陨石术', target: 'enemy', learnable: true,
+    damageType: 'magic', rangeMin: 1, rangeMax: 2,
     power: 6, castMode: 'chant', chantTurns: 2, effectMode: 'instant', targetType: 'enemy'
   },
   curse: {
-    name: '咒杀', damageType: 'magic', rangeMin: 1, rangeMax: 2,
+    id: 'curse', name: '咒杀', target: 'enemy', learnable: true,
+    damageType: 'magic', rangeMin: 1, rangeMax: 2,
     power: 10, castMode: 'instant', effectMode: 'delayed', durationTurns: 3, targetType: 'enemy'
   },
   heal: {
-    name: '治疗', damageType: 'magic', rangeMin: 1, rangeMax: 2,
+    id: 'heal', name: '治疗', target: 'ally', learnable: true,
+    damageType: 'magic', rangeMin: 1, rangeMax: 2,
     power: 10, castMode: 'instant', effectMode: 'instant', targetType: 'ally'
   },
   regen: {
-    name: '再生术', damageType: 'magic', rangeMin: 1, rangeMax: 2,
+    id: 'regen', name: '再生术', target: 'ally', learnable: true,
+    damageType: 'magic', rangeMin: 1, rangeMax: 2,
     power: 5, castMode: 'instant', effectMode: 'lasting', durationTurns: 3, targetType: 'ally'
   },
   mithrilShield: {
-    name: '秘银护盾', damageType: 'magic', rangeMin: 1, rangeMax: 2,
+    id: 'mithrilShield', name: '秘银护盾', target: 'ally', learnable: true,
+    damageType: 'magic', rangeMin: 1, rangeMax: 2,
     power: 0, castMode: 'instant', effectMode: 'lasting', durationTurns: 3,
     targetType: 'ally', shield: { armorType: 'medium', absorb: 10 }
   }
