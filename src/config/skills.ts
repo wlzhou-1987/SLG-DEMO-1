@@ -48,6 +48,8 @@ export interface SkillTemplate {
   counters?: Partial<Record<string, number>>;
   instant?: boolean;
   learnable: boolean;
+  /** 附加伤害段（双伤害段结构，R3-7）：各段独立伤害线/威力过矩阵，与主段同侧同命中 */
+  segments?: Array<{ damageType: DamageType; power?: number }>;
 }
 
 export const SKILLS: Record<string, SkillTemplate> = {
@@ -66,6 +68,16 @@ export const SKILLS: Record<string, SkillTemplate> = {
   snipe: {
     id: 'snipe', name: '狙击', target: 'enemy', damageType: 'piercing',
     rangeMin: 2, rangeMax: 2, weaponType: 'bow', learnable: true
+  },
+  whirlwind: {
+    id: 'whirlwind', name: '旋风斩', target: 'enemy', damageType: 'slashing',
+    rangeMin: 1, rangeMax: 1, weaponType: 'axe',
+    area: { shape: 'disc', radius: 1 }, learnable: false
+  },
+  holyShieldStrike: {
+    id: 'holyShieldStrike', name: '神圣盾击', target: 'enemy', damageType: 'blunt',
+    rangeMin: 1, rangeMax: 1, weaponType: 'shield',
+    area: { shape: 'sector', radius: 1 }, learnable: false
   },
   sweep: {
     id: 'sweep', name: '横扫', target: 'enemy', damageType: 'slashing',

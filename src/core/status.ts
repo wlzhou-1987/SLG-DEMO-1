@@ -1,4 +1,5 @@
 import type { ArmorType, Faction } from './types';
+import type { HexCoord } from './types';
 import type { UnitState } from './unit';
 import type { UnitTemplate } from '../config/units';
 import type { SpellTemplate } from '../config/spells';
@@ -10,6 +11,7 @@ export interface ChantStatus {
   appliedAtTurn: number;
   spell: SpellTemplate;
   targetId: string;
+  targetPos?: HexCoord;  // R3-7 AoE 法术：咏唱锁定的释放中心格（目标死移仍生效）
 }
 
 export interface DelayedStatus {
@@ -40,7 +42,7 @@ export interface ShieldStatus {
 export type ActiveStatus = ChantStatus | DelayedStatus | RegenStatus | ShieldStatus;
 
 export type StatusEvent =
-  | { kind: 'chantFire'; unitId: string; spell: SpellTemplate; targetId: string }
+  | { kind: 'chantFire'; unitId: string; spell: SpellTemplate; targetId: string; targetPos?: HexCoord }
   | { kind: 'delayedFire'; unitId: string; skillName: string; damage: number }
   | { kind: 'regenTick'; unitId: string; healed: number }
   | { kind: 'statusExpired'; unitId: string; skillName: string };
@@ -73,7 +75,7 @@ export function tickStatuses(units: UnitState[], faction: Faction): StatusEvent[
         case 'chant': {
           status.turnsLeft--;
           if (status.turnsLeft <= 0) {
-            events.push({ kind: 'chantFire', unitId: unit.id, spell: status.spell, targetId: status.targetId });
+            events.push({ kind: 'chantFire', unitId: unit.id, spell: status.spell, targetId: status.targetId, targetPos: status.targetPos });
             removed.push(status);
           }
           break;

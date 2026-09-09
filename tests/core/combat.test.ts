@@ -2,6 +2,9 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { attackSide, calcBattleForecast, resolveBattle } from '../../src/core/combat';
 import { createMapState } from '../../src/core/map';
 import { getTemplate, getTemplateSkills, basicAttackSkill } from '../../src/config/units';
+import { SKILLS } from '../../src/config/skills';
+import type { SkillTemplate } from '../../src/config/skills';
+import { calcAoeForecast, resolveAoeBattle } from '../../src/core/combat';
 import { resetUnitCounter, createUnitState } from '../../src/core/unit';
 
 describe('attackSide 部位判定', () => {
@@ -406,5 +409,71 @@ describe('R3-3 特性读取改自实例装填', () => {
     // base4 背面 +3 = 7（无背刺乘算；装填含 backstab 时为 6）
     expect(f.attacker.side).toBe('back');
     expect(f.attacker.damage).toBe(7);
+  });
+});
+
+describe('R3-7 AoE 结算（独立命中/无反击/多段）', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+  const whirlwind = SKILLS.whirlwind;
+
+  function makeScene() {
+    const caster = createUnitState('axeman', 'player', { q: 10, r: 15 });
+    const foeA = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    const foeB = createUnitState('spearman', 'enemy', { q: 10, r: 14 });
+    return { caster, foeA, foeB };
+  }
+
+  it('calcAoeForecast：区域内每个敌人各自预报（含部位）', () => {
+    const { caster, foeA, foeB } = makeScene();
+    const forecasts = calcAoeForecast(map, caster, [foeA, foeB], whirlwind);
+    expect(forecasts).toHaveLength(2);
+    expect(forecasts[0].skillName).toBe('旋风斩');
+    expect(['front', 'side', 'back']).toContain(forecasts[0].side);
+  });
+
+  it('resolveAoeBattle：逐单位独立命中（rng 一中一空）', () => {
+    const { caster, foeA, foeB } = makeScene();
+    const seq = [0.0, 0.99]; // foeA 命中、foB 未中
+    let i = 0;
+    const r = resolveAoeBattle(map, caster, [foeA, foeB], whirlwind, () => seq[i++]);
+    const byId = new Map(r.map(x => [x.targetId, x]));
+    expect(byId.get(foeA.id)!.hit).toBe(true);
+    expect(byId.get(foeB.id)!.hit).toBe(false);
+    expect(foeA.hp).toBeLessThan(foeA.maxHp);
+    expect(foeB.hp).toBe(foeB.maxHp);
+  });
+
+  it('AoE 不触发反击：结算后攻方 HP 不变', () => {
+    const { caster, foeA, foeB } = makeScene();
+    resolveAoeBattle(map, caster, [foeA, foeB], whirlwind, () => 0);
+    expect(caster.hp).toBe(caster.maxHp);
+  });
+
+  it('多段伤害：附加段独立过矩阵求和（双伤害段结构）', () => {
+    const { caster, foeA } = makeScene();
+    const dual: SkillTemplate = {
+      ...whirlwind,
+      id: 'dual-test', name: '双段测试',
+      segments: [{ damageType: 'blunt', power: 0 }]
+    };
+    const single = calcAoeForecast(map, caster, [foeA], whirlwind)[0].damage;
+    const mainBlunt = calcAoeForecast(map, caster, [foeA], { ...whirlwind, damageType: 'blunt' })[0].damage;
+    const dualForecast = calcAoeForecast(map, caster, [foeA], dual)[0].damage;
+    expect(dualForecast).toBe(single + mainBlunt);
+  });
+
+  it('AoE 目标护盾吸收生效', () => {
+    const { caster, foeA } = makeScene();
+    foeA.statuses.push({
+      type: 'shield', skillName: '秘银护盾', turnsLeft: 3, appliedAtTurn: 1,
+      armorType: 'medium', absorbLeft: 99
+    });
+    const hpBefore = foeA.hp;
+    resolveAoeBattle(map, caster, [foeA], whirlwind, () => 0);
+    expect(foeA.hp).toBe(hpBefore); // 全额被盾吸收
   });
 });

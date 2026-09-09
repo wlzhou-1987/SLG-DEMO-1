@@ -50,6 +50,24 @@ export function showForecastPanel(
   wrap.appendChild(panelEl);
 }
 
+/** AoE 预报面板（§4.9：区域内每个敌人各自预报；无反击） */
+export function showAoeForecastPanel(
+  skillName: string,
+  casterName: string,
+  rows: Array<{ name: string; damage: number; hitRate: number }>,
+  onConfirm: () => void,
+  onCancel: () => void
+): void {
+  const body =
+    `<div class="strike"><span class="who">${casterName}·${skillName}（AoE · ${rows.length} 个目标）</span></div>` +
+    rows.map(r =>
+      `<div class="strike"><span class="who">→ ${r.name}</span>` +
+      `<span>伤害 ${r.damage}</span><span>命中 ${r.hitRate}%</span></div>`
+    ).join('') +
+    `<div class="strike dim">范围攻击不触发反击</div>`;
+  buildPanel(`战斗预报 · ${skillName}`, body, onConfirm, onCancel);
+}
+
 export function hideForecastPanel(): void {
   if (panelEl) {
     panelEl.remove();

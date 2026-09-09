@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { calcSpellForecast, resolveSpell } from '../../src/core/spell';
+import { calcSpellForecast, resolveSpell, resolveAoeSpell } from '../../src/core/spell';
 import { createMapState } from '../../src/core/map';
 import { createUnitState, resetUnitCounter } from '../../src/core/unit';
 import { SPELLS } from '../../src/config/spells';
@@ -95,5 +95,24 @@ describe('resolveSpell 法术结算（即时释放部分）', () => {
     expect(swordsman.hp).toBe(16 - 4);
     const r2 = resolveSpell(map, mage, swordsman, SPELLS.fireball, () => 0.99);
     if (r2.kind === 'damage') expect(r2.hit).toBe(false);
+  });
+});
+
+describe('R3-7 陨石术 AoE 化（咏唱锁定格、区域内独立结算）', () => {
+  it('resolveAoeSpell：以中心格 disc 内敌军各自掷命中结算，友军不受影响', () => {
+    resetUnitCounter();
+    const map = createMapState();
+    const caster = createUnitState('mage', 'player', { q: 10, r: 15 });
+    const foeA = createUnitState('swordsman', 'enemy', { q: 12, r: 15 });
+    const foeB = createUnitState('swordsman', 'enemy', { q: 12, r: 14 });
+    const friend = createUnitState('lord', 'player', { q: 12, r: 16 });
+    const seq = [0.0, 0.99];
+    let i = 0;
+    const results = resolveAoeSpell(map, caster, { q: 12, r: 15 }, [caster, foeA, foeB, friend], SPELLS.meteor, () => seq[i++]);
+    expect(results).toHaveLength(2); // 只敌军两名
+    expect(results.find(r => r.targetId === foeA.id)!.hit).toBe(true);
+    expect(results.find(r => r.targetId === foeB.id)!.hit).toBe(false);
+    expect(foeA.hp).toBeLessThan(foeA.maxHp);
+    expect(friend.hp).toBe(friend.maxHp);
   });
 });

@@ -5,10 +5,11 @@ import { createUnitState, getUnitAt, getUnitActiveSkills, hasUnitTrait } from '.
 import { axialToPixel, pixelToAxial, isValidHex, distance, hexKey, directionBetween, neighbor } from './core/hex';
 import type { HexCoord, Facing } from './core/types';
 import { calcMovementRange, calcAttackRange, calcMovementCosts } from './core/range';
-import { calcBattleForecast, resolveBattle } from './core/combat';
+import { calcBattleForecast, resolveBattle, calcAoeForecast, resolveAoeBattle } from './core/combat';
 import type { BattleForecast, StrikeResult } from './core/combat';
-import { calcSpellForecast, resolveSpell } from './core/spell';
+import { calcSpellForecast, resolveSpell, resolveAoeSpell } from './core/spell';
 import type { SpellForecast, SpellResult } from './core/spell';
+import { getAreaCells, unitsInArea } from './core/area';
 import type { SkillTemplate } from './config/skills';
 import { getTemplate, basicAttackSkill } from './config/units';
 import { isSpell } from './config/spells';
@@ -24,7 +25,7 @@ import { InputHandler } from './render/input';
 import { updateTopbar } from './ui/topbar';
 import { showUnitInfo, clearUnitInfo, showTerrainInfo, clearTerrainInfo } from './ui/sidepanel';
 import { showActionMenu, hideActionMenu } from './ui/action-menu';
-import { showForecastPanel, hideForecastPanel, showSpellForecastPanel } from './ui/forecast';
+import { showForecastPanel, hideForecastPanel, showSpellForecastPanel, showAoeForecastPanel } from './ui/forecast';
 import { getTerrain } from './core/map';
 import { checkVictory, startPlayerPhase } from './core/turn';
 import type { VictoryState } from './core/turn';
@@ -40,6 +41,7 @@ type Phase =
   | { mode: 'actionMenu'; unit: UnitState; originPos: HexCoord }
   | { mode: 'targetSelect'; unit: UnitState; skill: SkillTemplate; originPos: HexCoord; targets: Set<string> }
   | { mode: 'forecast'; unit: UnitState; target: UnitState; skill: SkillTemplate; forecast: BattleForecast }
+  | { mode: 'aoeForecast'; unit: UnitState; skill: SkillTemplate; originPos: HexCoord; targets: UnitState[] }
   | { mode: 'spellForecast'; unit: UnitState; target: UnitState; spell: SpellTemplate; forecast: SpellForecast }
   | { mode: 'reMove'; unit: UnitState; moveRange: Set<string>; defaultFacing: number }
   | { mode: 'facingConfirm'; unit: UnitState }
@@ -306,10 +308,79 @@ export class Game {
         this.openActionMenu(unit, originPos);
       } else {
         const skill = skills.find(s => `skill:${s.name}` === value)!;
-        this.enterTargetSelect(unit, skill, originPos);
+        if (skill.area) {
+          this.enterAoeForecast(unit, skill, originPos);
+        } else {
+          this.enterTargetSelect(unit, skill, originPos);
+        }
       }
       this.render();
     });
+  }
+
+  /** AoE 技能流程（§4.9）：自身为中心的旋风斩/神圣盾击——区域内敌人预报后确认 */
+  private enterAoeForecast(unit: UnitState, skill: SkillTemplate, originPos: HexCoord) {
+    if (!skill.area) return;
+    const cells = getAreaCells(skill.area, unit, unit.position);
+    const targets = unitsInArea(this.units, cells, unit.faction);
+    if (targets.length === 0) {
+      showNotice(`${skill.name}：范围内没有目标`);
+      this.openActionMenu(unit, originPos);
+      return;
+    }
+    hideActionMenu();
+    const forecasts = calcAoeForecast(this.map, unit, targets, skill);
+    this.phase = { mode: 'aoeForecast', unit, skill, originPos, targets };
+    const rows = targets.map((t, i) => ({
+      name: this.unitName(t),
+      damage: forecasts[i].damage,
+      hitRate: forecasts[i].hitRate
+    }));
+    showAoeForecastPanel(skill.name, this.unitName(unit), rows,
+      () => { void this.confirmAoeBattle(unit, skill, targets); },
+      () => { this.openActionMenu(unit, originPos); this.render(); }
+    );
+  }
+
+  private async confirmAoeBattle(
+    unit: UnitState,
+    skill: SkillTemplate,
+    targets: UnitState[]
+  ) {
+    hideForecastPanel();
+    const results = resolveAoeBattle(this.map, unit, targets, skill);
+    for (const t of targets) {
+      if (t.faction === 'enemy') provokeGroup(this.units, t);
+    }
+    this.removeDead();
+    this.victory = checkVictory(this.units);
+    this.updateTopbar();
+    this.render();
+
+    for (const r of results) {
+      const t = targets.find(x => x.id === r.targetId);
+      if (!t) continue;
+      await this.playStrikes(unit, t, [{
+        byAttacker: true, hit: r.hit, damage: r.damage, absorbed: r.absorbed,
+        side: r.forecast.side, skillName: skill.name
+      }]);
+    }
+    logBattle(`${this.unitName(unit)} 释放 ${skill.name}，命中 ${results.filter(r => r.hit).length}/${results.length}`);
+
+    if (this.victory !== 'ongoing') {
+      this.enterGameOver();
+      return;
+    }
+    if (unit.hp <= 0) {
+      this.cancelToIdle();
+      return;
+    }
+    const facing = directionBetween(unit.position, targets[0].position);
+    if (hasUnitTrait(unit, 're-move')) {
+      this.enterReMove(unit, facing);
+    } else {
+      this.enterFacingConfirm(unit, facing);
+    }
   }
 
   private enterTargetSelect(unit: UnitState, skill: SkillTemplate, originPos: HexCoord) {
@@ -366,7 +437,8 @@ export class Game {
         type: 'chant', skillName: spell.name,
         turnsLeft: spell.chantTurns ?? 1,
         appliedAtTurn: this.turn,
-        spell, targetId: target.id
+        spell, targetId: target.id,
+        targetPos: { ...target.position }  // R3-7 AoE 法术：锁定释放中心格
       });
       logBattle(`${this.unitName(unit)} 开始咏唱 ${spell.name}`);
       const facing = directionBetween(unit.position, target.position);
@@ -723,8 +795,21 @@ export class Game {
         if (e.kind === 'chantFire') {
           const caster = this.units.find(u => u.id === e.unitId);
           const target = this.units.find(u => u.id === e.targetId);
-          // 目标先亡则法术落空（§4.12）
-          if (caster && target) {
+          if (caster && e.spell.area && e.targetPos) {
+            // R3-7 AoE 法术：以咏唱锁定格为中心，区域内敌方独立结算（目标死移不影响落点）
+            const aoeResults = resolveAoeSpell(this.map, caster, e.targetPos, this.units, e.spell);
+            for (const r of aoeResults) {
+              const t = this.units.find(u => u.id === r.targetId);
+              if (!t) continue;
+              this.floatText(r.hit ? `-${r.damage}` : 'MISS',
+                r.hit ? FLOAT_COLOR.damage : FLOAT_COLOR.miss, t.position);
+              if (caster.faction === 'player' && t.faction === 'enemy') {
+                provokeGroup(this.units, t);
+              }
+            }
+            logBattle(`${this.unitName(caster)} 的 ${e.spell.name} 落地，命中 ${aoeResults.filter(r => r.hit).length}/${aoeResults.length}`);
+          } else if (caster && target) {
+            // 目标先亡则法术落空（§4.12）
             const hpBefore = target.hp;
             const r = resolveSpell(this.map, caster, target, e.spell);
             this.showSpellResult(caster, target, e.spell.name, hpBefore, r);

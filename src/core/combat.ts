@@ -108,6 +108,27 @@ function pickCounterSkill(
   return best;
 }
 
+/** 单次伤害应用：先扣护盾吸收，超出部分扣 HP；返回吸收量（单体与 AoE 共用） */
+export function applyDamageToUnit(
+  target: UnitState,
+  targetT: UnitTemplate,
+  amount: number
+): number {
+  const { shield } = resolveArmor(target, targetT);
+  let rest = amount;
+  let absorbed = 0;
+  if (shield && shield.absorbLeft > 0) {
+    absorbed = Math.min(shield.absorbLeft, rest);
+    shield.absorbLeft -= absorbed;
+    rest -= absorbed;
+    if (shield.absorbLeft <= 0) {
+      target.statuses = target.statuses.filter(s => s !== shield);
+    }
+  }
+  target.hp = Math.max(0, target.hp - rest);
+  return absorbed;
+}
+
 export function calcBattleForecast(
   map: MapState,
   attacker: UnitState,
@@ -172,30 +193,13 @@ export function resolveBattle(
   let attackerHp = attacker.hp;
   let defenderHp = defender.hp;
 
-  /** 伤害应用：先扣护盾吸收，超出部分扣 HP（DEMO 简化：不重过兵甲矩阵）；返回吸收量 */
-  const applyDamage = (target: UnitState, targetT: UnitTemplate, amount: number) => {
-    const { shield } = resolveArmor(target, targetT);
-    let rest = amount;
-    let absorbed = 0;
-    if (shield && shield.absorbLeft > 0) {
-      absorbed = Math.min(shield.absorbLeft, rest);
-      shield.absorbLeft -= absorbed;
-      rest -= absorbed;
-      if (shield.absorbLeft <= 0) {
-        target.statuses = target.statuses.filter(s => s !== shield);
-      }
-    }
-    target.hp = Math.max(0, target.hp - rest);
-    return absorbed;
-  };
-
   const strike = (s: StrikeForecast, byAttacker: boolean): boolean => {
     // 返回目标是否阵亡
     const hit = rng() < s.hitRate / 100;
     const damage = hit ? s.damage : 0;
     const absorbed = byAttacker
-      ? applyDamage(defender, defT, damage)
-      : applyDamage(attacker, atkT, damage);
+      ? applyDamageToUnit(defender, defT, damage)
+      : applyDamageToUnit(attacker, atkT, damage);
     attackerHp = attacker.hp;
     defenderHp = defender.hp;
     strikes.push({ byAttacker, hit, damage, absorbed, side: s.side, skillName: s.skillName });
@@ -219,4 +223,72 @@ export function resolveBattle(
   }
 
   return { strikes, attackerHp, defenderHp };
+}
+
+// ---------- R3-7 AoE 结算 ----------
+
+export interface AoeStrikeResult {
+  targetId: string;
+  hit: boolean;
+  damage: number;
+  absorbed: number;
+  forecast: StrikeForecast;
+}
+
+/** 单目标 AoE 预报：主段 + 附加伤害段（各段独立过矩阵，同侧同命中） */
+function aoeStrikeForecast(
+  map: MapState,
+  attacker: UnitState,
+  atkT: UnitTemplate,
+  defender: UnitState,
+  defT: UnitTemplate,
+  skill: SkillTemplate
+): StrikeForecast {
+  const main = calcStrike(map, attacker, atkT, defender, defT, skill);
+  if (!skill.segments || skill.segments.length === 0) return main;
+  let total = main.damage;
+  for (const seg of skill.segments) {
+    const segSkill: SkillTemplate = {
+      ...skill, damageType: seg.damageType, power: seg.power, segments: undefined
+    };
+    total += calcStrike(map, attacker, atkT, defender, defT, segSkill).damage;
+  }
+  return { ...main, damage: total };
+}
+
+/** AoE 预报：区域内每个敌人各自预报（部位/命中独立计算） */
+export function calcAoeForecast(
+  map: MapState,
+  caster: UnitState,
+  targets: UnitState[],
+  skill: SkillTemplate
+): StrikeForecast[] {
+  const atkT = getTemplate(caster.templateId)!;
+  return targets.map(t =>
+    aoeStrikeForecast(map, caster, atkT, t, getTemplate(t.templateId)!, skill)
+  );
+}
+
+/**
+ * AoE 结算（§4.9）：区域内逐单位独立掷命中；不触发反击与追击
+ * （定稿明文为 AoE 法术不触发反击；物理 AoE 取同口径——范围释放非单挑，台账记录）
+ */
+export function resolveAoeBattle(
+  map: MapState,
+  caster: UnitState,
+  targets: UnitState[],
+  skill: SkillTemplate,
+  rng: () => number = Math.random
+): AoeStrikeResult[] {
+  const atkT = getTemplate(caster.templateId)!;
+  const results: AoeStrikeResult[] = [];
+  for (const t of targets) {
+    const defT = getTemplate(t.templateId)!;
+    const forecast = aoeStrikeForecast(map, caster, atkT, t, defT, skill);
+    const hit = rng() < forecast.hitRate / 100;
+    const damage = hit ? forecast.damage : 0;
+    const absorbed = applyDamageToUnit(t, defT, damage);
+    results.push({ targetId: t.id, hit, damage, absorbed, forecast });
+  }
+  return results;
 }

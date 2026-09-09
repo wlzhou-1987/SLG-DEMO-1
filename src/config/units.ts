@@ -56,7 +56,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['hammer', 'shield'], resourceType: 'rage',
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
     hp: 35, atk: 11, def: 10, spd: 3, tec: 7, lck: 3,
-    skills: ['warHammer', 'shieldStrike']
+    skills: ['shieldStrike', 'holyShieldStrike']
   },
   {
     id: 'thief', name: '盗贼', label: '贼', faction: 'player',
@@ -90,7 +90,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['axe'], resourceType: 'rage',
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
     hp: 31, atk: 12, def: 6, spd: 5, tec: 7, lck: 3,
-    skills: []
+    skills: ['whirlwind']
   },
   {
     id: 'archer', name: '弓箭', label: '弓', faction: 'player',

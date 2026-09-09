@@ -34,9 +34,10 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/core/unit.ts | 单位实例：UnitState（含 moveSpent/statuses/loadout 技能装填·战斗内冻结/groupId/activated）、createUnitState（按编成或出厂装填初始化并冻结）、getUnitAt/getUnitActiveSkills（实例主动解析）/hasUnitTrait/resetUnitCounter | §4.1/§4.8/§4.9 | tests/core/unit.test.ts |
 | src/core/deployment.ts | 战前编成：RosterEntry（含可选技能装填 loadout）/DeploymentRules、isInDeployZone、validateDeployment（区内/不重叠/模板存在与我方/不重复/人数上下限/必上模板，全参数化）、applyPlacement（站位调整：空格移动/被占交换） | §7.0 | tests/core/deployment.test.ts |
 | src/core/range.ts | 范围计算：calcMovementCosts（Dijkstra 代价表）、calcMovementRange（飞行途经占位格不可落）、calcAttackRange（移动+射程并集减移动范围） | §3/§4.8 | tests/core/range.test.ts |
-| src/core/combat.ts | 战斗核心：attackSide（部位判定）、calcStrike/calcBattleForecast（预报）、resolveBattle（结算序列：攻击→反击→追击，护盾吸收，rng 注入）；反击与攻击候选均含普攻（R3-2） | §4.2~§4.5/§4.7/§4.9 | tests/core/combat.test.ts |
-| src/core/spell.ts | 法术预报与结算：calcSpellForecast（damage/heal/regen/shield/curse 五类）、resolveSpell（即时结算或挂状态） | §4.10/§4.12 | tests/core/spell.test.ts |
-| src/core/status.ts | 状态系统：四种 ActiveStatus 定义、resolveArmor（护盾覆盖）、tickStatuses（阶段开始推进，返回事件）、interruptChant | §4.10/§4.12 | tests/core/status.test.ts |
+| src/core/combat.ts | 战斗核心：attackSide（部位判定）、calcStrike/calcBattleForecast（预报）、resolveBattle（结算序列：攻击→反击→追击，护盾吸收，rng 注入）；反击与攻击候选均含普攻（R3-2）；calcAoeForecast/resolveAoeBattle（R3-7 AoE：多段伤害 segments、独立命中、无反击）、applyDamageToUnit | §4.2~§4.5/§4.7/§4.9 | tests/core/combat.test.ts |
+| src/core/area.ts | 效果区域解算（R3-7）：getAreaCells（disc 圆盘/sector 施法者正面三格扇形）、unitsInArea（区域+阵营筛选） | §4.9 | tests/core/area.test.ts |
+| src/core/spell.ts | 法术预报与结算：calcSpellForecast（damage/heal/regen/shield/curse 五类）、resolveSpell（即时结算或挂状态）、resolveAoeSpell（R3-7 AoE 法术：以中心格区域内敌方独立结算） | §4.10/§4.12/§4.9 | tests/core/spell.test.ts |
+| src/core/status.ts | 状态系统：四种 ActiveStatus 定义（chant 含 targetPos 锁定格）、resolveArmor（护盾覆盖）、tickStatuses（阶段开始推进，返回事件）、interruptChant | §4.10/§4.12 | tests/core/status.test.ts |
 | src/core/turn.ts | 回合与胜负：checkVictory（全灭/领主阵亡）、startPlayerPhase（重置行动+基地回复） | §2/§3 | tests/core/turn.test.ts |
 | src/core/ai.ts | 敌方 AI：decideEnemyAction（落位×技能×目标枚举评分，击杀优先；BOSS 驻守；无目标向组质心最近我方集结）、checkGroupActivation（警戒范围扫描全组激活）、provokeGroup（被攻击激活） | §6 | tests/core/ai.test.ts |
 | src/core/reinforce.ts | 增援：checkReinforcements（回合/组血量触发、次数上限、刷新点 BFS 找空位，登场即激活） | §6 | tests/core/reinforce.test.ts |
@@ -74,7 +75,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/ui/prep.ts | createPrepScreen：战前准备面板（右侧）——出场名单勾选 + 技能配置区块（R3-5：选中角色 → 主动 0~5/被动 0~6 槽、通用池混排双过滤置灰、出厂默认、编辑后随编成传 loadout）+ 装备/地图占位区块 + 实时校验 + 开战按钮；站位记忆画布调整结果（getRoster/setChecked/setBoardRoster/selectUnit/addToSlot/removeFromSlot/poolEntries/refresh/clickStart） | §7.0/§4.9 | tests/ui/prep.test.ts |
 | src/ui/sidepanel.ts | showUnitInfo/clearUnitInfo、showTerrainInfo/clearTerrainInfo：右侧单位属性（含特性/状态）与地形面板 | §7.3 | — |
 | src/ui/action-menu.ts | showActionMenu/hideActionMenu：画布内浮动行动菜单 | §7.2 | — |
-| src/ui/forecast.ts | showForecastPanel/showSpellForecastPanel：战斗与法术预报面板（确认/取消） | §4.5/§4.12 | — |
+| src/ui/forecast.ts | showForecastPanel/showSpellForecastPanel/showAoeForecastPanel：战斗/法术/AoE 多目标预报面板（确认/取消） | §4.5/§4.12/§4.9 | — |
 | src/ui/battle-log.ts | logBattle：战斗日志（最新在顶，30 条裁剪） | §7.4 | — |
 | src/ui/notice.ts | showNotice：战场提示条（增援登场等，定时淡出） | §7.4 | — |
 

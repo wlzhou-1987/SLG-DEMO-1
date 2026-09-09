@@ -1,5 +1,7 @@
 import type { MapState } from './map';
+import type { HexCoord } from './types';
 import type { UnitState } from './unit';
+import { getAreaCells, unitsInArea } from './area';
 import type { SpellTemplate } from '../config/spells';
 import { getTemplate } from '../config/units';
 import { calcStrike } from './combat';
@@ -96,4 +98,33 @@ export function resolveSpell(
       return { ...forecast, targetHp: target.hp };
     }
   }
+}
+
+export interface AoeSpellResult {
+  targetId: string;
+  hit: boolean;
+  damage: number;
+  targetHp: number;
+}
+
+/** AoE 法术结算（§4.9：以释放中心格为圆心，区域内敌方独立掷命中；不触发反击） */
+export function resolveAoeSpell(
+  map: MapState,
+  caster: UnitState,
+  center: HexCoord,
+  units: UnitState[],
+  spell: SpellTemplate,
+  rng: () => number = Math.random
+): AoeSpellResult[] {
+  if (!spell.area) return [];
+  const cells = getAreaCells(spell.area, caster, center);
+  const targets = unitsInArea(units, cells, caster.faction);
+  const casterT = getTemplate(caster.templateId)!;
+  return targets.map(t => {
+    const strike = calcStrike(map, caster, casterT, t, getTemplate(t.templateId)!, spell);
+    const hit = rng() < strike.hitRate / 100;
+    const damage = hit ? strike.damage : 0;
+    if (hit) t.hp = Math.max(0, t.hp - damage);
+    return { targetId: t.id, hit, damage, targetHp: t.hp };
+  });
 }

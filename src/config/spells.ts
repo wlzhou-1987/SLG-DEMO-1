@@ -21,7 +21,8 @@ export const SPELLS: Record<string, SpellTemplate> = {
   meteor: {
     id: 'meteor', name: '陨石术', target: 'enemy', learnable: true,
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
-    power: 6, castMode: 'chant', chantTurns: 2, effectMode: 'instant', targetType: 'enemy'
+    power: 6, castMode: 'chant', chantTurns: 2, effectMode: 'instant', targetType: 'enemy',
+    area: { shape: 'disc', radius: 1 }
   },
   curse: {
     id: 'curse', name: '咒杀', target: 'enemy', learnable: true,
