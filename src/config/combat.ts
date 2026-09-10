@@ -37,5 +37,15 @@ export const EFFECT_PARAMS = {
   blessingDef: 3,         // 祝福：防御加成初始值（R4 后改魔防轴）
   blessingDecay: 1,       // 祝福：每回合衰减
   blessingBoostHeal: 2,   // 强化祝福：祝福期间每回合回血
-  blessingBoostRage: 1    // 强化祝福：祝福期间每回合怒气生成
+  blessingBoostRage: 1,
+  chargePerHex: 1,
+  chargeCap: 5,
+  berserkMaxBonus: 6,
+  lifestealRate: 0.5,
+  pyroBoostMult: 1.25,
+  pyroDotTurns: 2,
+  healPerTechHalf: 0.5,
+  ambushBonus: 5,
+  aimPowerBonus: 3
+// 强化祝福：祝福期间每回合怒气生成
 } as const;

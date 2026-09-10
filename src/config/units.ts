@@ -31,6 +31,7 @@ export interface UnitTemplate {
   lck: number;
   skills: string[];            // 出厂主动（SKILLS/SPELLS id 引用；玩家可改，R3-3/R3-5）
   traits?: string[];           // 绑定被动 + 职业强化（TRAIT_CONFIGS id 引用）
+  tags?: string[];             // 占位兵种标签（R3-10 counters 消费；R4-4 落正式 unitTags 后迁移）
 }
 
 export const PLAYER_TEMPLATES: UnitTemplate[] = [
@@ -41,13 +42,14 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
     hp: 29, atk: 10, def: 6, spd: 9, tec: 10, lck: 7,
     traits: ['aura'],
-    skills: ['shieldThrust']
+    skills: ['stab']
   },
   {
     id: 'defender', name: '防战', label: '战', faction: 'player',
     armor: 'heavy', movePoints: 4, flying: false,
     weapons: ['sword', 'shield'], resourceType: 'rage',
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
+    tags: ['heavy'],
     hp: 33, atk: 8, def: 9, spd: 5, tec: 8, lck: 4,
     traits: ['fortify'],
     skills: ['shieldThrust', 'defenseStance', 'warCry']
@@ -57,6 +59,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     armor: 'heavy', movePoints: 4, flying: false,
     weapons: ['hammer', 'shield'], resourceType: 'rage',
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
+    tags: ['heavy', 'cavalry'],
     hp: 35, atk: 11, def: 10, spd: 3, tec: 7, lck: 3,
     traits: ['blessing-boost'],
     skills: ['shieldStrike', 'holyShieldStrike', 'blessing']
@@ -68,16 +71,17 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
     hp: 25, atk: 8, def: 3, spd: 12, tec: 11, lck: 8,
     traits: ['backstab', 'stealth-move', 'ambush'],
-    skills: ['stealth']
+    skills: ['stealth', 'backstab-strike', 'shadow-strike']
   },
   {
     id: 'knight', name: '骑士', label: '骑', faction: 'player',
     armor: 'medium', movePoints: 7, flying: false,
     weapons: ['spear'], resourceType: 'rage',
     basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
+    tags: ['cavalry'],
     hp: 29, atk: 10, def: 7, spd: 8, tec: 8, lck: 5,
-    traits: ['re-move'],
-    skills: []
+    traits: ['re-move', 'charge-bonus'],
+    skills: ['charge-rush']
   },
   {
     id: 'pegasus', name: '飞马', label: '马', faction: 'player',
@@ -85,7 +89,8 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['spear'], resourceType: 'focus',
     basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
     hp: 27, atk: 9, def: 5, spd: 11, tec: 9, lck: 7,
-    skills: []
+    traits: ['re-move'],
+    skills: ['deathblow', 'sky-strike']
   },
   {
     id: 'axeman', name: '斧兵', label: '斧', faction: 'player',
@@ -93,7 +98,8 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['axe'], resourceType: 'rage',
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
     hp: 31, atk: 12, def: 6, spd: 5, tec: 7, lck: 3,
-    skills: ['whirlwind']
+    traits: ['berserk', 'vampiric', 'ww-enhance'],
+    skills: ['bloodlust', 'whirlwind']
   },
   {
     id: 'archer', name: '弓箭', label: '弓', faction: 'player',
@@ -101,8 +107,8 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['bow'], resourceType: 'focus',
     basicAttack: { damageType: 'piercing', rangeMin: 2, rangeMax: 2 },
     hp: 25, atk: 9, def: 4, spd: 7, tec: 9, lck: 5,
-    traits: ['shadow-hunter'],
-    skills: ['snipe']
+    traits: ['shadow-hunter', 'eagle-eye'],
+    skills: ['snipe', 'aim-shot']
   },
   {
     id: 'priest', name: '牧师', label: '牧', faction: 'player',
@@ -110,7 +116,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['staff'], resourceType: 'mp',
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
     hp: 23, atk: 4, def: 3, spd: 6, tec: 8, lck: 6,
-    traits: ['steady'],
+    traits: ['heal-boost', 'pious'],
     skills: ['heal', 'regen', 'mithrilShield']
   },
   {
@@ -119,6 +125,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['staff'], resourceType: 'mp',
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
     hp: 23, atk: 8, def: 3, spd: 7, tec: 9, lck: 5,
+    traits: ['pyro'],
     skills: ['fireball', 'meteor', 'curse']
   }
 ];
@@ -145,6 +152,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     armor: 'heavy', movePoints: 5, flying: false,
     weapons: ['axe'], resourceType: 'rage',
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
+    tags: ['heavy'],
     hp: 19, atk: 8, def: 4, spd: 4, tec: 5, lck: 2,
     skills: []
   },
@@ -153,6 +161,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     armor: 'medium', movePoints: 4, flying: false,
     weapons: ['hammer'], resourceType: 'rage',
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
+    tags: ['heavy'],
     hp: 18, atk: 7, def: 5, spd: 3, tec: 5, lck: 2,
     skills: ['warHammer']
   },
@@ -177,6 +186,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     armor: 'heavy', movePoints: 4, flying: false,
     weapons: ['hammer'], resourceType: 'rage',
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
+    tags: ['heavy'],
     hp: 34, atk: 10, def: 6, spd: 6, tec: 9, lck: 5,
     skills: ['warHammer', 'sweep']
   }

@@ -111,7 +111,7 @@ describe('R3-1 模板改造', () => {
     const knight = PLAYER_TEMPLATES.find(t => t.id === 'knight')!;
     expect(knight.traits).toContain('re-move');
     const pegasus = PLAYER_TEMPLATES.find(t => t.id === 'pegasus')!;
-    expect(pegasus.traits ?? []).not.toContain('re-move');
+    expect(pegasus.traits ?? []).toContain('re-move');
   });
 
   it('特性条目携带 learnable 标记（F2）', () => {

@@ -48,6 +48,13 @@ export interface SkillTemplate {
   counters?: Partial<Record<string, number>>;
   instant?: boolean;
   learnable: boolean;
+  /** R3-10 攻击修饰声明 */
+  halfDefFromBack?: boolean;      // 背刺：背面攻击无视一半防御
+  backPowerBonus?: number;        // 影袭：背面攻击威力提升
+  critOverride?: boolean;         // 致命突袭：绝对必暴（声明先行，结算归 R7）
+  noCounterIfMoved?: boolean;     // 空中突袭：本回合移动后释放不受反击
+  chargeTurns?: number;           // 瞄准射击：物理蓄力（复用咏唱推进结构）
+  rush?: boolean;                 // 冲杀：穿越位移（直线冲过目标格落背后）
   /** 附加伤害段（双伤害段结构，R3-7）：各段独立伤害线/威力过矩阵，与主段同侧同命中 */
   segments?: Array<{ damageType: DamageType; power?: number }>;
   /** 行为主效果（行为技能）：主效果为行为段而非伤害段；damageType 为占位、不走伤害管线 */
@@ -55,7 +62,8 @@ export interface SkillTemplate {
     | { kind: 'stealth' }
     | { kind: 'stance' }
     | { kind: 'buff'; stat: 'atk' | 'def'; amount: number; decay?: number; turns?: number }
-    | { kind: 'shout' };
+    | { kind: 'shout' }
+    | { kind: 'bloodlust'; atkUp: number; defDown: number; selfPct: number; rage: number };
 }
 
 export const SKILLS: Record<string, SkillTemplate> = {
@@ -81,6 +89,52 @@ export const SKILLS: Record<string, SkillTemplate> = {
     behavior: { kind: 'shout' },
     subs: [{ kind: 'resource', timing: 'immediate', resourceType: 'rage', amount: 2 }],
     learnable: false
+  },
+  stab: {
+    id: 'stab', name: '刺击', target: 'enemy', damageType: 'piercing',
+    rangeMin: 1, rangeMax: 1, weaponType: 'sword', resourceType: 'rage',
+    counters: { heavy: 1.5, cavalry: 1.5 }, learnable: false
+  },
+  'backstab-strike': {
+    id: 'backstab-strike', name: '背刺', target: 'enemy', damageType: 'piercing',
+    rangeMin: 1, rangeMax: 1, weaponType: 'dagger',
+    halfDefFromBack: true, learnable: false
+  },
+  'shadow-strike': {
+    id: 'shadow-strike', name: '影袭', target: 'enemy', damageType: 'piercing',
+    rangeMin: 1, rangeMax: 1, weaponType: 'dagger',
+    backPowerBonus: 4, learnable: false
+  },
+  deathblow: {
+    id: 'deathblow', name: '致命突袭', target: 'enemy', damageType: 'piercing',
+    rangeMin: 1, rangeMax: 1, weaponType: 'spear',
+    critOverride: true, learnable: false
+  },
+  'sky-strike': {
+    id: 'sky-strike', name: '空中突袭', target: 'enemy', damageType: 'piercing',
+    rangeMin: 1, rangeMax: 1, weaponType: 'spear',
+    critOverride: true, noCounterIfMoved: true, learnable: false
+  },
+  bloodlust: {
+    id: 'bloodlust', name: '嗜血', target: 'self', damageType: 'slashing',
+    rangeMin: 0, rangeMax: 0, weaponType: 'axe', instant: true,
+    behavior: { kind: 'bloodlust', atkUp: 3, defDown: 2, selfPct: 0.1, rage: 2 },
+    subs: [{ kind: 'resource', timing: 'immediate', resourceType: 'rage', amount: 2 }],
+    learnable: false
+  },
+  'aim-shot': {
+    id: 'aim-shot', name: '瞄准射击', target: 'enemy', damageType: 'piercing',
+    rangeMin: 2, rangeMax: 2, weaponType: 'bow',
+    chargeTurns: 1, backPowerBonus: 0, learnable: false
+  },
+  'charge-rush': {
+    id: 'charge-rush', name: '冲杀', target: 'enemy', damageType: 'piercing',
+    rangeMin: 1, rangeMax: 2, weaponType: 'spear',
+    rush: true, learnable: false
+  },
+  'axe-butt': {
+    id: 'axe-butt', name: '斧柄打击', target: 'enemy', damageType: 'blunt',
+    rangeMin: 1, rangeMax: 1, weaponType: 'axe', learnable: true
   },
   shieldThrust: {
     id: 'shieldThrust', name: '盾突', target: 'enemy', damageType: 'blunt',

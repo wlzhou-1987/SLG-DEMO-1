@@ -73,6 +73,54 @@ export const TRAIT_CONFIGS: Record<string, TraitConfig> = {
     name: '光环',
     desc: '周围 2 格内友军攻击力提升（每回合按持有者位置刷新）',
     learnable: false
+  },
+  'charge-bonus': {
+    id: 'charge-bonus',
+    name: '冲锋',
+    desc: '移动格数线性转化为攻击加成（普攻与技能均享受）',
+    learnable: false
+  },
+  berserk: {
+    id: 'berserk',
+    name: '低血狂战',
+    desc: 'HP 越低攻击越高（线性）',
+    learnable: false
+  },
+  vampiric: {
+    id: 'vampiric',
+    name: '强化嗜血',
+    desc: '嗜血状态期间命中回复造成伤害的一半',
+    learnable: false
+  },
+  'ww-enhance': {
+    id: 'ww-enhance',
+    name: '强化旋风斩',
+    desc: '旋风斩附加第二段伤害（威力减半）',
+    learnable: false
+  },
+  pyro: {
+    id: 'pyro',
+    name: '炎爆',
+    desc: '火球术与陨石术伤害提升并附加灼烧 DoT',
+    learnable: false
+  },
+  'heal-boost': {
+    id: 'heal-boost',
+    name: '强化治疗',
+    desc: '治疗量随技巧提升；治疗/增益法术射程随技巧提升（动态射程）',
+    learnable: false
+  },
+  pious: {
+    id: 'pious',
+    name: '虔诚',
+    desc: '释放增益类法术时复制一半效果到治疗范围内随机友方',
+    learnable: false
+  },
+  'eagle-eye': {
+    id: 'eagle-eye',
+    name: '鹰眼',
+    desc: '远程命中 +30%、命中溢出转暴击（结算随 R7 落地）',
+    learnable: false
   }
 };
 

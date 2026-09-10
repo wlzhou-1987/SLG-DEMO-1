@@ -6,7 +6,7 @@ import type { SkillTemplate } from '../config/skills';
 import type { UnitTemplate } from '../config/units';
 import { getTemplate, getTemplateSkills, basicAttackSkill } from '../config/units';
 import { directionBetween, distance } from './hex';
-import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS } from '../config/combat';
+import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS, EFFECT_PARAMS } from '../config/combat';
 import { TERRAIN_CONFIGS } from '../config/terrain';
 import { TRAIT_CONFIGS } from '../config/traits';
 import { resolveArmor, statValue } from './status';
@@ -67,11 +67,24 @@ export function calcStrike(
   const defTraits = [...defender.loadout.passive];
 
   // R3-9：属性总值 = 模板基础 + buff/姿态加成（光环经 buff 进入）
+  // R3-10：影袭背面威力、背刺半防在 base 层合成
+  const backBonus = side === 'back' ? (skill.backPowerBonus ?? 0) : 0;
+  const defForSkill = skill.halfDefFromBack && side === 'back'
+    ? Math.floor(statValue(defender, defT, 'def') / 2)
+    : statValue(defender, defT, 'def');
   const base = Math.max(
-    statValue(attacker, atkT, 'atk') + (skill.power ?? 0) - statValue(defender, defT, 'def') - terrDef,
+    statValue(attacker, atkT, 'atk') + (skill.power ?? 0) + backBonus - defForSkill - terrDef,
     0
   );
-  const matrix = DAMAGE_ARMOR_MATRIX[skill.damageType][defArmor];
+  // R3-10：counters 特效克制（占位 tags，R4-4 迁移正式 unitTags）——只进伤害乘区
+  let counterMult = 1;
+  if (skill.counters) {
+    for (const tag of defT.tags ?? []) {
+      const m = skill.counters[tag];
+      if (m !== undefined) counterMult *= m;
+    }
+  }
+  const matrix = DAMAGE_ARMOR_MATRIX[skill.damageType][defArmor] * counterMult;
   // 背刺：背面伤害 +3 加算改为乘算
   const backstabMult = atkTraits.includes('backstab')
     ? TRAIT_CONFIGS.backstab.backstabMultiplier ?? 1.5
@@ -139,7 +152,8 @@ export function calcBattleForecast(
   map: MapState,
   attacker: UnitState,
   defender: UnitState,
-  skill: SkillTemplate
+  skill: SkillTemplate,
+  opts?: { noCounter?: boolean }
 ): BattleForecast {
   const atkT = getTemplate(attacker.templateId)!;
   const defT = getTemplate(defender.templateId)!;
@@ -147,9 +161,9 @@ export function calcBattleForecast(
 
   const attackerStrike = calcStrike(map, attacker, atkT, defender, defT, skill);
 
-  // 反击：守方技能射程覆盖攻方位置
+  // 反击：守方技能射程覆盖攻方位置；空中突袭等条件免反击（R3-10）
   let counter: StrikeForecast | null = null;
-  const counterSkill = pickCounterSkill(defT, atkT, dist);
+  const counterSkill = opts?.noCounter ? null : pickCounterSkill(defT, atkT, dist);
   if (counterSkill) {
     // 反击方向：守方 → 攻方，以攻方朝向为基准判部位
     counter = calcStrike(map, defender, defT, attacker, atkT, counterSkill);
@@ -190,9 +204,10 @@ export function resolveBattle(
   attacker: UnitState,
   defender: UnitState,
   skill: SkillTemplate,
-  rng: () => number = Math.random
+  rng: () => number = Math.random,
+  opts?: { noCounter?: boolean }
 ): BattleResult {
-  const forecast = calcBattleForecast(map, attacker, defender, skill);
+  const forecast = calcBattleForecast(map, attacker, defender, skill, opts);
   const atkT = getTemplate(attacker.templateId)!;
   const defT = getTemplate(defender.templateId)!;
   const strikes: StrikeResult[] = [];
@@ -206,6 +221,11 @@ export function resolveBattle(
     const absorbed = byAttacker
       ? applyDamageToUnit(defender, defT, damage)
       : applyDamageToUnit(attacker, atkT, damage);
+    if (byAttacker && hit && damage > 0 &&
+        attacker.loadout.passive.includes('vampiric') &&
+        attacker.statuses.some(st => st.type === 'buff' && st.skillName === '嗜血')) {
+      attacker.hp = Math.min(attacker.maxHp, attacker.hp + Math.max(1, Math.floor(damage * EFFECT_PARAMS.lifestealRate)));
+    }
     attackerHp = attacker.hp;
     defenderHp = defender.hp;
     strikes.push({ byAttacker, hit, damage, absorbed, side: s.side, skillName: s.skillName });
@@ -251,6 +271,9 @@ function aoeStrikeForecast(
   skill: SkillTemplate
 ): StrikeForecast {
   const main = calcStrike(map, attacker, atkT, defender, defT, skill);
+  if (skill.id === 'whirlwind' && attacker.loadout.passive.includes('ww-enhance')) {
+    return { ...main, damage: main.damage + Math.floor(main.damage / 2) };
+  }
   if (!skill.segments || skill.segments.length === 0) return main;
   let total = main.damage;
   for (const seg of skill.segments) {

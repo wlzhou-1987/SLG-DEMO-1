@@ -139,7 +139,7 @@ describe('R3-5 技能配置区块', () => {
   it('选中角色默认显示出厂装填；未编辑角色开战不显式传装填', () => {
     const prep = make();
     prep.selectUnit('lord');
-    expect([...prep.getEffectiveLoadout('lord').active]).toEqual(['shieldThrust']);
+    expect([...prep.getEffectiveLoadout('lord').active]).toEqual(['stab']);
     prep.clickStart();
     const lord = (started as RosterEntry[]).find(e => e.templateId === 'lord');
     expect(lord?.loadout).toBeUndefined();
@@ -161,9 +161,9 @@ describe('R3-5 技能配置区块', () => {
     expect(prep.addToSlot('lord', 'fireball')).toBe(true);
     expect(prep.addToSlot('lord', 'fireball')).toBe(false); // 重复
     const lo = prep.getEffectiveLoadout('lord');
-    expect([...lo.active]).toEqual(['shieldThrust', 'fireball']);
+    expect([...lo.active]).toEqual(['stab', 'fireball']);
     prep.removeFromSlot('lord', 'active', 1);
-    expect([...prep.getEffectiveLoadout('lord').active]).toEqual(['shieldThrust']);
+    expect([...prep.getEffectiveLoadout('lord').active]).toEqual(['stab']);
     expect(prep.addToSlot('lord', 'fireball')).toBe(true);
   });
 
@@ -209,7 +209,7 @@ describe('R3-5 技能配置区块', () => {
     const kids = (prep.root as unknown as { children: FakeElement[] }).children;
     const block = kids.find(c => c.className === 'prep-block skill-block');
     expect(block).toBeDefined();
-    expect(block!.innerHTML).toContain('盾突');
+    expect(block!.innerHTML).toContain('刺击');
     expect(block!.innerHTML).toContain('主动技能');
   });
 });

@@ -5,6 +5,7 @@ import { getAreaCells, unitsInArea } from './area';
 import type { SpellTemplate } from '../config/spells';
 import { getTemplate } from '../config/units';
 import { calcStrike } from './combat';
+import { EFFECT_PARAMS } from '../config/combat';
 import type { PartSide } from './combat';
 import type { ArmorType } from './types';
 
@@ -67,14 +68,26 @@ export function resolveSpell(
   switch (forecast.kind) {
     case 'damage': {
       const hit = rng() < forecast.hitRate / 100;
+      let damage = forecast.damage;
+      if (hit && caster.loadout.passive.includes('pyro') && (spell.id === 'fireball' || spell.id === 'meteor')) {
+        damage = Math.floor(damage * EFFECT_PARAMS.pyroBoostMult);
+        target.statuses.push({
+          type: 'dot', skillName: '灼烧', appliedAtTurn: castTurn,
+          turnsLeft: EFFECT_PARAMS.pyroDotTurns,
+          damagePerTurn: Math.max(1, Math.floor(damage / 2))
+        });
+      }
       if (hit) {
-        target.hp = Math.max(0, target.hp - forecast.damage);
+        target.hp = Math.max(0, target.hp - damage);
       }
       return { ...forecast, hit, targetHp: target.hp };
     }
     case 'heal': {
-      target.hp = Math.min(target.maxHp, target.hp + forecast.amount);
-      return { ...forecast, targetHp: target.hp };
+      const amount = caster.loadout.passive.includes('heal-boost')
+        ? forecast.amount + Math.floor((getTemplate(caster.templateId)?.tec ?? 0) * EFFECT_PARAMS.healPerTechHalf)
+        : forecast.amount;
+      target.hp = Math.min(target.maxHp, target.hp + amount);
+      return { ...forecast, amount, targetHp: target.hp };
     }
     case 'regen': {
       target.statuses.push({

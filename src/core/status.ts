@@ -70,10 +70,30 @@ export interface StanceStatus {
   stanceId: 'defense';
 }
 
-export type ActiveStatus = ChantStatus | DelayedStatus | RegenStatus | ShieldStatus | StealthStatus | BuffStatus | StanceStatus;
+/** 灼烧 DoT（R3-10 炎爆）：每回合固定伤害 */
+export interface DotStatus {
+  type: 'dot';
+  skillName: string;
+  turnsLeft: number;
+  appliedAtTurn: number;
+  damagePerTurn: number;
+}
+
+
+export interface ChargeStatus {
+  type: 'charge';
+  skillName: string;
+  turnsLeft: number;
+  appliedAtTurn: number;
+  skill: import('./../config/skills').SkillTemplate;
+  targetId: string;
+}
+
+export type ActiveStatus = ChantStatus | DelayedStatus | RegenStatus | ShieldStatus | StealthStatus | BuffStatus | StanceStatus | ChargeStatus | DotStatus;
 
 export type StatusEvent =
   | { kind: 'chantFire'; unitId: string; spell: SpellTemplate; targetId: string; targetPos?: HexCoord }
+  | { kind: 'chargeFire'; unitId: string; skill: import('./../config/skills').SkillTemplate; targetId: string }
   | { kind: 'delayedFire'; unitId: string; skillName: string; damage: number }
   | { kind: 'regenTick'; unitId: string; healed: number }
   | { kind: 'statusExpired'; unitId: string; skillName: string };
@@ -107,6 +127,21 @@ export function tickStatuses(units: UnitState[], faction: Faction): StatusEvent[
           status.turnsLeft--;
           if (status.turnsLeft <= 0) {
             events.push({ kind: 'chantFire', unitId: unit.id, spell: status.spell, targetId: status.targetId, targetPos: status.targetPos });
+            removed.push(status);
+          }
+          break;
+        }
+        case 'dot': {
+          unit.hp = Math.max(0, unit.hp - status.damagePerTurn);
+          events.push({ kind: 'delayedFire', unitId: unit.id, skillName: status.skillName, damage: status.damagePerTurn });
+          status.turnsLeft--;
+          if (status.turnsLeft <= 0) removed.push(status);
+          break;
+        }
+        case 'charge': {
+          status.turnsLeft--;
+          if (status.turnsLeft <= 0) {
+            events.push({ kind: 'chargeFire', unitId: unit.id, skill: status.skill, targetId: status.targetId });
             removed.push(status);
           }
           break;
@@ -235,6 +270,12 @@ export function statValue(
   }
   if (stat === 'def' && unit.statuses.some(s => s.type === 'stance')) {
     v += EFFECT_PARAMS.stanceDefBonus;
+  }
+  if (stat === 'atk' && unit.loadout.passive.includes('charge-bonus')) {
+    v += Math.min(unit.moveSpent, EFFECT_PARAMS.chargeCap) * EFFECT_PARAMS.chargePerHex;
+  }
+  if (stat === 'atk' && unit.loadout.passive.includes('berserk')) {
+    v += Math.floor((1 - unit.hp / unit.maxHp) * EFFECT_PARAMS.berserkMaxBonus);
   }
   return v;
 }

@@ -136,7 +136,8 @@ describe('法术与特性配置一致性', () => {
     const mage = getTemplate('mage')!;
     expect(getTemplateSkills(priest).every(isSpell)).toBe(true);
     expect(getTemplateSkills(mage).every(isSpell)).toBe(true);
-    expect(priest.traits).toContain('steady');
+    expect(priest.traits).toContain('heal-boost');
+    expect(priest.traits).toContain('pious');
     expect(getTemplate('thief')!.traits).toContain('backstab');
   });
 });

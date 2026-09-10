@@ -424,3 +424,28 @@ describe('R3-9 状态与增益（game 集成）', () => {
     expect(defender.statuses.some(s => s.type === 'stance')).toBe(false);
   });
 });
+
+describe('R3-10 瞬发行动经济学（嗜血）', () => {
+  beforeEach(() => {
+    elements.clear();
+  });
+
+  it('嗜血释放后行动不结束：回行动菜单且可继续待机', async () => {
+    const { game, click } = createGame();
+    const axeman = game.units.find(u => u.templateId === 'axeman')!;
+    const origin = axeman.position;
+    const hp0 = axeman.hp;
+    click(origin);
+    click(origin);
+    await waitMove();
+    menuClick('攻击');
+    menuClick('攻击·嗜血');
+    expect(axeman.hp).toBeLessThan(hp0);                       // 自伤
+    expect(axeman.statuses.some(s => s.type === 'buff' && s.skillName === '嗜血')).toBe(true);
+    expect(axeman.pendingResources?.rage).toBeGreaterThan(0);  // 怒气暂存
+    expect(game.phase.mode).toBe('actionMenu');                // 行动未结束
+    menuClick('待机');
+    const menu = mapWrap().children.find(c => c.className === 'action-menu');
+    menu?.children.find(c => c.textContent.includes('确认'))?.fire('click');
+  });
+});

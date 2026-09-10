@@ -3,6 +3,8 @@ import { attackSide, calcBattleForecast, resolveBattle } from '../../src/core/co
 import { createMapState } from '../../src/core/map';
 import { getTemplate, getTemplateSkills, basicAttackSkill } from '../../src/config/units';
 import { SKILLS } from '../../src/config/skills';
+import { directionBetween } from '../../src/core/hex';
+import { DAMAGE_ARMOR_MATRIX } from '../../src/config/combat';
 import type { SkillTemplate } from '../../src/config/skills';
 import { calcAoeForecast, resolveAoeBattle } from '../../src/core/combat';
 import { resetUnitCounter, createUnitState } from '../../src/core/unit';
@@ -307,7 +309,7 @@ describe('特性修正管线', () => {
     // 剑士 tec8 攻牧师侧面：50+40−运6×3+补正；沉稳补正 10→5
     // = 50+40−18+5 = 77（无特性应为 82）
     const attacker = createUnitState('swordsman', 'enemy', { q: 10, r: 14 });
-    const priest = createUnitState('priest', 'player', { q: 10, r: 15 });
+    const priest = createUnitState('priest', 'player', { q: 10, r: 15 }, { active: [], passive: ['steady'] });
     priest.facing = 0;  // 朝东，攻方在西北 → 侧面
     const f = calcBattleForecast(map, attacker, priest, basicAttackSkill(getTemplate('swordsman')!));
     expect(f.attacker.side).toBe('side');
@@ -421,7 +423,7 @@ describe('R3-7 AoE 结算（独立命中/无反击/多段）', () => {
   const whirlwind = SKILLS.whirlwind;
 
   function makeScene() {
-    const caster = createUnitState('axeman', 'player', { q: 10, r: 15 });
+    const caster = createUnitState('axeman', 'player', { q: 10, r: 15 }, { active: ['whirlwind'], passive: [] });
     const foeA = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
     const foeB = createUnitState('spearman', 'enemy', { q: 10, r: 14 });
     return { caster, foeA, foeB };
@@ -475,5 +477,99 @@ describe('R3-7 AoE 结算（独立命中/无反击/多段）', () => {
     const hpBefore = foeA.hp;
     resolveAoeBattle(map, caster, [foeA], whirlwind, () => 0);
     expect(foeA.hp).toBe(hpBefore); // 全额被盾吸收
+  });
+});
+
+describe('R3-10 攻击修饰集', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+
+  it('背刺（主动技能）：背面攻击无视一半防御', () => {
+    const attacker = createUnitState('thief', 'player', { q: 9, r: 15 });
+    const defender = createUnitState('defender', 'enemy', { q: 10, r: 15 });
+    defender.facing = 0;
+    const backstab = SKILLS['backstab-strike'];
+    const plain = calcBattleForecast(map, attacker, defender, basicAttackSkill(getTemplate('thief')!));
+    const stabbed = calcBattleForecast(map, attacker, defender, backstab);
+    expect(plain.attacker.side).toBe('back');
+    // thief atk8 vs def9：普攻 base=max(8-9,0)=0；背刺无视一半防 → max(8-4,0)=4 ×钝矩阵
+    expect(stabbed.attacker.damage).toBeGreaterThan(plain.attacker.damage);
+  });
+
+  it('影袭：背面攻击威力提升（正面无加成）', () => {
+    const bare = { active: [], passive: [] };
+    const backAtt = createUnitState('thief', 'player', { q: 9, r: 15 }, bare);
+    const frontAtt = createUnitState('thief', 'player', { q: 10, r: 16 }, bare);
+    const defender = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
+    defender.facing = 0;
+    const frontDefender = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
+    frontDefender.facing = directionBetween(frontDefender.position, frontAtt.position);
+    const shadow = SKILLS['shadow-strike'];
+    const plainBack = calcBattleForecast(map, backAtt, defender, basicAttackSkill(getTemplate('thief')!));
+    const boostedBack = calcBattleForecast(map, backAtt, defender, shadow);
+    expect(boostedBack.attacker.damage - plainBack.attacker.damage).toBe(Math.floor((shadow.backPowerBonus ?? 0) * DAMAGE_ARMOR_MATRIX.piercing.light));
+    const plainFront = calcBattleForecast(map, frontAtt, frontDefender, basicAttackSkill(getTemplate('thief')!));
+    const boostedFront = calcBattleForecast(map, frontAtt, frontDefender, shadow);
+    expect(boostedFront.attacker.damage).toBe(plainFront.attacker.damage);
+  });
+
+  it('刺击 counters：对重甲与骑兵模板特效克制（占位 tags）', () => {
+    const lord = createUnitState('lord', 'player', { q: 10, r: 15 });
+    const heavyFoe = createUnitState('axeman_enemy', 'enemy', { q: 11, r: 15 });  // 重甲
+    const lightFoe = createUnitState('swordsman', 'enemy', { q: 10, r: 16 });     // 轻甲
+    const stab = SKILLS.stab;
+    const vsHeavy = calcBattleForecast(map, lord, heavyFoe, stab);
+    const vsLight = calcBattleForecast(map, lord, lightFoe, stab);
+    const baseHeavy = calcBattleForecast(map, lord, heavyFoe, { ...stab, counters: undefined });
+    const baseLight = calcBattleForecast(map, lord, lightFoe, { ...stab, counters: undefined });
+    expect(vsHeavy.attacker.damage).toBeGreaterThan(baseHeavy.attacker.damage);  // 重甲受特效
+    expect(vsLight.attacker.damage).toBe(baseLight.attacker.damage);            // 轻甲无特效
+  });
+
+  it('冲锋被动：移动格数线性加攻击（普攻与技能均享受）', () => {
+    const knight = createUnitState('knight', 'player', { q: 10, r: 15 });
+    const foe = createUnitState('swordsman', 'enemy', { q: 10, r: 16 });
+    const still = calcBattleForecast(map, knight, foe, basicAttackSkill(getTemplate('knight')!));
+    knight.moveSpent = 3;
+    const moved = calcBattleForecast(map, knight, foe, basicAttackSkill(getTemplate('knight')!));
+    expect(moved.attacker.damage).toBeGreaterThan(still.attacker.damage);
+  });
+
+  it('低血狂战：HP 越低攻击越高（线性）', () => {
+    const axeman = createUnitState('axeman', 'player', { q: 10, r: 15 });
+    const foe = createUnitState('swordsman', 'enemy', { q: 10, r: 16 });
+    const full = calcBattleForecast(map, axeman, foe, basicAttackSkill(getTemplate('axeman')!));
+    axeman.hp = Math.floor(axeman.maxHp * 0.3);
+    const low = calcBattleForecast(map, axeman, foe, basicAttackSkill(getTemplate('axeman')!));
+    expect(low.attacker.damage).toBeGreaterThan(full.attacker.damage);
+  });
+
+  it('吸血（强化嗜血）：嗜血 buff 激活期间命中回血一半', () => {
+    const axeman = createUnitState('axeman', 'player', { q: 10, r: 15 });
+    const foe = createUnitState('swordsman', 'enemy', { q: 10, r: 16 });
+    axeman.hp = 5;
+    axeman.statuses.push({
+      type: 'buff', skillName: '嗜血', appliedAtTurn: 1, turnsLeft: 3,
+      stat: 'atk', amount: 3, decay: 0
+    });
+    const hpBefore = axeman.hp;
+    resolveBattle(map, axeman, foe, basicAttackSkill(getTemplate('axeman')!), () => 0);
+    expect(axeman.hp).toBeGreaterThan(hpBefore); // 吸血回血（不超上限）
+  });
+
+  it('强化旋风斩：AoE 附加第二段（威力减半）', () => {
+    const axeman = createUnitState('axeman', 'player', { q: 10, r: 15 }, { active: ['whirlwind'], passive: [] });
+    const foe = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    const single = calcAoeForecast(map, axeman, [foe], SKILLS.whirlwind)[0].damage;
+    const dual = calcAoeForecast(map, axeman, [foe], SKILLS.whirlwind)[0].damage;
+    expect(dual).toBe(single); // 同单位同结果（强化经 attacker passive 生效，见下）
+    const enhanced = createUnitState('axeman', 'player', { q: 10, r: 15 }, {
+      active: ['whirlwind'], passive: ['berserk', 'vampiric', 'ww-enhance']
+    });
+    const enh = calcAoeForecast(map, enhanced, [foe], SKILLS.whirlwind)[0].damage;
+    expect(enh).toBeGreaterThan(calcAoeForecast(map, axeman, [foe], SKILLS.whirlwind)[0].damage);
   });
 });

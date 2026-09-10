@@ -11,7 +11,7 @@ import { calcSpellForecast, resolveSpell, resolveAoeSpell } from './core/spell';
 import type { SpellForecast, SpellResult } from './core/spell';
 import { getAreaCells, unitsInArea } from './core/area';
 import { cancelStealth, isStealthed } from './core/stealth';
-import { executeBehavior } from './core/effects';
+import { executeBehavior, applyAmbushBonus, rushDestination, resolveChargeStrike } from './core/effects';
 import { refreshAuras } from './core/status';
 import type { SkillTemplate } from './config/skills';
 import { getTemplate, basicAttackSkill } from './config/units';
@@ -194,10 +194,13 @@ export class Game {
       }
       case 'targetSelect': {
         if (unit && this.phase.targets.has(key)) {
-          if (isSpell(this.phase.skill)) {
-            this.enterSpellForecast(this.phase.unit, unit, this.phase.skill, this.phase.originPos);
+          const skill = this.phase.skill;
+          if (skill.chargeTurns) {
+            this.beginCharge(this.phase.unit, unit, skill);
+          } else if (isSpell(skill)) {
+            this.enterSpellForecast(this.phase.unit, unit, skill, this.phase.originPos);
           } else {
-            this.enterForecast(this.phase.unit, unit, this.phase.skill, this.phase.originPos);
+            this.enterForecast(this.phase.unit, unit, skill, this.phase.originPos);
           }
         } else {
           // 点空/非目标 = 返回行动菜单
@@ -320,7 +323,7 @@ export class Game {
       } else {
         const skill = skills.find(s => `skill:${s.name}` === value)!;
         if (skill.behavior) {
-          this.executeBehaviorSkill(unit, skill);
+          this.executeBehaviorSkill(unit, skill, originPos);
         } else if (skill.area) {
           this.enterAoeForecast(unit, skill, originPos);
         } else {
@@ -331,12 +334,16 @@ export class Game {
     });
   }
 
-  /** 行为技能（§4.9 行为主效果）：当前仅潜行——执行行为后走行动收尾 */
-  private executeBehaviorSkill(unit: UnitState, skill: SkillTemplate) {
+  /** 行为技能（§4.9 行为主效果）：执行后走行动收尾；瞬发（R3-10）回行动菜单不结束行动 */
+  private executeBehaviorSkill(unit: UnitState, skill: SkillTemplate, originPos?: HexCoord) {
     hideActionMenu();
-    // R3-9：行为技能统一执行器（潜行/防御姿态/祝福/战斗怒吼）
+    // R3-9：行为技能统一执行器（潜行/防御姿态/祝福/战斗怒吼/嗜血）
     const msg = executeBehavior(unit, skill, this.units);
     if (msg) logBattle(`${this.unitName(unit)} ${msg.replace(`${unit.id} `, '')}`);
+    if (skill.instant) {
+      this.openActionMenu(unit, originPos ?? unit.position);
+      return;
+    }
     if (hasUnitTrait(unit, 're-move')) {
       this.enterReMove(unit, unit.facing);
     } else {
@@ -419,6 +426,7 @@ export class Game {
       if (isEnemy === wantAlly) continue;
       const d = distance(unit.position, u.position);
       if (d >= skill.rangeMin && d <= skill.rangeMax) {
+        if (skill.rush && rushDestination(this.map, this.units, unit, u) === null) continue;
         targets.add(hexKey(u.position));
       }
     }
@@ -428,6 +436,20 @@ export class Game {
       return;
     }
     this.phase = { mode: 'targetSelect', unit, skill, originPos, targets };
+  }
+
+  private beginCharge(unit: UnitState, target: UnitState, skill: SkillTemplate) {
+    hideActionMenu();
+    if (isStealthed(unit) && !hasUnitTrait(unit, 'shadow-hunter')) cancelStealth(unit);
+    unit.statuses.push({
+      type: 'charge', skillName: skill.name,
+      turnsLeft: (skill.chargeTurns ?? 1) + 1,
+      appliedAtTurn: this.turn,
+      skill, targetId: target.id
+    });
+    logBattle(`${this.unitName(unit)} 开始蓄力 ${skill.name}`);
+    const facing = directionBetween(unit.position, target.position);
+    this.enterFacingConfirm(unit, facing);
   }
 
   private enterForecast(unit: UnitState, target: UnitState, skill: SkillTemplate, originPos: HexCoord) {
@@ -511,8 +533,15 @@ export class Game {
   /** 确认预报：结算并应用，随后进入再移动或朝向确认 */
   private async confirmBattle(unit: UnitState, target: UnitState, skill: SkillTemplate) {
     hideForecastPanel();
+    const wasStealthed = isStealthed(unit);
     cancelStealth(unit);
-    const result = resolveBattle(this.map, unit, target, skill);
+    const finalSkill = wasStealthed ? applyAmbushBonus(unit, skill) : skill;
+    const noCounter = finalSkill.noCounterIfMoved === true && unit.moveSpent > 0;
+    if (finalSkill.rush) {
+      const dest = rushDestination(this.map, this.units, unit, target);
+      if (dest) unit.position = { ...dest };
+    }
+    const result = resolveBattle(this.map, unit, target, finalSkill, Math.random, { noCounter });
     unit.hp = result.attackerHp;
     target.hp = result.defenderHp;
     if (target.faction === 'enemy') provokeGroup(this.units, target);  // 打一个引来一组
@@ -843,6 +872,20 @@ export class Game {
             const hpBefore = target.hp;
             const r = resolveSpell(this.map, caster, target, e.spell);
             this.showSpellResult(caster, target, e.spell.name, hpBefore, r);
+            if (caster.faction === 'player' && target.faction === 'enemy') {
+              provokeGroup(this.units, target);
+            }
+          }
+        } else if (e.kind === 'chargeFire') {
+          const caster = this.units.find(u => u.id === e.unitId);
+          const target = this.units.find(u => u.id === e.targetId);
+          if (caster && target && target.hp > 0) {
+            const hpBefore = target.hp;
+            resolveChargeStrike(this.map, caster, target, e.skill);
+            if (hpBefore > target.hp) {
+              this.floatText(`-${hpBefore - target.hp}`, FLOAT_COLOR.damage, target.position);
+            }
+            logBattle(`${this.unitName(caster)} 蓄力射击 → ${this.unitName(target)}`);
             if (caster.faction === 'player' && target.faction === 'enemy') {
               provokeGroup(this.units, target);
             }
