@@ -3,6 +3,8 @@ import type { HexCoord } from './types';
 import type { UnitState } from './unit';
 import type { UnitTemplate } from '../config/units';
 import type { SpellTemplate } from '../config/spells';
+import { EFFECT_PARAMS } from '../config/combat';
+import { distance } from './hex';
 
 export interface ChantStatus {
   type: 'chant';
@@ -47,7 +49,28 @@ export interface StealthStatus {
   appliedAtTurn: number;
 }
 
-export type ActiveStatus = ChantStatus | DelayedStatus | RegenStatus | ShieldStatus | StealthStatus;
+/** 属性增益 buff（R3-9）：可声明随回合衰减（祝福）；光环类经 source 标记每回合刷新 */
+export interface BuffStatus {
+  type: 'buff';
+  skillName: string;
+  turnsLeft: number;         // -1 = 无限（衰减归零或刷新移除）
+  appliedAtTurn: number;
+  stat: 'atk' | 'def';       // 过渡占位属性轴（R4 八维后祝福改魔防轴）
+  amount: number;            // 当前剩余增益
+  decay: number;             // 每回合衰减量（0 = 不衰减）
+  source?: 'aura';           // 光环来源标记（tick 时统一刷新）
+}
+
+/** 姿态状态（R3-9 防御姿态）：部位判定参数化 + 移动取消；fortify 被动下封锁移动 */
+export interface StanceStatus {
+  type: 'stance';
+  skillName: string;
+  turnsLeft: number;         // -1 = 无限（移动取消）
+  appliedAtTurn: number;
+  stanceId: 'defense';
+}
+
+export type ActiveStatus = ChantStatus | DelayedStatus | RegenStatus | ShieldStatus | StealthStatus | BuffStatus | StanceStatus;
 
 export type StatusEvent =
   | { kind: 'chantFire'; unitId: string; spell: SpellTemplate; targetId: string; targetPos?: HexCoord }
@@ -116,6 +139,31 @@ export function tickStatuses(units: UnitState[], faction: Faction): StatusEvent[
           }
           break;
         }
+        case 'buff': {
+          // R3-9：衰减 buff——每回合 amount-decay，归零移除；光环类（source）由刷新逻辑重建，tick 跳过
+          if (status.source === 'aura') break;
+          status.amount -= status.decay;
+          status.turnsLeft--;
+          if (status.decay > 0 && unit.loadout.passive.includes('blessing-boost')) {
+            // 强化祝福：祝福期间每回合回血 + 怒气计数暂存（结算归 R5）
+            unit.hp = Math.min(unit.maxHp, unit.hp + EFFECT_PARAMS.blessingBoostHeal);
+            unit.pendingResources = {
+              ...unit.pendingResources,
+              rage: (unit.pendingResources?.rage ?? 0) + EFFECT_PARAMS.blessingBoostRage
+            };
+          }
+          if (status.amount <= 0 || status.turnsLeft <= 0) {
+            removed.push(status);
+            events.push({ kind: 'statusExpired', unitId: unit.id, skillName: status.skillName });
+          }
+          break;
+        }
+        case 'stance': {
+          break;  // 姿态无限维持，仅移动取消（R3-9）
+        }
+        case 'stealth': {
+          break;  // 跨回合维持（R3-8）
+        }
       }
     }
 
@@ -132,4 +180,61 @@ export function interruptChant(unit: UnitState): boolean {
   const before = unit.statuses.length;
   unit.statuses = unit.statuses.filter(s => s.type !== 'chant');
   return unit.statuses.length < before;
+}
+
+/** 挂属性增益（R3-9）：同 skillName 的 buff 后生效覆盖先生效（§4.10 冲突规则口径） */
+export function applyBuff(
+  unit: UnitState,
+  opts: { skillName: string; stat: 'atk' | 'def'; amount: number; decay?: number; turns?: number; source?: 'aura' }
+): void {
+  unit.statuses = unit.statuses.filter(
+    s => !(s.type === 'buff' && s.skillName === opts.skillName)
+  );
+  unit.statuses.push({
+    type: 'buff', skillName: opts.skillName,
+    turnsLeft: opts.turns ?? -1,
+    appliedAtTurn: 0,
+    stat: opts.stat, amount: opts.amount,
+    decay: opts.decay ?? 0,
+    source: opts.source
+  });
+}
+
+/** 光环刷新（R3-9 领主被动）：清除旧 aura buff，按携带者当前位置对范围内友军重挂 */
+export function refreshAuras(units: UnitState[], faction: Faction): void {
+  for (const u of units) {
+    if (u.statuses.some(s => s.type === 'buff' && s.source === 'aura')) {
+      u.statuses = u.statuses.filter(s => !(s.type === 'buff' && s.source === 'aura'));
+    }
+  }
+  for (const holder of units) {
+    if (holder.hp <= 0 || holder.faction !== faction) continue;
+    if (!holder.loadout.passive.includes('aura')) continue;
+    for (const u of units) {
+      if (u.hp <= 0 || u.faction !== holder.faction) continue;
+      if (distance(holder.position, u.position) <= EFFECT_PARAMS.auraRange) {
+        applyBuff(u, {
+          skillName: '光环', stat: 'atk',
+          amount: EFFECT_PARAMS.auraAtkBonus,
+          source: 'aura'
+        });
+      }
+    }
+  }
+}
+
+/** 属性总值（R3-9）：模板基础 + buff 增益 + 姿态加成（combat 结算入口） */
+export function statValue(
+  unit: UnitState,
+  template: UnitTemplate,
+  stat: 'atk' | 'def'
+): number {
+  let v = template[stat];
+  for (const s of unit.statuses) {
+    if (s.type === 'buff' && s.stat === stat) v += s.amount;
+  }
+  if (stat === 'def' && unit.statuses.some(s => s.type === 'stance')) {
+    v += EFFECT_PARAMS.stanceDefBonus;
+  }
+  return v;
 }

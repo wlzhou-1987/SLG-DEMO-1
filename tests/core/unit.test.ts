@@ -109,7 +109,7 @@ describe('R3-3 技能挂实例与战斗内锁定', () => {
   it('默认装填 = 出厂装填（active=模板 skills、passive=模板 traits）', () => {
     const lord = createUnitState('lord', 'player', { q: 0, r: 0 });
     expect([...lord.loadout.active]).toEqual(['shieldThrust']);
-    expect([...lord.loadout.passive]).toEqual([]);
+    expect([...lord.loadout.passive]).toEqual(['aura']);
     const thief = createUnitState('thief', 'player', { q: 0, r: 1 });
     expect([...thief.loadout.passive]).toEqual(['backstab', 'stealth-move', 'ambush']);
     const enemyArcher = createUnitState('archer_enemy', 'enemy', { q: 0, r: 2 });

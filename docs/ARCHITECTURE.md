@@ -33,12 +33,13 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/core/map.ts | 地图状态：createMapState（overrides 铺地形）、getTerrain/isPassable/getMoveCost；MAP_WIDTH/HEIGHT 常量 | §3 | tests/core/map.test.ts |
 | src/core/unit.ts | 单位实例：UnitState（含 moveSpent/statuses/loadout 技能装填·战斗内冻结/groupId/activated）、createUnitState（按编成或出厂装填初始化并冻结）、getUnitAt/getUnitActiveSkills（实例主动解析）/hasUnitTrait/resetUnitCounter | §4.1/§4.8/§4.9 | tests/core/unit.test.ts |
 | src/core/deployment.ts | 战前编成：RosterEntry（含可选技能装填 loadout）/DeploymentRules、isInDeployZone、validateDeployment（区内/不重叠/模板存在与我方/不重复/人数上下限/必上模板，全参数化）、applyPlacement（站位调整：空格移动/被占交换） | §7.0 | tests/core/deployment.test.ts |
-| src/core/range.ts | 范围计算：calcMovementCosts（Dijkstra 代价表）、calcMovementRange（飞行途经占位格不可落）、calcAttackRange（移动+射程并集减移动范围） | §3/§4.8 | tests/core/range.test.ts |
-| src/core/combat.ts | 战斗核心：attackSide（部位判定）、calcStrike/calcBattleForecast（预报）、resolveBattle（结算序列：攻击→反击→追击，护盾吸收，rng 注入）；反击与攻击候选均含普攻（R3-2）；calcAoeForecast/resolveAoeBattle（R3-7 AoE：多段伤害 segments、独立命中、无反击）、applyDamageToUnit | §4.2~§4.5/§4.7/§4.9 | tests/core/combat.test.ts |
+| src/core/range.ts | 范围计算：calcMovementCosts（Dijkstra；R3-9 封锁邻格仅终点不扩展）、calcMovementRange、calcAttackRange、isBlockaded（fortify+姿态移动阻碍） | §3/§4.8/§4.7 | tests/core/range.test.ts |
+| src/core/combat.ts | 战斗核心：attackSide（部位判定，防御姿态参数化——侧后按正面）、calcStrike/calcBattleForecast（预报，statValue 属性总值进公式）、resolveBattle；反击与攻击候选含普攻；calcAoeForecast/resolveAoeBattle（AoE 多段/独立命中/无反击）、applyDamageToUnit | §4.2~§4.5/§4.7/§4.9 | tests/core/combat.test.ts |
 | src/core/area.ts | 效果区域解算（R3-7）：getAreaCells（disc 圆盘/sector 施法者正面三格扇形）、unitsInArea（区域+阵营筛选，R3-8 增可见性过滤——潜行不可见即不受 AoE） | §4.9 | tests/core/area.test.ts |
 | src/core/stealth.ts | 潜行机制（R3-8）：enterStealth/cancelStealth/isStealthed、isVisibleTo（绝对隐身 + 真实视野 revealRange 显形；己方阵营恒可见、动态判定出范围自动隐匿） | §4.9/§6 | tests/core/stealth.test.ts |
 | src/core/spell.ts | 法术预报与结算：calcSpellForecast（damage/heal/regen/shield/curse 五类）、resolveSpell（即时结算或挂状态）、resolveAoeSpell（R3-7 AoE 法术：以中心格区域内敌方独立结算） | §4.10/§4.12/§4.9 | tests/core/spell.test.ts |
-| src/core/status.ts | 状态系统：五种 ActiveStatus 定义（chant 含 targetPos 锁定格、stealth 跨回合维持）、resolveArmor（护盾覆盖）、tickStatuses（阶段开始推进，返回事件）、interruptChant | §4.10/§4.12/§4.9 | tests/core/status.test.ts |
+| src/core/status.ts | 状态系统：七种 ActiveStatus（chant 锁定格/stealth/buff 衰减/stance 姿态/…）、resolveArmor、tickStatuses、interruptChant、applyBuff、refreshAuras（光环按持有者位置刷新）、statValue（模板+buff+姿态属性总值） | §4.10/§4.12/§4.9 | tests/core/status.test.ts |
+| src/core/effects.ts | 行为技能与附属段执行器（R3-9）：executeBehavior（潜行/姿态/祝福/怒吼）、resolveSkillSubs（immediate 资源段计数暂存——结算归 R5）、resolveShout（ally AoE 增益） | §4.9 | tests/core/status.test.ts |
 | src/core/turn.ts | 回合与胜负：checkVictory（全灭/领主阵亡）、startPlayerPhase（重置行动+基地回复） | §2/§3 | tests/core/turn.test.ts |
 | src/core/ai.ts | 敌方 AI：decideEnemyAction（落位×技能×目标枚举评分，击杀优先；BOSS 驻守；无目标向组质心最近我方集结）、checkGroupActivation（警戒范围扫描全组激活）、provokeGroup（被攻击激活） | §6 | tests/core/ai.test.ts |
 | src/core/reinforce.ts | 增援：checkReinforcements（回合/组血量触发、次数上限、刷新点 BFS 找空位，登场即激活） | §6 | tests/core/reinforce.test.ts |

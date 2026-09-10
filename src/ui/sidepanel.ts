@@ -40,6 +40,8 @@ export function showUnitInfo(unit: UnitState): void {
     if (s.type === 'chant') return `咏唱 ${s.skillName}（剩 ${s.turnsLeft} 回合）`;
     if (s.type === 'regen') return `再生（每回合 +${s.healPerTurn}·剩 ${s.turnsLeft} 回合）`;
     if (s.type === 'stealth') return '潜行（对敌不可见，移动/攻击/技能取消）';
+    if (s.type === 'buff') return `${s.skillName}（${s.stat === 'atk' ? '攻击' : '防御'} +${s.amount}${s.decay > 0 ? '·衰减中' : ''}）`;
+    if (s.type === 'stance') return '防御姿态（防御提升·移动取消）';
     return `咒杀（${s.turnsLeft} 回合后 -${s.damage}）`;
   }).map(s => `<li>${s}</li>`).join('');
 

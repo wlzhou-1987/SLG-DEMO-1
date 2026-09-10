@@ -10,7 +10,9 @@ import type { BattleForecast, StrikeResult } from './core/combat';
 import { calcSpellForecast, resolveSpell, resolveAoeSpell } from './core/spell';
 import type { SpellForecast, SpellResult } from './core/spell';
 import { getAreaCells, unitsInArea } from './core/area';
-import { enterStealth, cancelStealth, isStealthed } from './core/stealth';
+import { cancelStealth, isStealthed } from './core/stealth';
+import { executeBehavior } from './core/effects';
+import { refreshAuras } from './core/status';
 import type { SkillTemplate } from './config/skills';
 import { getTemplate, basicAttackSkill } from './config/units';
 import { isSpell } from './config/spells';
@@ -167,6 +169,10 @@ export class Game {
           // R3-8：移动取消潜行（强化潜行=移动不破隐豁免）；原地待命不取消
           if (mover.position.q !== hex.q || mover.position.r !== hex.r) {
             if (isStealthed(mover) && !hasUnitTrait(mover, 'stealth-move')) cancelStealth(mover);
+            if (mover.statuses.some(s => s.type === 'stance')) {
+              mover.statuses = mover.statuses.filter(s => s.type !== 'stance');
+              logBattle(`${this.unitName(mover)} 移动，防御姿态取消`);
+            }
           }
           const origin = mover.position;
           mover.moveSpent = this.phase.moveCosts.get(key) ?? 0;  // §4.8 剩余移动力
@@ -328,10 +334,9 @@ export class Game {
   /** 行为技能（§4.9 行为主效果）：当前仅潜行——执行行为后走行动收尾 */
   private executeBehaviorSkill(unit: UnitState, skill: SkillTemplate) {
     hideActionMenu();
-    if (skill.behavior?.kind === 'stealth') {
-      enterStealth(unit);
-      logBattle(`${this.unitName(unit)} 进入潜行`);
-    }
+    // R3-9：行为技能统一执行器（潜行/防御姿态/祝福/战斗怒吼）
+    const msg = executeBehavior(unit, skill, this.units);
+    if (msg) logBattle(`${this.unitName(unit)} ${msg.replace(`${unit.id} `, '')}`);
     if (hasUnitTrait(unit, 're-move')) {
       this.enterReMove(unit, unit.facing);
     } else {
@@ -814,6 +819,7 @@ export class Game {
   /** 阶段开始推进状态并应用触发事件；返回胜负态 */
   private tickPhase(faction: 'player' | 'enemy'): VictoryState {
     const events = tickStatuses(this.units, faction);
+    if (faction === 'player') refreshAuras(this.units, faction);
     if (events.length > 0) {
       for (const e of events) {
         if (e.kind === 'chantFire') {

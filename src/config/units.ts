@@ -40,6 +40,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['sword'], resourceType: 'rage',
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
     hp: 29, atk: 10, def: 6, spd: 9, tec: 10, lck: 7,
+    traits: ['aura'],
     skills: ['shieldThrust']
   },
   {
@@ -48,7 +49,8 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['sword', 'shield'], resourceType: 'rage',
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
     hp: 33, atk: 8, def: 9, spd: 5, tec: 8, lck: 4,
-    skills: ['shieldThrust']
+    traits: ['fortify'],
+    skills: ['shieldThrust', 'defenseStance', 'warCry']
   },
   {
     id: 'paladin', name: '防骑', label: '骑', faction: 'player',
@@ -56,7 +58,8 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['hammer', 'shield'], resourceType: 'rage',
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
     hp: 35, atk: 11, def: 10, spd: 3, tec: 7, lck: 3,
-    skills: ['shieldStrike', 'holyShieldStrike']
+    traits: ['blessing-boost'],
+    skills: ['shieldStrike', 'holyShieldStrike', 'blessing']
   },
   {
     id: 'thief', name: '盗贼', label: '贼', faction: 'player',

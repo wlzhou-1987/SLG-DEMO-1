@@ -9,20 +9,21 @@ import { directionBetween, distance } from './hex';
 import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS } from '../config/combat';
 import { TERRAIN_CONFIGS } from '../config/terrain';
 import { TRAIT_CONFIGS } from '../config/traits';
-import { resolveArmor } from './status';
+import { resolveArmor, statValue } from './status';
 
 export type PartSide = 'front' | 'side' | 'back';
 
-/** 以守方朝向为基准判定攻击部位（§4.7：正面 3 格 / 侧面 2 格 / 背面 1 格） */
+/** 以守方朝向为基准判定攻击部位（§4.7）；guardStance=防御姿态参数化——侧后两格按正面处理（仅正后 1 格算背） */
 export function attackSide(
   defenderFacing: number,
   attackerPos: HexCoord,
-  defenderPos: HexCoord
+  defenderPos: HexCoord,
+  guardStance = false
 ): PartSide {
   const dir = directionBetween(defenderPos, attackerPos);
   const d = (dir - defenderFacing + 6) % 6;
   if (d === 3) return 'back';
-  if (d === 2 || d === 4) return 'side';
+  if (d === 2 || d === 4) return guardStance ? 'front' : 'side';
   return 'front';
 }
 
@@ -49,7 +50,8 @@ export function calcStrike(
   defT: UnitTemplate,
   skill: SkillTemplate
 ): StrikeForecast {
-  const side = attackSide(defender.facing, attacker.position, defender.position);
+  const guardStance = defender.statuses.some(s => s.type === 'stance');
+  const side = attackSide(defender.facing, attacker.position, defender.position, guardStance);
   const dist = distance(attacker.position, defender.position);
 
   // 守方地形加成（飞行不享，§4.11）
@@ -64,7 +66,11 @@ export function calcStrike(
   const atkTraits = [...attacker.loadout.passive];
   const defTraits = [...defender.loadout.passive];
 
-  const base = Math.max(atkT.atk + (skill.power ?? 0) - defT.def - terrDef, 0);
+  // R3-9：属性总值 = 模板基础 + buff/姿态加成（光环经 buff 进入）
+  const base = Math.max(
+    statValue(attacker, atkT, 'atk') + (skill.power ?? 0) - statValue(defender, defT, 'def') - terrDef,
+    0
+  );
   const matrix = DAMAGE_ARMOR_MATRIX[skill.damageType][defArmor];
   // 背刺：背面伤害 +3 加算改为乘算
   const backstabMult = atkTraits.includes('backstab')

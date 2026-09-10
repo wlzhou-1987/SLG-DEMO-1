@@ -390,3 +390,37 @@ describe('R3-8 潜行：行为技能与取消三态（game 集成）', () => {
     expect(lord.statuses.some(s => s.type === 'stealth')).toBe(true);
   });
 });
+
+describe('R3-9 状态与增益（game 集成）', () => {
+  beforeEach(() => {
+    elements.clear();
+  });
+
+  it('防御姿态：菜单执行后挂姿态并进入朝向确认', async () => {
+    const { game, click } = createGame();
+    const defender = game.units.find(u => u.templateId === 'defender')!;
+    const origin = defender.position;
+    click(origin);
+    click(origin);
+    await waitMove();
+    menuClick('攻击');
+    menuClick('攻击·防御姿态');
+    expect(defender.statuses.some(s => s.type === 'stance')).toBe(true);
+    expect(game.phase.mode).toBe('facingConfirm');
+  });
+
+  it('移动取消防御姿态（挂姿态后移动）', async () => {
+    const { game, click } = createGame();
+    const defender = game.units.find(u => u.templateId === 'defender')!;
+    defender.statuses.push({
+      type: 'stance', skillName: '防御姿态', appliedAtTurn: 1, turnsLeft: -1, stanceId: 'defense'
+    });
+    const origin = defender.position;
+    const dest = { q: origin.q, r: origin.r - 1 };
+    click(origin);
+    click(dest);
+    await waitMove();
+    expect(defender.position).toEqual(dest);
+    expect(defender.statuses.some(s => s.type === 'stance')).toBe(false);
+  });
+});

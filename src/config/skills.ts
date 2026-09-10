@@ -51,7 +51,11 @@ export interface SkillTemplate {
   /** 附加伤害段（双伤害段结构，R3-7）：各段独立伤害线/威力过矩阵，与主段同侧同命中 */
   segments?: Array<{ damageType: DamageType; power?: number }>;
   /** 行为主效果（行为技能）：主效果为行为段而非伤害段；damageType 为占位、不走伤害管线 */
-  behavior?: { kind: 'stealth' };
+  behavior?:
+    | { kind: 'stealth' }
+    | { kind: 'stance' }
+    | { kind: 'buff'; stat: 'atk' | 'def'; amount: number; decay?: number; turns?: number }
+    | { kind: 'shout' };
 }
 
 export const SKILLS: Record<string, SkillTemplate> = {
@@ -59,6 +63,24 @@ export const SKILLS: Record<string, SkillTemplate> = {
     id: 'stealth', name: '潜行', target: 'self', damageType: 'piercing',
     rangeMin: 0, rangeMax: 0, resourceType: 'focus',
     behavior: { kind: 'stealth' }, learnable: true
+  },
+  defenseStance: {
+    id: 'defenseStance', name: '防御姿态', target: 'self', damageType: 'blunt',
+    rangeMin: 0, rangeMax: 0, weaponType: 'shield',
+    behavior: { kind: 'stance' }, learnable: false
+  },
+  blessing: {
+    id: 'blessing', name: '祝福', target: 'self', damageType: 'blunt',
+    rangeMin: 0, rangeMax: 0,
+    behavior: { kind: 'buff', stat: 'def', amount: 3, decay: 1, turns: 5 },
+    learnable: false
+  },
+  warCry: {
+    id: 'warCry', name: '战斗怒吼', target: 'ally', damageType: 'blunt',
+    rangeMin: 0, rangeMax: 0, area: { shape: 'disc', radius: 1 },
+    behavior: { kind: 'shout' },
+    subs: [{ kind: 'resource', timing: 'immediate', resourceType: 'rage', amount: 2 }],
+    learnable: false
   },
   shieldThrust: {
     id: 'shieldThrust', name: '盾突', target: 'enemy', damageType: 'blunt',

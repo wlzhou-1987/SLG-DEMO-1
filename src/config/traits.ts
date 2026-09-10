@@ -55,6 +55,24 @@ export const TRAIT_CONFIGS: Record<string, TraitConfig> = {
     name: '隐秘猎手',
     desc: '潜行中发起蓄力射击不破隐、破隐一击附加伤害（蓄力结构随 R3-10）',
     learnable: false
+  },
+  fortify: {
+    id: 'fortify',
+    name: '强化防御姿态',
+    desc: '防御姿态激活期间敌方不可经过身边、只能逐格挪（移动阻碍，R3-9）',
+    learnable: false
+  },
+  'blessing-boost': {
+    id: 'blessing-boost',
+    name: '强化祝福',
+    desc: '祝福期间每回合开始回复生命并暂存怒气计数（结算归 R5）',
+    learnable: false
+  },
+  aura: {
+    id: 'aura',
+    name: '光环',
+    desc: '周围 2 格内友军攻击力提升（每回合按持有者位置刷新）',
+    learnable: false
   }
 };
 

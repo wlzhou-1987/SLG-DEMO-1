@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { createUnitState } from '../../src/core/unit';
 import { calcMovementRange, calcAttackRange, calcMovementCosts } from '../../src/core/range';
 import { createMapState } from '../../src/core/map';
 import type { UnitState } from '../../src/core/unit';
@@ -168,5 +169,27 @@ describe('range', () => {
       expect(attackRange.has('12,15')).toBe(true);
       expect(attackRange.has('13,15')).toBe(false);
     });
+  });
+});
+
+describe('R3-9 封锁（强化防御姿态：敌方不可经过身边、仅可逐格挪入终点）', () => {
+  it('防战姿态+fortify：邻格可作终点（逐格挪），但不可途经（后方格不可直线直达）', () => {
+    const map = createMapState();
+    const blocker = createUnitState('defender', 'player', { q: 5, r: 5 });
+    blocker.statuses.push({ type: 'stance', skillName: '防御姿态', appliedAtTurn: 1, turnsLeft: -1, stanceId: 'defense' });
+    const mover = createUnitState('swordsman', 'enemy', { q: 5, r: 6 }); // 防战正南
+    const range = calcMovementRange(map, [blocker, mover], mover.position, 5, false);
+    // 邻格（防战身边）可作为终点：mover 北侧邻 (5,5) 被防战占——用 (6,5)（防山东南=邻格）
+    expect(range.has('6,5')).toBe(true);
+    // 途经封锁：防线后方 (5,3)/(6,4) 若必须穿过防战邻格群则不可达或需大幅绕行——全平原 5 移动力下 (5,3) 距离 3 且必经封锁邻格（北向走廊被封锁）断言不可达
+    expect(range.has('5,3')).toBe(false);
+  });
+
+  it('无姿态的防战不封锁（普通单位阻挡）', () => {
+    const map = createMapState();
+    const blocker = createUnitState('defender', 'player', { q: 5, r: 5 });
+    const mover = createUnitState('swordsman', 'enemy', { q: 5, r: 6 });
+    const range = calcMovementRange(map, [blocker, mover], mover.position, 5, false);
+    expect(range.has('5,3')).toBe(true); // 可绕行（无封锁）
   });
 });

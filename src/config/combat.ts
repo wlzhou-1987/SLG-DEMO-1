@@ -25,3 +25,17 @@ export const COMBAT_PARAMS = {
   hitMin: 5,
   hitMax: 100
 } as const;
+
+/** R3-9 状态与增益参数（占位数值，随 R4/R5 数值期重定；全部配置可调） */
+export const EFFECT_PARAMS = {
+  stanceDefBonus: 3,      // 防御姿态：物防加成
+  auraAtkBonus: 2,        // 领主光环：范围内友军攻击加成
+  auraRange: 2,           // 光环半径（格）
+  warCryAtkBonus: 2,      // 战斗怒吼：范围内友军攻击加成
+  warCryTurns: 2,         // 战斗怒吼持续回合
+  warCryRage: 2,          // 战斗怒吼：自身怒气生成（计数暂存，结算归 R5）
+  blessingDef: 3,         // 祝福：防御加成初始值（R4 后改魔防轴）
+  blessingDecay: 1,       // 祝福：每回合衰减
+  blessingBoostHeal: 2,   // 强化祝福：祝福期间每回合回血
+  blessingBoostRage: 1    // 强化祝福：祝福期间每回合怒气生成
+} as const;

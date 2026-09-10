@@ -2,11 +2,27 @@ import type { HexCoord } from './types';
 import type { MapState } from './map';
 import type { UnitState } from './unit';
 import { getMoveCost, isPassable } from './map';
-import { neighbor, hexKey } from './hex';
+import { neighbor, hexKey, distance } from './hex';
 import { getUnitAt } from './unit';
 import type { Facing } from './types';
+import { hasUnitTrait } from './unit';
 
-/** 移动代价表：起点到各可达格的最小消耗（飞行途经被占格亦计入，供已消耗移动力计算） */
+/** 封锁判定（§4.7 移动阻碍）：姿态激活 + fortify 被动的单位，其相邻格敌方不可途经（仅可逐格挪入作终点） */
+export function isBlockaded(
+  units: UnitState[],
+  pos: HexCoord,
+  moverFaction: 'player' | 'enemy' | undefined
+): boolean {
+  return units.some(u =>
+    u.hp > 0 &&
+    u.faction !== moverFaction &&
+    u.statuses.some(s => s.type === 'stance') &&
+    hasUnitTrait(u, 'fortify') &&
+    distance(u.position, pos) === 1
+  );
+}
+
+/** 移动代价表：起点到各可达格的最小消耗（飞行途经被占格亦计入，供已消耗移动力计算）；封锁邻格仅可作终点不扩展 */
 export function calcMovementCosts(
   map: MapState,
   units: UnitState[],
@@ -28,6 +44,9 @@ export function calcMovementCosts(
     const currentCost = cost.get(currentKey)!;
 
     if (currentCost > current.totalCost) continue;
+    // R3-9：封锁邻格不继续扩展（途经禁止；该格已入 cost 表仍可作终点）
+    const mover = units.find(u => hexKey(u.position) === originKey);
+    if (currentKey !== originKey && mover && isBlockaded(units, current.pos, mover.faction)) continue;
 
     for (let dir = 0; dir < 6; dir++) {
       const nextPos = neighbor(current.pos, dir as Facing);
