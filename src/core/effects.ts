@@ -30,7 +30,7 @@ export function resolveShout(caster: UnitState, skill: SkillTemplate, units: Uni
     if (u.id !== caster.id && distance(u.position, caster.position) > 1) continue;
     applyBuff(u, {
       skillName: skill.name,
-      stat: 'atk',
+      stat: 'str',
       amount: EFFECT_PARAMS.warCryAtkBonus,
       turns: EFFECT_PARAMS.warCryTurns
     });
@@ -75,8 +75,8 @@ export function executeBehavior(caster: UnitState, skill: SkillTemplate, units: 
       }
       const selfDamage = Math.max(1, Math.floor(caster.maxHp * b.selfPct));
       caster.hp = Math.max(1, caster.hp - selfDamage);
-      applyBuff(caster, { skillName: skill.name, stat: 'atk', amount: b.atkUp, turns: 3 });
-      applyBuff(caster, { skillName: skill.name + '(防降)', stat: 'def', amount: -b.defDown, turns: 3 });
+      applyBuff(caster, { skillName: skill.name, stat: 'str', amount: b.atkUp, turns: 3 });
+      applyBuff(caster, { skillName: skill.name + '(防降)', stat: 'pdef', amount: -b.defDown, turns: 3 });
       resolveSkillSubs(caster, skill);
       return `${caster.id} 释放 ${skill.name}（自伤 ${selfDamage}）`;
     }

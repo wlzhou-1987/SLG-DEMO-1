@@ -156,3 +156,50 @@ describe('R3-2 普攻口径：基础攻击=固有能力', () => {
     }
   });
 });
+
+describe('R4-1 八维属性结构（终战档基线，GAME-DESIGN §5）', () => {
+  const BASELINE: Array<[string, number, number, number, number, number, number, number, number]> = [
+    // [templateId, HP, 力量, 魔力, 物防, 魔防, 速, 技, 运]
+    ['lord', 52, 21, 0, 15, 9, 17, 19, 14],
+    ['defender', 61, 19, 0, 25, 11, 12, 16, 10],
+    ['paladin', 63, 23, 0, 26, 12, 10, 15, 9],
+    ['thief', 46, 17, 0, 10, 10, 24, 23, 16],
+    ['knight', 54, 22, 0, 17, 13, 17, 17, 12],
+    ['pegasus', 49, 17, 0, 12, 15, 21, 18, 15],
+    ['axeman', 58, 26, 0, 14, 8, 12, 15, 9],
+    ['archer', 45, 19, 0, 11, 8, 15, 19, 12],
+    ['priest', 41, 9, 21, 8, 17, 13, 16, 13],
+    ['mage', 41, 14, 24, 8, 18, 14, 17, 11],
+    ['swordsman', 36, 13, 0, 11, 5, 17, 16, 8],
+    ['spearman', 38, 15, 0, 13, 5, 11, 13, 7],
+    ['axeman_enemy', 40, 18, 0, 11, 5, 11, 12, 6],
+    ['hammerman', 38, 16, 0, 14, 6, 10, 12, 6],
+    ['archer_enemy', 34, 13, 0, 9, 5, 12, 15, 7],
+    ['mage_enemy', 30, 12, 19, 7, 15, 12, 15, 7],
+    ['boss', 72, 23, 0, 20, 11, 14, 18, 12]
+  ];
+
+  it('17 模板八维与旧字段全部落位（atk/def 字段已删除）', () => {
+    for (const [id, hp, str, mag, pdef, mdef, spd, tec, lck] of BASELINE) {
+      const t = ALL_TEMPLATES.find(x => x.id === id);
+      expect(t, id).toBeDefined();
+      expect(t!.hp).toBe(hp);
+      expect(t!.str).toBe(str);
+      expect(t!.mag).toBe(mag);
+      expect(t!.pdef).toBe(pdef);
+      expect(t!.mdef).toBe(mdef);
+      expect(t!.spd).toBe(spd);
+      expect(t!.tec).toBe(tec);
+      expect(t!.lck).toBe(lck);
+      expect('atk' in t!).toBe(false);
+      expect('def' in t!).toBe(false);
+    }
+  });
+
+  it('法系魔力驱动法术、物理系力量驱动普攻（消费点适配的行为锚）', () => {
+    const mage = ALL_TEMPLATES.find(t => t.id === 'mage')!;
+    const lord = ALL_TEMPLATES.find(t => t.id === 'lord')!;
+    expect(mage.mag).toBeGreaterThan(lord.mag);
+    expect(lord.str).toBeGreaterThan(mage.str);
+  });
+});

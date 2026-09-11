@@ -49,13 +49,15 @@ export interface StealthStatus {
   appliedAtTurn: number;
 }
 
-/** 属性增益 buff（R3-9）：可声明随回合衰减（祝福）；光环类经 source 标记每回合刷新 */
+/** 属性增益 buff（R3-9/R4-1）：可声明随回合衰减（祝福=mdef 轴）；光环类经 source 标记每回合刷新 */
+export type AttrKey = 'str' | 'mag' | 'pdef' | 'mdef';
+
 export interface BuffStatus {
   type: 'buff';
   skillName: string;
   turnsLeft: number;         // -1 = 无限（衰减归零或刷新移除）
   appliedAtTurn: number;
-  stat: 'atk' | 'def';       // 过渡占位属性轴（R4 八维后祝福改魔防轴）
+  stat: AttrKey;             // 属性轴（八维四轴：力量/魔力/物防/魔防）
   amount: number;            // 当前剩余增益
   decay: number;             // 每回合衰减量（0 = 不衰减）
   source?: 'aura';           // 光环来源标记（tick 时统一刷新）
@@ -220,7 +222,7 @@ export function interruptChant(unit: UnitState): boolean {
 /** 挂属性增益（R3-9）：同 skillName 的 buff 后生效覆盖先生效（§4.10 冲突规则口径） */
 export function applyBuff(
   unit: UnitState,
-  opts: { skillName: string; stat: 'atk' | 'def'; amount: number; decay?: number; turns?: number; source?: 'aura' }
+  opts: { skillName: string; stat: AttrKey; amount: number; decay?: number; turns?: number; source?: 'aura' }
 ): void {
   unit.statuses = unit.statuses.filter(
     s => !(s.type === 'buff' && s.skillName === opts.skillName)
@@ -249,7 +251,7 @@ export function refreshAuras(units: UnitState[], faction: Faction): void {
       if (u.hp <= 0 || u.faction !== holder.faction) continue;
       if (distance(holder.position, u.position) <= EFFECT_PARAMS.auraRange) {
         applyBuff(u, {
-          skillName: '光环', stat: 'atk',
+          skillName: '光环', stat: 'str',
           amount: EFFECT_PARAMS.auraAtkBonus,
           source: 'aura'
         });
@@ -262,19 +264,19 @@ export function refreshAuras(units: UnitState[], faction: Faction): void {
 export function statValue(
   unit: UnitState,
   template: UnitTemplate,
-  stat: 'atk' | 'def'
+  stat: AttrKey
 ): number {
   let v = template[stat];
   for (const s of unit.statuses) {
     if (s.type === 'buff' && s.stat === stat) v += s.amount;
   }
-  if (stat === 'def' && unit.statuses.some(s => s.type === 'stance')) {
+  if (stat === 'pdef' && unit.statuses.some(s => s.type === 'stance')) {
     v += EFFECT_PARAMS.stanceDefBonus;
   }
-  if (stat === 'atk' && unit.loadout.passive.includes('charge-bonus')) {
+  if (stat === 'str' && unit.loadout.passive.includes('charge-bonus')) {
     v += Math.min(unit.moveSpent, EFFECT_PARAMS.chargeCap) * EFFECT_PARAMS.chargePerHex;
   }
-  if (stat === 'atk' && unit.loadout.passive.includes('berserk')) {
+  if (stat === 'str' && unit.loadout.passive.includes('berserk')) {
     v += Math.floor((1 - unit.hp / unit.maxHp) * EFFECT_PARAMS.berserkMaxBonus);
   }
   return v;

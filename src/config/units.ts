@@ -4,7 +4,7 @@ import type { SpellTemplate } from './spells';
 import { getSkill } from './skills';
 import type { SkillTemplate, WeaponAtom, ResourceType } from './skills';
 
-/** 普攻数据（§4.9：基础攻击=固有能力；伤害线/威力/射程为武器数据，R2 装备后由武器装备决定） */
+/** 普攻数据（§4.9：基础攻击=固有能力；伤害线/威力/射程为武器数据，R2 装备系统后由武器装备决定） */
 export interface BasicAttackData {
   damageType: DamageType;
   power?: number;
@@ -12,6 +12,7 @@ export interface BasicAttackData {
   rangeMax: number;
 }
 
+/** 八维战斗属性（R4-1，终战档基线 GAME-DESIGN §5；MP 为资源属性归 R5 不在模板） */
 export interface UnitTemplate {
   id: string;
   name: string;
@@ -21,14 +22,16 @@ export interface UnitTemplate {
   movePoints: number;
   flying: boolean;
   weapons: WeaponAtom[];       // 武器原子数组（任意组合合法，§4.9）
-  resourceType: ResourceType;  // 主资源归属（§4.1；结算归 R5）
+  resourceType: ResourceType;
   basicAttack: BasicAttackData;
   hp: number;
-  atk: number;
-  def: number;
-  spd: number;
-  tec: number;
-  lck: number;
+  str: number;                 // 力量：物理伤害基数
+  mag: number;                 // 魔力：魔法伤害/治疗基数
+  pdef: number;                // 物防：物理线减伤
+  mdef: number;                // 魔防：魔法线减伤（× 魔防系数）
+  spd: number;                 // 速：追击/回避驱动/先攻阈值
+  tec: number;                 // 技：命中基数
+  lck: number;                 // 运：回避基数
   skills: string[];            // 出厂主动（SKILLS/SPELLS id 引用；玩家可改，R3-3/R3-5）
   traits?: string[];           // 绑定被动 + 职业强化（TRAIT_CONFIGS id 引用）
   tags?: string[];             // 占位兵种标签（R3-10 counters 消费；R4-4 落正式 unitTags 后迁移）
@@ -40,7 +43,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     armor: 'light', movePoints: 5, flying: false,
     weapons: ['sword'], resourceType: 'rage',
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
-    hp: 29, atk: 10, def: 6, spd: 9, tec: 10, lck: 7,
+    hp: 52, str: 21, mag: 0, pdef: 15, mdef: 9, spd: 17, tec: 19, lck: 14,
     traits: ['aura'],
     skills: ['stab']
   },
@@ -48,9 +51,9 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     id: 'defender', name: '防战', label: '战', faction: 'player',
     armor: 'heavy', movePoints: 4, flying: false,
     weapons: ['sword', 'shield'], resourceType: 'rage',
-    basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
     tags: ['heavy'],
-    hp: 33, atk: 8, def: 9, spd: 5, tec: 8, lck: 4,
+    basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
+    hp: 61, str: 19, mag: 0, pdef: 25, mdef: 11, spd: 12, tec: 16, lck: 10,
     traits: ['fortify'],
     skills: ['shieldThrust', 'defenseStance', 'warCry']
   },
@@ -58,9 +61,9 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     id: 'paladin', name: '防骑', label: '骑', faction: 'player',
     armor: 'heavy', movePoints: 4, flying: false,
     weapons: ['hammer', 'shield'], resourceType: 'rage',
-    basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
     tags: ['heavy', 'cavalry'],
-    hp: 35, atk: 11, def: 10, spd: 3, tec: 7, lck: 3,
+    basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
+    hp: 63, str: 23, mag: 0, pdef: 26, mdef: 12, spd: 10, tec: 15, lck: 9,
     traits: ['blessing-boost'],
     skills: ['shieldStrike', 'holyShieldStrike', 'blessing']
   },
@@ -69,7 +72,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     armor: 'none', movePoints: 6, flying: false,
     weapons: ['dagger'], resourceType: 'focus',
     basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
-    hp: 25, atk: 8, def: 3, spd: 12, tec: 11, lck: 8,
+    hp: 46, str: 17, mag: 0, pdef: 10, mdef: 10, spd: 24, tec: 23, lck: 16,
     traits: ['backstab', 'stealth-move', 'ambush'],
     skills: ['stealth', 'backstab-strike', 'shadow-strike']
   },
@@ -77,9 +80,9 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     id: 'knight', name: '骑士', label: '骑', faction: 'player',
     armor: 'medium', movePoints: 7, flying: false,
     weapons: ['spear'], resourceType: 'rage',
-    basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
     tags: ['cavalry'],
-    hp: 29, atk: 10, def: 7, spd: 8, tec: 8, lck: 5,
+    basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
+    hp: 54, str: 22, mag: 0, pdef: 17, mdef: 13, spd: 17, tec: 17, lck: 12,
     traits: ['re-move', 'charge-bonus'],
     skills: ['charge-rush']
   },
@@ -88,7 +91,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     armor: 'light', movePoints: 7, flying: true,
     weapons: ['spear'], resourceType: 'focus',
     basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
-    hp: 27, atk: 9, def: 5, spd: 11, tec: 9, lck: 7,
+    hp: 49, str: 17, mag: 0, pdef: 12, mdef: 15, spd: 21, tec: 18, lck: 15,
     traits: ['re-move'],
     skills: ['deathblow', 'sky-strike']
   },
@@ -97,7 +100,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     armor: 'medium', movePoints: 5, flying: false,
     weapons: ['axe'], resourceType: 'rage',
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
-    hp: 31, atk: 12, def: 6, spd: 5, tec: 7, lck: 3,
+    hp: 58, str: 26, mag: 0, pdef: 14, mdef: 8, spd: 12, tec: 15, lck: 9,
     traits: ['berserk', 'vampiric', 'ww-enhance'],
     skills: ['bloodlust', 'whirlwind']
   },
@@ -106,7 +109,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     armor: 'none', movePoints: 5, flying: false,
     weapons: ['bow'], resourceType: 'focus',
     basicAttack: { damageType: 'piercing', rangeMin: 2, rangeMax: 2 },
-    hp: 25, atk: 9, def: 4, spd: 7, tec: 9, lck: 5,
+    hp: 45, str: 19, mag: 0, pdef: 11, mdef: 8, spd: 15, tec: 19, lck: 12,
     traits: ['shadow-hunter', 'eagle-eye'],
     skills: ['snipe', 'aim-shot']
   },
@@ -115,7 +118,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     armor: 'none', movePoints: 5, flying: false,
     weapons: ['staff'], resourceType: 'mp',
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
-    hp: 23, atk: 4, def: 3, spd: 6, tec: 8, lck: 6,
+    hp: 41, str: 9, mag: 21, pdef: 8, mdef: 17, spd: 13, tec: 16, lck: 13,
     traits: ['heal-boost', 'pious'],
     skills: ['heal', 'regen', 'mithrilShield']
   },
@@ -124,7 +127,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     armor: 'none', movePoints: 5, flying: false,
     weapons: ['staff'], resourceType: 'mp',
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
-    hp: 23, atk: 8, def: 3, spd: 7, tec: 9, lck: 5,
+    hp: 41, str: 14, mag: 24, pdef: 8, mdef: 18, spd: 14, tec: 17, lck: 11,
     traits: ['pyro'],
     skills: ['fireball', 'meteor', 'curse']
   }
@@ -136,7 +139,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     armor: 'light', movePoints: 5, flying: false,
     weapons: ['sword'], resourceType: 'rage',
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
-    hp: 16, atk: 5, def: 4, spd: 8, tec: 8, lck: 4,
+    hp: 36, str: 13, mag: 0, pdef: 11, mdef: 5, spd: 17, tec: 16, lck: 8,
     skills: []
   },
   {
@@ -144,25 +147,25 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     armor: 'medium', movePoints: 5, flying: false,
     weapons: ['spear'], resourceType: 'rage',
     basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
-    hp: 18, atk: 6, def: 5, spd: 4, tec: 6, lck: 3,
+    hp: 38, str: 15, mag: 0, pdef: 13, mdef: 5, spd: 11, tec: 13, lck: 7,
     skills: []
   },
   {
     id: 'axeman_enemy', name: '斧兵', label: '斧', faction: 'enemy',
     armor: 'heavy', movePoints: 5, flying: false,
     weapons: ['axe'], resourceType: 'rage',
-    basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
     tags: ['heavy'],
-    hp: 19, atk: 8, def: 4, spd: 4, tec: 5, lck: 2,
+    basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
+    hp: 40, str: 18, mag: 0, pdef: 11, mdef: 5, spd: 11, tec: 12, lck: 6,
     skills: []
   },
   {
     id: 'hammerman', name: '锤兵', label: '锤', faction: 'enemy',
     armor: 'medium', movePoints: 4, flying: false,
     weapons: ['hammer'], resourceType: 'rage',
-    basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
     tags: ['heavy'],
-    hp: 18, atk: 7, def: 5, spd: 3, tec: 5, lck: 2,
+    basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
+    hp: 38, str: 16, mag: 0, pdef: 14, mdef: 6, spd: 10, tec: 12, lck: 6,
     skills: ['warHammer']
   },
   {
@@ -170,7 +173,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     armor: 'none', movePoints: 5, flying: false,
     weapons: ['bow'], resourceType: 'focus',
     basicAttack: { damageType: 'piercing', rangeMin: 2, rangeMax: 2 },
-    hp: 15, atk: 5, def: 3, spd: 5, tec: 7, lck: 3,
+    hp: 34, str: 13, mag: 0, pdef: 9, mdef: 5, spd: 12, tec: 15, lck: 7,
     skills: ['snipe']
   },
   {
@@ -178,16 +181,16 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     armor: 'none', movePoints: 5, flying: false,
     weapons: ['staff'], resourceType: 'mp',
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
-    hp: 13, atk: 6, def: 2, spd: 5, tec: 7, lck: 3,
+    hp: 30, str: 12, mag: 19, pdef: 7, mdef: 15, spd: 12, tec: 15, lck: 7,
     skills: ['fireball']
   },
   {
     id: 'boss', name: 'BOSS', label: 'B', faction: 'enemy',
     armor: 'heavy', movePoints: 4, flying: false,
     weapons: ['hammer'], resourceType: 'rage',
-    basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
     tags: ['heavy'],
-    hp: 34, atk: 10, def: 6, spd: 6, tec: 9, lck: 5,
+    basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
+    hp: 72, str: 23, mag: 0, pdef: 20, mdef: 11, spd: 14, tec: 18, lck: 12,
     skills: ['warHammer', 'sweep']
   }
 ];

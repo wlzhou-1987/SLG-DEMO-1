@@ -27,11 +27,11 @@ describe('unit', () => {
 
     it('HP 与 maxHp 取自模板', () => {
       const lord = createUnitState('lord', 'player', { q: 0, r: 0 });
-      expect(lord.hp).toBe(29);
-      expect(lord.maxHp).toBe(29);
+      expect(lord.hp).toBe(52);
+      expect(lord.maxHp).toBe(52);
       const boss = createUnitState('boss', 'enemy', { q: 10, r: 2 });
-      expect(boss.hp).toBe(34);
-      expect(boss.maxHp).toBe(34);
+      expect(boss.hp).toBe(72);
+      expect(boss.maxHp).toBe(72);
     });
   });
 

@@ -68,12 +68,16 @@ export function calcStrike(
 
   // R3-9：属性总值 = 模板基础 + buff/姿态加成（光环经 buff 进入）
   // R3-10：影袭背面威力、背刺半防在 base 层合成
+  // R4-1 八维：物理线=力量/物防、法术线=魔力/魔防（行为适配版；统一公式随 R4-2 重构）
   const backBonus = side === 'back' ? (skill.backPowerBonus ?? 0) : 0;
+  const isMagic = skill.damageType === 'magic';
+  const atkAxis = isMagic ? 'mag' : 'str';
+  const defAxis = isMagic ? 'mdef' : 'pdef';
   const defForSkill = skill.halfDefFromBack && side === 'back'
-    ? Math.floor(statValue(defender, defT, 'def') / 2)
-    : statValue(defender, defT, 'def');
+    ? Math.floor(statValue(defender, defT, defAxis) / 2)
+    : statValue(defender, defT, defAxis);
   const base = Math.max(
-    statValue(attacker, atkT, 'atk') + (skill.power ?? 0) + backBonus - defForSkill - terrDef,
+    statValue(attacker, atkT, atkAxis) + (skill.power ?? 0) + backBonus - defForSkill - terrDef,
     0
   );
   // R3-10：counters 特效克制（占位 tags，R4-4 迁移正式 unitTags）——只进伤害乘区

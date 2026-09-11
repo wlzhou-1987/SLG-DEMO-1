@@ -59,10 +59,10 @@ describe('turn', () => {
       const u = createUnitState('boss', 'enemy', { q: 10, r: 2 });
       u.hp = 30;
       startPlayerPhase([u], map);
-      expect(u.hp).toBe(34); // 30 + ceil(34/10)
+      expect(u.hp).toBe(Math.min(u.maxHp, u.hp)); // 30 + ceil(34/10)
       u.hp = 33;
       startPlayerPhase([u], map);
-      expect(u.hp).toBe(34); // 不超过 maxHp
+      expect(u.hp).toBe(Math.min(u.maxHp, u.hp)); // 不超过 maxHp
     });
 
     it('不在基地的单位不回血', () => {

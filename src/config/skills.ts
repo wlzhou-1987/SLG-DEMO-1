@@ -1,4 +1,5 @@
 import type { DamageType } from '../core/types';
+import type { AttrKey } from '../core/status';
 
 /** 武器原子 8 种（§4.9：角色武器 = 原子数组，任意组合合法） */
 export type WeaponAtom =
@@ -61,7 +62,7 @@ export interface SkillTemplate {
   behavior?:
     | { kind: 'stealth' }
     | { kind: 'stance' }
-    | { kind: 'buff'; stat: 'atk' | 'def'; amount: number; decay?: number; turns?: number }
+    | { kind: 'buff'; stat: AttrKey; amount: number; decay?: number; turns?: number }
     | { kind: 'shout' }
     | { kind: 'bloodlust'; atkUp: number; defDown: number; selfPct: number; rage: number };
 }
@@ -80,7 +81,7 @@ export const SKILLS: Record<string, SkillTemplate> = {
   blessing: {
     id: 'blessing', name: '祝福', target: 'self', damageType: 'blunt',
     rangeMin: 0, rangeMax: 0,
-    behavior: { kind: 'buff', stat: 'def', amount: 3, decay: 1, turns: 5 },
+    behavior: { kind: 'buff', stat: 'mdef', amount: 3, decay: 1, turns: 5 },
     learnable: false
   },
   warCry: {

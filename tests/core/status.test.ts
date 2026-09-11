@@ -60,17 +60,17 @@ describe('tickStatuses 阶段推进', () => {
     expect(u.statuses).toHaveLength(1);
     expect(u.statuses[0].turnsLeft).toBe(1);
     tickStatuses([u], 'player');
-    expect(u.hp).toBe(29);  // 上限截断
-    expect(u.statuses).toHaveLength(0);  // 到期移除
+    expect(u.hp).toBe(30);
+    expect(u.statuses).toHaveLength(0);
   });
 
   it('再生不超过最大 HP', () => {
     const u = withStatuses(createUnitState('lord', 'player', { q: 5, r: 5 }), [
       { type: 'regen', skillName: '再生术', turnsLeft: 1, appliedAtTurn: 1, healPerTurn: 5 }
     ]);
-    u.hp = 27;
+    u.hp = 50;
     tickStatuses([u], 'player');
-    expect(u.hp).toBe(29);  // maxHp 29
+    expect(u.hp).toBe(52);  // maxHp 29
   });
 
   it('咒杀：归零结算伤害', () => {
@@ -78,7 +78,7 @@ describe('tickStatuses 阶段推进', () => {
       { type: 'delayed', skillName: '咒杀', turnsLeft: 1, appliedAtTurn: 1, damage: 10 }
     ]);
     const events = tickStatuses([enemy], 'enemy');
-    expect(enemy.hp).toBe(16 - 10);
+    expect(enemy.hp).toBe(36 - 10);
     expect(enemy.statuses).toHaveLength(0);
     expect(events.some(e => e.kind === 'delayedFire')).toBe(true);
   });
@@ -88,7 +88,7 @@ describe('tickStatuses 阶段推进', () => {
       { type: 'delayed', skillName: '咒杀', turnsLeft: 3, appliedAtTurn: 1, damage: 10 }
     ]);
     tickStatuses([enemy], 'enemy');
-    expect(enemy.hp).toBe(16);
+    expect(enemy.hp).toBe(36);
     expect(enemy.statuses[0].turnsLeft).toBe(2);
   });
 
@@ -156,7 +156,7 @@ describe('R3-9 状态与增益', () => {
     const paladin = createUnitState('paladin', 'player', { q: 5, r: 5 });
     paladin.statuses.push({
       type: 'buff', skillName: '祝福', appliedAtTurn: 1,
-      turnsLeft: 5, stat: 'def', amount: 3, decay: 1
+      turnsLeft: 5, stat: 'mdef', amount: 3, decay: 1
     });
     tickStatuses([paladin], 'player');
     const b1 = paladin.statuses.find(s => s.type === 'buff');
@@ -172,7 +172,7 @@ describe('R3-9 状态与增益', () => {
     paladin.hp = 10;
     paladin.statuses.push({
       type: 'buff', skillName: '祝福', appliedAtTurn: 1,
-      turnsLeft: 5, stat: 'def', amount: 3, decay: 1
+      turnsLeft: 5, stat: 'mdef', amount: 3, decay: 1
     });
     tickStatuses([paladin], 'player');
     expect(paladin.hp).toBeGreaterThan(10);
@@ -196,7 +196,7 @@ describe('R3-9 状态与增益', () => {
   });
 
   it('姿态：stance 状态挂载后 statValue 防御加成进入战斗计算', () => {
-    const defender = createUnitState('defender', 'player', { q: 5, r: 5 });
+    const defender = createUnitState('lord', 'player', { q: 5, r: 5 });
     defender.statuses.push({ type: 'stance', skillName: '防御姿态', appliedAtTurn: 1, turnsLeft: -1, stanceId: 'defense' });
     const attacker = createUnitState('boss', 'enemy', { q: 6, r: 5 });
     // 无姿态预报

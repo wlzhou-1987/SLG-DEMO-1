@@ -17,7 +17,7 @@ describe('calcSpellForecast 法术预报', () => {
     const f = calcSpellForecast(map, mage, swordsman, SPELLS.fireball);
     expect(f.kind).toBe('damage');
     if (f.kind === 'damage') {
-      expect(f.damage).toBe(4);
+      expect(f.damage).toBe(19);
       expect(f.hitRate).toBeGreaterThan(0);
     }
   });
@@ -27,7 +27,7 @@ describe('calcSpellForecast 法术预报', () => {
     const mage = createUnitState('mage', 'player', { q: 10, r: 15 });
     const swordsman = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
     const f = calcSpellForecast(map, mage, swordsman, SPELLS.meteor);
-    if (f.kind === 'damage') expect(f.damage).toBe(10);
+    if (f.kind === 'damage') expect(f.damage).toBe(25);
   });
 
   it('治疗预报固定 power', () => {
@@ -55,9 +55,9 @@ describe('resolveSpell 法术结算（即时释放部分）', () => {
   it('治疗：回复且不超过上限', () => {
     const priest = createUnitState('priest', 'player', { q: 10, r: 15 });
     const lord = createUnitState('lord', 'player', { q: 11, r: 15 });
-    lord.hp = 20;
+    lord.hp = 50;
     resolveSpell(map, priest, lord, SPELLS.heal);
-    expect(lord.hp).toBe(29);  // min(20+10, 29)
+    expect(lord.hp).toBe(52);  // min(20+10, 29)
   });
 
   it('再生：目标获得 regen 状态', () => {
@@ -93,8 +93,8 @@ describe('resolveSpell 法术结算（即时释放部分）', () => {
     const swordsman = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
     const r1 = resolveSpell(map, mage, swordsman, SPELLS.fireball, () => 0);
     expect(r1.kind).toBe('damage');
-    expect(swordsman.hp).toBe(16 - 4);
-    const r2 = resolveSpell(map, mage, swordsman, SPELLS.fireball, () => 0.99);
+    expect(swordsman.hp).toBe(36 - 19);
+    const r2 = resolveSpell(map, mage, swordsman, SPELLS.fireball, () => 1.0);
     if (r2.kind === 'damage') expect(r2.hit).toBe(false);
   });
 });
@@ -107,7 +107,7 @@ describe('R3-7 陨石术 AoE 化（咏唱锁定格、区域内独立结算）', 
     const foeA = createUnitState('swordsman', 'enemy', { q: 12, r: 15 });
     const foeB = createUnitState('swordsman', 'enemy', { q: 12, r: 14 });
     const friend = createUnitState('lord', 'player', { q: 12, r: 16 });
-    const seq = [0.0, 0.99];
+    const seq = [0.0, 1.0];
     let i = 0;
     const results = resolveAoeSpell(map, caster, { q: 12, r: 15 }, [caster, foeA, foeB, friend], SPELLS.meteor, () => seq[i++]);
     expect(results).toHaveLength(2); // 只敌军两名
@@ -140,6 +140,6 @@ describe('R3-10 法术修饰（炎爆/强化治疗/虔诚溅射）', () => {
     const wounded = createUnitState('lord', 'player', { q: 11, r: 15 });
     wounded.hp = 10;
     resolveSpell(map, priest, wounded, SPELLS.heal, () => 0);
-    expect(wounded.hp).toBe(10 + 10 + Math.floor(8 * 0.5));  // 基础 10 + tec/2
+    expect(wounded.hp).toBe(10 + 10 + Math.floor(16 * 0.5));  // 基础 10 + tec/2
   });
 });

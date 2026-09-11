@@ -40,7 +40,8 @@ export function showUnitInfo(unit: UnitState): void {
     if (s.type === 'chant') return `咏唱 ${s.skillName}（剩 ${s.turnsLeft} 回合）`;
     if (s.type === 'regen') return `再生（每回合 +${s.healPerTurn}·剩 ${s.turnsLeft} 回合）`;
     if (s.type === 'stealth') return '潜行（对敌不可见，移动/攻击/技能取消）';
-    if (s.type === 'buff') return `${s.skillName}（${s.stat === 'atk' ? '攻击' : '防御'} +${s.amount}${s.decay > 0 ? '·衰减中' : ''}）`;
+    const ATTR_LABELS: Record<string, string> = { str: '力量', mag: '魔力', pdef: '物防', mdef: '魔防' };
+    if (s.type === 'buff') return `${s.skillName}（${ATTR_LABELS[s.stat] ?? s.stat} ${s.amount >= 0 ? '+' : ''}${s.amount}${s.decay > 0 ? '·衰减中' : ''}）`;
     if (s.type === 'stance') return '防御姿态（防御提升·移动取消）';
     if (s.type === 'charge') return `蓄力 ${s.skillName}（剩 ${s.turnsLeft} 回合）`;
     if (s.type === 'dot') return `灼烧（每回合 -${s.damagePerTurn}·剩 ${s.turnsLeft} 回合）`;
@@ -57,7 +58,8 @@ export function showUnitInfo(unit: UnitState): void {
     `<h3>${template.name} <small>${factionLabel}</small></h3>` +
     `<p>HP ${unit.hp}/${unit.maxHp}</p>` +
     `<table>` +
-    `<tr><td>攻击</td><td>${template.atk}</td><td>防御</td><td>${template.def}</td></tr>` +
+    `<tr><td>力量</td><td>${template.str}</td><td>魔力</td><td>${template.mag}</td></tr>` +
+    `<tr><td>物防</td><td>${template.pdef}</td><td>魔防</td><td>${template.mdef}</td></tr>` +
     `<tr><td>速度</td><td>${template.spd}</td><td>技巧</td><td>${template.tec}</td></tr>` +
     `<tr><td>幸运</td><td>${template.lck}</td><td>护甲</td><td>${ARMOR_LABELS[template.armor]}</td></tr>` +
     `<tr><td>移动</td><td>${template.movePoints}</td><td>飞行</td><td>${template.flying ? '是' : '否'}</td></tr>` +
