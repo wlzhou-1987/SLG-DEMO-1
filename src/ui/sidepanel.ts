@@ -1,7 +1,7 @@
 import type { UnitState } from '../core/unit';
 import { getUnitActiveSkills } from '../core/unit';
 import type { ArmorType, DamageType, TerrainType } from '../core/types';
-import { getTemplate, basicAttackSkill } from '../config/units';
+import { getTemplate, basicAttackSkill, isFlying } from '../config/units';
 import { TERRAIN_CONFIGS } from '../config/terrain';
 import { getTrait } from '../config/traits';
 
@@ -62,7 +62,8 @@ export function showUnitInfo(unit: UnitState): void {
     `<tr><td>物防</td><td>${template.pdef}</td><td>魔防</td><td>${template.mdef}</td></tr>` +
     `<tr><td>速度</td><td>${template.spd}</td><td>技巧</td><td>${template.tec}</td></tr>` +
     `<tr><td>幸运</td><td>${template.lck}</td><td>护甲</td><td>${ARMOR_LABELS[template.armor]}</td></tr>` +
-    `<tr><td>移动</td><td>${template.movePoints}</td><td>飞行</td><td>${template.flying ? '是' : '否'}</td></tr>` +
+    `<tr><td>移动</td><td>${template.movePoints}</td><td>飞行</td><td>${isFlying(template) ? '是' : '否'}</td></tr>` +
+    `<tr><td>标签</td><td>${template.unitTags.join('·')}</td></tr>` +
     `</table>` +
     (statuses ? `<h4>当前状态</h4><ul>${statuses}</ul>` : '') +
     (traits ? `<h4>特性</h4><ul>${traits}</ul>` : '') +

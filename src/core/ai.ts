@@ -1,7 +1,7 @@
 import type { MapState } from './map';
 import type { UnitState } from './unit';
 import type { SkillTemplate } from '../config/skills';
-import { getTemplate, basicAttackSkill } from '../config/units';
+import { getTemplate, basicAttackSkill, isFlying } from '../config/units';
 import { getUnitActiveSkills } from './unit';
 import { isVisibleTo } from './stealth';
 import { calcMovementRange, calcAttackRange } from './range';
@@ -37,7 +37,7 @@ export function decideEnemyAction(
   // BOSS 驻守：不移动，仅射程覆盖当前位置时才攻击（§6）
   const moveRange = enemy.aiKind === 'boss'
     ? new Set([hexKey(enemy.position)])
-    : calcMovementRange(map, units, enemy.position, template.movePoints, template.flying);
+    : calcMovementRange(map, units, enemy.position, template.movePoints, isFlying(template));
 
   let best: EnemyAction | null = null;
   let bestScore = -Infinity;
@@ -129,7 +129,7 @@ export function checkGroupActivation(map: MapState, units: UnitState[]): void {
     const triggered = members.some(m => {
       const template = getTemplate(m.templateId);
       if (!template) return false;
-      const moveRange = calcMovementRange(map, units, m.position, template.movePoints, template.flying);
+      const moveRange = calcMovementRange(map, units, m.position, template.movePoints, isFlying(template));
       const resolved = [basicAttackSkill(template), ...getUnitActiveSkills(m)];
       const rangeMin = Math.min(...resolved.map(s => s.rangeMin));
       const rangeMax = Math.max(...resolved.map(s => s.rangeMax));

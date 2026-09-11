@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createMapState, isPassable } from '../../src/core/map';
 import { MAP_OVERRIDES, PLAYER_UNITS, ENEMY_GROUPS } from '../../src/config/map';
+import { isFlying } from '../../src/config/units';
 import { getTemplate, getTemplateSkills, PLAYER_TEMPLATES, ENEMY_TEMPLATES } from '../../src/config/units';
 import { hexKey } from '../../src/core/hex';
 import { SPELLS, isSpell } from '../../src/config/spells';
@@ -63,7 +64,7 @@ describe('关卡 1 配置一致性', () => {
   it('地面单位初始位置不处于山', () => {
     for (const u of allPlacements()) {
       const template = getTemplate(u.templateId)!;
-      if (template.flying) continue;
+      if (isFlying(template)) continue;
       expect(
         isPassable(map, u.position, false),
         `${u.templateId} at ${u.position.q},${u.position.r} 站在不可通行地形`

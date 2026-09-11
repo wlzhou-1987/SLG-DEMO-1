@@ -4,7 +4,7 @@ import type { MapState } from '../../src/core/map';
 import { createUnitState, resetUnitCounter, getUnitActiveSkills } from '../../src/core/unit';
 import type { UnitState } from '../../src/core/unit';
 import { MAP_OVERRIDES, PLAYER_UNITS, ENEMY_GROUPS } from '../../src/config/map';
-import { getTemplate, basicAttackSkill } from '../../src/config/units';
+import { getTemplate, basicAttackSkill, isFlying } from '../../src/config/units';
 import type { SkillTemplate } from '../../src/config/skills';
 import { isSpell } from '../../src/config/spells';
 import type { SpellTemplate } from '../../src/config/spells';
@@ -65,7 +65,7 @@ function actPlayerUnit(map: MapState, units: UnitState[], u: UnitState, rng: () 
   // 领主（败北条件）：只在敌人逼近时后撤；终局（敌≤2）参战收尾
   if (u.templateId === 'lord' && enemies.length > 2) {
     if (dNearest < 5) {
-      const costs = calcMovementCosts(map, units, u.position, template.movePoints, template.flying);
+      const costs = calcMovementCosts(map, units, u.position, template.movePoints, isFlying(template));
       let bestKey = hexKey(u.position);
       let bestD = dNearest;
       for (const key of costs.keys()) {
@@ -84,7 +84,7 @@ function actPlayerUnit(map: MapState, units: UnitState[], u: UnitState, rng: () 
 
   // 敌远则缓进至 HOLD_DISTANCE 内（逐组接敌），已在内则正常作战
   if (dNearest > HOLD_DISTANCE) {
-    const costs = calcMovementCosts(map, units, u.position, template.movePoints, template.flying);
+    const costs = calcMovementCosts(map, units, u.position, template.movePoints, isFlying(template));
     let bestKey = hexKey(u.position);
     let bestScore = -Infinity;
     for (const [key, cost] of costs) {
@@ -120,7 +120,7 @@ function actPlayerUnit(map: MapState, units: UnitState[], u: UnitState, rng: () 
 
   // 落点打分：可攻击 > 距敌更近 > 消耗更少
   const skills = usableSkills(u);
-  const costs = calcMovementCosts(map, units, u.position, template.movePoints, template.flying);
+  const costs = calcMovementCosts(map, units, u.position, template.movePoints, isFlying(template));
   let bestKey = hexKey(u.position);
   let bestScore = -Infinity;
   for (const [key, cost] of costs) {

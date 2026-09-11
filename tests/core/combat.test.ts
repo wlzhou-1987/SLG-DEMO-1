@@ -4,6 +4,8 @@ import { createMapState } from '../../src/core/map';
 import { getTemplate, getTemplateSkills, basicAttackSkill } from '../../src/config/units';
 import { SKILLS } from '../../src/config/skills';
 import { directionBetween } from '../../src/core/hex';
+import { calcMovementRange } from '../../src/core/range';
+import { isFlying } from '../../src/config/units';
 import { DAMAGE_ARMOR_MATRIX } from '../../src/config/combat';
 import { SPELLS } from '../../src/config/spells';
 import type { SkillTemplate } from '../../src/config/skills';
@@ -743,5 +745,77 @@ describe('R4-3 物理矩阵梯度与法术级克制', () => {
       damageType: 'magic', armorResist: { heavy: 1.5 }  // light 未声明 → 1.0
     }));
     expect(f.attacker.damage).toBe(Math.floor(24 * 1.0 - 5));
+  });
+});
+
+describe('R4-4 兵种标签与克制合成', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+  const mkSkill = (over: Partial<SkillTemplate>): SkillTemplate => ({
+    id: 't', name: '测试技能', target: 'enemy', damageType: 'slashing',
+    rangeMin: 1, rangeMax: 1, learnable: false, ...over
+  });
+
+  it('unitTags 落值：防骑=重甲+骑兵双标签、飞马=飞行、步兵显式', () => {
+    const paladin = getTemplate('paladin')!;
+    expect(paladin.unitTags).toEqual(['heavy', 'cavalry']);
+    expect(getTemplate('pegasus')!.unitTags).toEqual(['flying']);
+    expect(getTemplate('lord')!.unitTags).toEqual(['infantry']);
+    expect(getTemplate('spearman')!.unitTags).toEqual(['infantry']);  // 枪兵保持步兵（§4.2 定稿）
+    expect('flying' in paladin).toBe(false);  // 布尔已收编
+  });
+
+  it('isFlying 判定：飞马 true、领主 false（飞行移动消费点入口）', () => {
+    expect(isFlying(getTemplate('pegasus')!)).toBe(true);
+    expect(isFlying(getTemplate('lord')!)).toBe(false);
+  });
+
+  it('多标签克制：防骑（重甲+骑兵）吃两个 counters 联乘', () => {
+    const attacker = createUnitState('lord', 'player', { q: 10, r: 15 });
+    const paladin = createUnitState('paladin', 'enemy', { q: 11, r: 15 });
+    const f = calcBattleForecast(map, attacker, paladin, mkSkill({
+      damageType: 'blunt', counters: { heavy: 1.2, cavalry: 1.5 }
+    }));
+    expect(f.attacker.damage).toBe(Math.floor(21 * (1.4 * 1.8) - 26));  // 钝重1.4 × 2标签1.8
+  });
+
+  it('counters 缺省 1 与 <1（反克制：对步兵 0.8 减伤）', () => {
+    const attacker = createUnitState('lord', 'player', { q: 10, r: 15 });
+    const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });  // infantry, pdef11
+    const f = calcBattleForecast(map, attacker, sw, mkSkill({
+      counters: { infantry: 0.8 }
+    }));
+    expect(f.attacker.damage).toBe(Math.floor(21 * 1.0 * 0.8 - 11));
+  });
+
+  it('克制只进伤害不进命中：counters 高低不改变 hitRate', () => {
+    const attacker = createUnitState('lord', 'player', { q: 10, r: 15 });
+    const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    const plain = calcBattleForecast(map, attacker, sw, mkSkill({}));
+    const boosted = calcBattleForecast(map, attacker, sw, mkSkill({ counters: { infantry: 3 } }));
+    expect(boosted.attacker.hitRate).toBe(plain.attacker.hitRate);
+  });
+
+  it('狙击对飞行 ×1.5：弓手 snipe 打飞马（轻甲 pdef12，突轻 1.2×1.5）', () => {
+    const archer = createUnitState('archer', 'player', { q: 10, r: 15 });
+    const pegasus = createUnitState('pegasus', 'enemy', { q: 11, r: 15 });
+    const f = calcBattleForecast(map, archer, pegasus, SKILLS.snipe);
+    expect(f.attacker.damage).toBe(Math.floor(19 * 1.2 * 1.5 - 12));
+    const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    const f2 = calcBattleForecast(map, archer, sw, SKILLS.snipe);
+    expect(f2.attacker.damage).toBe(Math.floor(19 * 1.2 - 11));  // 步兵无特效
+  });
+
+  it('飞行移动回归：飞马 unitTags 飞行 → 地形消耗 1 可越山', () => {
+    const flyMap = createMapState({ mountains: [{ q: 11, r: 15 }] });
+    const pegasus = createUnitState('pegasus', 'player', { q: 10, r: 15 });
+    const range = calcMovementRange(flyMap, [pegasus], pegasus.position, 5, isFlying(getTemplate('pegasus')!));
+    expect(range.has('11,15')).toBe(true);  // 穿山落到山后
+    const lord = createUnitState('lord', 'player', { q: 10, r: 15 });
+    const range2 = calcMovementRange(flyMap, [lord], lord.position, 5, isFlying(getTemplate('lord')!));
+    expect(range2.has('11,15')).toBe(false);  // 地面被山挡
   });
 });

@@ -155,7 +155,8 @@ export const SKILLS: Record<string, SkillTemplate> = {
   },
   snipe: {
     id: 'snipe', name: '狙击', target: 'enemy', damageType: 'piercing',
-    rangeMin: 2, rangeMax: 2, weaponType: 'bow', learnable: true
+    rangeMin: 2, rangeMax: 2, weaponType: 'bow',
+    counters: { flying: 1.5 }, learnable: true
   },
   whirlwind: {
     id: 'whirlwind', name: '旋风斩', target: 'enemy', damageType: 'slashing',

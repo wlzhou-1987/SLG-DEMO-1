@@ -14,7 +14,7 @@ import { cancelStealth, isStealthed } from './core/stealth';
 import { executeBehavior, applyAmbushBonus, rushDestination, resolveChargeStrike } from './core/effects';
 import { refreshAuras } from './core/status';
 import type { SkillTemplate } from './config/skills';
-import { getTemplate, basicAttackSkill } from './config/units';
+import { getTemplate, basicAttackSkill, isFlying } from './config/units';
 import { isSpell } from './config/spells';
 import type { SpellTemplate } from './config/spells';
 import { MAP_OVERRIDES, PLAYER_UNITS, ENEMY_GROUPS, DEPLOY_ZONE } from './config/map';
@@ -248,10 +248,10 @@ export class Game {
     if (!template) return;
 
     const moveCosts = calcMovementCosts(
-      this.map, this.units, unit.position, template.movePoints, template.flying
+      this.map, this.units, unit.position, template.movePoints, isFlying(template)
     );
     const moveRange = calcMovementRange(
-      this.map, this.units, unit.position, template.movePoints, template.flying
+      this.map, this.units, unit.position, template.movePoints, isFlying(template)
     );
     const resolvedSkills = [basicAttackSkill(template), ...getUnitActiveSkills(unit)];
     const rangeMin = Math.min(...resolvedSkills.map(s => s.rangeMin));
@@ -687,7 +687,7 @@ export class Game {
     // §4.8 再移动使用剩余移动力（已消耗在本回合移动时记录）
     const remaining = Math.max(0, template.movePoints - unit.moveSpent);
     const moveRange = calcMovementRange(
-      this.map, this.units, unit.position, remaining, template.flying
+      this.map, this.units, unit.position, remaining, isFlying(template)
     );
     this.phase = { mode: 'reMove', unit, moveRange, defaultFacing };
     const world = axialToPixel(unit.position, HEX_SIZE);

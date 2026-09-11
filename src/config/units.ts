@@ -4,12 +4,20 @@ import type { SpellTemplate } from './spells';
 import { getSkill } from './skills';
 import type { SkillTemplate, WeaponAtom, ResourceType } from './skills';
 
+/** 兵种标签（§4.2 定稿：可扩展；含「飞行」标签即按飞行移动规则处理） */
+export type UnitTag = 'infantry' | 'cavalry' | 'flying' | 'heavy' | 'monster' | 'dragon';
+
 /** 普攻数据（§4.9：基础攻击=固有能力；伤害线/威力/射程为武器数据，R2 装备系统后由武器装备决定） */
 export interface BasicAttackData {
   damageType: DamageType;
   power?: number;
   rangeMin: number;
   rangeMax: number;
+}
+
+/** 飞行判定：unitTags 含「飞行」标签（R4-4 收编原 flying 布尔） */
+export function isFlying(t: UnitTemplate): boolean {
+  return t.unitTags.includes('flying');
 }
 
 /** 八维战斗属性（R4-1，终战档基线 GAME-DESIGN §5；MP 为资源属性归 R5 不在模板） */
@@ -20,9 +28,9 @@ export interface UnitTemplate {
   faction: Faction;
   armor: ArmorType;
   movePoints: number;
-  flying: boolean;
   weapons: WeaponAtom[];       // 武器原子数组（任意组合合法，§4.9）
   resourceType: ResourceType;
+  unitTags: UnitTag[];         // 兵种标签（R4-4 正式化：counters 克制消费 + 飞行判定；步兵为显式标签）
   basicAttack: BasicAttackData;
   hp: number;
   str: number;                 // 力量：物理伤害基数
@@ -34,14 +42,14 @@ export interface UnitTemplate {
   lck: number;                 // 运：回避基数
   skills: string[];            // 出厂主动（SKILLS/SPELLS id 引用；玩家可改，R3-3/R3-5）
   traits?: string[];           // 绑定被动 + 职业强化（TRAIT_CONFIGS id 引用）
-  tags?: string[];             // 占位兵种标签（R3-10 counters 消费；R4-4 落正式 unitTags 后迁移）
 }
 
 export const PLAYER_TEMPLATES: UnitTemplate[] = [
   {
     id: 'lord', name: '领主', label: '领', faction: 'player',
-    armor: 'light', movePoints: 5, flying: false,
+    armor: 'light', movePoints: 5,
     weapons: ['sword'], resourceType: 'rage',
+    unitTags: ['infantry'],
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
     hp: 52, str: 21, mag: 0, pdef: 15, mdef: 9, spd: 17, tec: 19, lck: 14,
     traits: ['aura'],
@@ -49,9 +57,9 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
   },
   {
     id: 'defender', name: '防战', label: '战', faction: 'player',
-    armor: 'heavy', movePoints: 4, flying: false,
+    armor: 'heavy', movePoints: 4,
     weapons: ['sword', 'shield'], resourceType: 'rage',
-    tags: ['heavy'],
+    unitTags: ['heavy'],
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
     hp: 61, str: 19, mag: 0, pdef: 25, mdef: 11, spd: 12, tec: 16, lck: 10,
     traits: ['fortify'],
@@ -59,9 +67,9 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
   },
   {
     id: 'paladin', name: '防骑', label: '骑', faction: 'player',
-    armor: 'heavy', movePoints: 4, flying: false,
+    armor: 'heavy', movePoints: 4,
     weapons: ['hammer', 'shield'], resourceType: 'rage',
-    tags: ['heavy', 'cavalry'],
+    unitTags: ['heavy', 'cavalry'],
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
     hp: 63, str: 23, mag: 0, pdef: 26, mdef: 12, spd: 10, tec: 15, lck: 9,
     traits: ['blessing-boost'],
@@ -69,8 +77,9 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
   },
   {
     id: 'thief', name: '盗贼', label: '贼', faction: 'player',
-    armor: 'none', movePoints: 6, flying: false,
+    armor: 'none', movePoints: 6,
     weapons: ['dagger'], resourceType: 'focus',
+    unitTags: ['infantry'],
     basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
     hp: 46, str: 17, mag: 0, pdef: 10, mdef: 10, spd: 24, tec: 23, lck: 16,
     traits: ['backstab', 'stealth-move', 'ambush'],
@@ -78,9 +87,9 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
   },
   {
     id: 'knight', name: '骑士', label: '骑', faction: 'player',
-    armor: 'medium', movePoints: 7, flying: false,
+    armor: 'medium', movePoints: 7,
     weapons: ['spear'], resourceType: 'rage',
-    tags: ['cavalry'],
+    unitTags: ['cavalry'],
     basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
     hp: 54, str: 22, mag: 0, pdef: 17, mdef: 13, spd: 17, tec: 17, lck: 12,
     traits: ['re-move', 'charge-bonus'],
@@ -88,8 +97,9 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
   },
   {
     id: 'pegasus', name: '飞马', label: '马', faction: 'player',
-    armor: 'light', movePoints: 7, flying: true,
+    armor: 'light', movePoints: 7,
     weapons: ['spear'], resourceType: 'focus',
+    unitTags: ['flying'],
     basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
     hp: 49, str: 17, mag: 0, pdef: 12, mdef: 15, spd: 21, tec: 18, lck: 15,
     traits: ['re-move'],
@@ -97,8 +107,9 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
   },
   {
     id: 'axeman', name: '斧兵', label: '斧', faction: 'player',
-    armor: 'medium', movePoints: 5, flying: false,
+    armor: 'medium', movePoints: 5,
     weapons: ['axe'], resourceType: 'rage',
+    unitTags: ['infantry'],
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
     hp: 58, str: 26, mag: 0, pdef: 14, mdef: 8, spd: 12, tec: 15, lck: 9,
     traits: ['berserk', 'vampiric', 'ww-enhance'],
@@ -106,8 +117,9 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
   },
   {
     id: 'archer', name: '弓箭', label: '弓', faction: 'player',
-    armor: 'none', movePoints: 5, flying: false,
+    armor: 'none', movePoints: 5,
     weapons: ['bow'], resourceType: 'focus',
+    unitTags: ['infantry'],
     basicAttack: { damageType: 'piercing', rangeMin: 2, rangeMax: 2 },
     hp: 45, str: 19, mag: 0, pdef: 11, mdef: 8, spd: 15, tec: 19, lck: 12,
     traits: ['shadow-hunter', 'eagle-eye'],
@@ -115,8 +127,9 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
   },
   {
     id: 'priest', name: '牧师', label: '牧', faction: 'player',
-    armor: 'none', movePoints: 5, flying: false,
+    armor: 'none', movePoints: 5,
     weapons: ['staff'], resourceType: 'mp',
+    unitTags: ['infantry'],
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
     hp: 41, str: 9, mag: 21, pdef: 8, mdef: 17, spd: 13, tec: 16, lck: 13,
     traits: ['heal-boost', 'pious'],
@@ -124,8 +137,9 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
   },
   {
     id: 'mage', name: '法师', label: '法', faction: 'player',
-    armor: 'none', movePoints: 5, flying: false,
+    armor: 'none', movePoints: 5,
     weapons: ['staff'], resourceType: 'mp',
+    unitTags: ['infantry'],
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
     hp: 41, str: 14, mag: 24, pdef: 8, mdef: 18, spd: 14, tec: 17, lck: 11,
     traits: ['pyro'],
@@ -136,59 +150,63 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
 export const ENEMY_TEMPLATES: UnitTemplate[] = [
   {
     id: 'swordsman', name: '剑士', label: '剑', faction: 'enemy',
-    armor: 'light', movePoints: 5, flying: false,
+    armor: 'light', movePoints: 5,
     weapons: ['sword'], resourceType: 'rage',
+    unitTags: ['infantry'],
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
     hp: 36, str: 13, mag: 0, pdef: 11, mdef: 5, spd: 17, tec: 16, lck: 8,
     skills: []
   },
   {
     id: 'spearman', name: '枪兵', label: '枪', faction: 'enemy',
-    armor: 'medium', movePoints: 5, flying: false,
+    armor: 'medium', movePoints: 5,
     weapons: ['spear'], resourceType: 'rage',
+    unitTags: ['infantry'],
     basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
     hp: 38, str: 15, mag: 0, pdef: 13, mdef: 5, spd: 11, tec: 13, lck: 7,
     skills: []
   },
   {
     id: 'axeman_enemy', name: '斧兵', label: '斧', faction: 'enemy',
-    armor: 'heavy', movePoints: 5, flying: false,
+    armor: 'heavy', movePoints: 5,
     weapons: ['axe'], resourceType: 'rage',
-    tags: ['heavy'],
+    unitTags: ['heavy'],
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
     hp: 40, str: 18, mag: 0, pdef: 11, mdef: 5, spd: 11, tec: 12, lck: 6,
     skills: []
   },
   {
     id: 'hammerman', name: '锤兵', label: '锤', faction: 'enemy',
-    armor: 'medium', movePoints: 4, flying: false,
+    armor: 'medium', movePoints: 4,
     weapons: ['hammer'], resourceType: 'rage',
-    tags: ['heavy'],
+    unitTags: ['heavy'],
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
     hp: 38, str: 16, mag: 0, pdef: 14, mdef: 6, spd: 10, tec: 12, lck: 6,
     skills: ['warHammer']
   },
   {
     id: 'archer_enemy', name: '弓手', label: '弓', faction: 'enemy',
-    armor: 'none', movePoints: 5, flying: false,
+    armor: 'none', movePoints: 5,
     weapons: ['bow'], resourceType: 'focus',
+    unitTags: ['infantry'],
     basicAttack: { damageType: 'piercing', rangeMin: 2, rangeMax: 2 },
     hp: 34, str: 13, mag: 0, pdef: 9, mdef: 5, spd: 12, tec: 15, lck: 7,
     skills: ['snipe']
   },
   {
     id: 'mage_enemy', name: '敌方法师', label: '法', faction: 'enemy',
-    armor: 'none', movePoints: 5, flying: false,
+    armor: 'none', movePoints: 5,
     weapons: ['staff'], resourceType: 'mp',
+    unitTags: ['infantry'],
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
     hp: 30, str: 12, mag: 19, pdef: 7, mdef: 15, spd: 12, tec: 15, lck: 7,
     skills: ['fireball']
   },
   {
     id: 'boss', name: 'BOSS', label: 'B', faction: 'enemy',
-    armor: 'heavy', movePoints: 4, flying: false,
+    armor: 'heavy', movePoints: 4,
     weapons: ['hammer'], resourceType: 'rage',
-    tags: ['heavy'],
+    unitTags: ['heavy'],
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
     hp: 72, str: 23, mag: 0, pdef: 20, mdef: 11, spd: 14, tec: 18, lck: 12,
     skills: ['warHammer', 'sweep']

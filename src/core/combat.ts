@@ -4,7 +4,7 @@ import { getTerrain } from './map';
 import type { UnitState } from './unit';
 import type { SkillTemplate } from '../config/skills';
 import type { UnitTemplate } from '../config/units';
-import { getTemplate, getTemplateSkills, basicAttackSkill } from '../config/units';
+import { getTemplate, getTemplateSkills, basicAttackSkill, isFlying } from '../config/units';
 import { directionBetween, distance } from './hex';
 import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS, EFFECT_PARAMS } from '../config/combat';
 import { TERRAIN_CONFIGS } from '../config/terrain';
@@ -56,8 +56,9 @@ export function calcStrike(
 
   // 守方地形加成（飞行不享，§4.11）；R4-2：地形 defense 更名物理防过渡（R6 只增字段）
   const terrain = getTerrain(map, defender.position);
-  const terrDef = !defT.flying && terrain !== undefined ? TERRAIN_CONFIGS[terrain].pdefense : 0;
-  const terrEva = !defT.flying && terrain !== undefined ? TERRAIN_CONFIGS[terrain].evasion : 0;
+  const defFlying = isFlying(defT);
+  const terrDef = !defFlying && terrain !== undefined ? TERRAIN_CONFIGS[terrain].pdefense : 0;
+  const terrEva = !defFlying && terrain !== undefined ? TERRAIN_CONFIGS[terrain].evasion : 0;
 
   // 守方护甲解析：活跃护盾覆盖类型（§4.10）；吸收在 resolveBattle 应用
   const { armor: defArmor } = resolveArmor(defender, defT);
@@ -84,7 +85,7 @@ export function calcStrike(
   // 克制系数 = 护甲矩阵 x prod 兵种克制（cap）；法术矩阵行走法术级克制（R4-3，暂 1）
   let counterMult = 1;
   if (skill.counters) {
-    for (const tag of defT.tags ?? []) {
+    for (const tag of defT.unitTags) {
       const m = skill.counters[tag];
       if (m !== undefined) counterMult *= m;
     }
