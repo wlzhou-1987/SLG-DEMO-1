@@ -1,11 +1,11 @@
 import type { DamageType, ArmorType } from '../core/types';
 
-/** 伤害类型 × 护甲类型 加成矩阵（§4.2：每行每列恰一个 ×1.25 与一个 ×0.75） */
-export const DAMAGE_ARMOR_MATRIX: Record<DamageType, Record<ArmorType, number>> = {
-  piercing: { none: 1.25, light: 1.0, medium: 1.0, heavy: 0.75 },
-  slashing: { none: 1.0, light: 1.25, medium: 0.75, heavy: 1.0 },
-  blunt: { none: 1.0, light: 0.75, medium: 1.25, heavy: 1.0 },
-  magic: { none: 0.75, light: 1.0, medium: 1.0, heavy: 1.25 }
+/** 物理矩阵（§4.2 定稿梯度，R4-3：列序 无甲/轻甲/中甲/重甲；法术行已移出——魔法走法术级对护甲系数 armorResist）
+ * 原则：武器=应对卡——斩泛用平缓、突随护甲递减、钝随护甲递增；行和均衡、列和单调递减 */
+export const DAMAGE_ARMOR_MATRIX: Record<Exclude<DamageType, 'magic'>, Record<ArmorType, number>> = {
+  slashing: { none: 1.2, light: 1.0, medium: 1.0, heavy: 0.7 },
+  piercing: { none: 1.3, light: 1.2, medium: 0.8, heavy: 0.6 },
+  blunt: { none: 0.8, light: 0.8, medium: 1.0, heavy: 1.4 }
 };
 
 /** 部位补正（§4.7） */

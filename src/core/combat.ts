@@ -89,7 +89,10 @@ export function calcStrike(
       if (m !== undefined) counterMult *= m;
     }
   }
-  const matrixMult = isMagic ? 1 : DAMAGE_ARMOR_MATRIX[skill.damageType][defArmor];
+  // R4-3：法术行移出矩阵——法术线走法术级对护甲系数（未声明格 1.0），与 counters 联乘同受 cap
+  const matrixMult = isMagic
+    ? (skill.armorResist?.[defArmor] ?? 1)
+    : DAMAGE_ARMOR_MATRIX[skill.damageType as Exclude<DamageType, 'magic'>][defArmor];
   // 克制合成上限：护甲克制 × ∏兵种克制 整体 ≤3.0（§4.2）
   const resistMult = Math.min(matrixMult * counterMult, COMBAT_PARAMS.counterCap);
   const backstabMult = side === 'back' && atkTraits.includes('backstab')
@@ -130,7 +133,10 @@ function pickCounterSkill(
   let bestScore = -1;
   for (const skill of [basicAttackSkill(defT), ...getTemplateSkills(defT)]) {
     if (dist < skill.rangeMin || dist > skill.rangeMax) continue;
-    const matrix = DAMAGE_ARMOR_MATRIX[skill.damageType][atkT.armor];
+    // R4-3：法术行已移出矩阵——法术按 armorResist 缺省 1 参与择优
+    const matrix = skill.damageType === 'magic'
+      ? (skill.armorResist?.[atkT.armor] ?? 1)
+      : DAMAGE_ARMOR_MATRIX[skill.damageType as Exclude<DamageType, 'magic'>][atkT.armor];
     if (matrix > bestScore) {
       bestScore = matrix;
       best = skill;

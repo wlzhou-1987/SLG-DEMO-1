@@ -60,6 +60,8 @@ export interface SkillTemplate {
   segments?: Array<{ damageType: DamageType; power?: number }>;
   /** R4-2 伤害段属性权重表：加权合成基数；缺省物理={str:1}、法术={mag:1} */
   weights?: Partial<Record<'str' | 'mag' | 'spd' | 'tec' | 'lck', number>>;
+  /** R4-3 法术级对护甲克制系数（法术线专用，替代矩阵 magic 行；未声明格取 1.0） */
+  armorResist?: Partial<Record<'none' | 'light' | 'medium' | 'heavy', number>>;
   /** 行为主效果（行为技能）：主效果为行为段而非伤害段；damageType 为占位、不走伤害管线 */
   behavior?:
     | { kind: 'stealth' }
