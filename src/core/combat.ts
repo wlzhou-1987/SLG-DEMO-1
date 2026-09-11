@@ -54,9 +54,9 @@ export function calcStrike(
   const side = attackSide(defender.facing, attacker.position, defender.position, guardStance);
   const dist = distance(attacker.position, defender.position);
 
-  // 守方地形加成（飞行不享，§4.11）
+  // 守方地形加成（飞行不享，§4.11）；R4-2：地形 defense 更名物理防过渡（R6 只增字段）
   const terrain = getTerrain(map, defender.position);
-  const terrDef = !defT.flying && terrain !== undefined ? TERRAIN_CONFIGS[terrain].defense : 0;
+  const terrDef = !defT.flying && terrain !== undefined ? TERRAIN_CONFIGS[terrain].pdefense : 0;
   const terrEva = !defT.flying && terrain !== undefined ? TERRAIN_CONFIGS[terrain].evasion : 0;
 
   // 守方护甲解析：活跃护盾覆盖类型（§4.10）；吸收在 resolveBattle 应用
@@ -66,21 +66,22 @@ export function calcStrike(
   const atkTraits = [...attacker.loadout.passive];
   const defTraits = [...defender.loadout.passive];
 
-  // R3-9：属性总值 = 模板基础 + buff/姿态加成（光环经 buff 进入）
-  // R3-10：影袭背面威力、背刺半防在 base 层合成
-  // R4-1 八维：物理线=力量/物防、法术线=魔力/魔防（行为适配版；统一公式随 R4-2 重构）
-  const backBonus = side === 'back' ? (skill.backPowerBonus ?? 0) : 0;
+  // ---------- R4-2 统一伤害公式 ----------
+  // 伤害 = max( floor( ((权重基数 + 固定值) x 克制系数 - 防御项 - 地形防 ), 0 ) + 部位伤害加算
+  // 三线：物理扣 pdef、魔法扣 mdef；克制乘算位于 max 内（先乘后减）
   const isMagic = skill.damageType === 'magic';
-  const atkAxis = isMagic ? 'mag' : 'str';
-  const defAxis = isMagic ? 'mdef' : 'pdef';
-  const defForSkill = skill.halfDefFromBack && side === 'back'
-    ? Math.floor(statValue(defender, defT, defAxis) / 2)
-    : statValue(defender, defT, defAxis);
-  const base = Math.max(
-    statValue(attacker, atkT, atkAxis) + (skill.power ?? 0) + backBonus - defForSkill - terrDef,
-    0
-  );
-  // R3-10：counters 特效克制（占位 tags，R4-4 迁移正式 unitTags）——只进伤害乘区
+  const defAxis: 'pdef' | 'mdef' = isMagic ? 'mdef' : 'pdef';
+  const backBonus = side === 'back' ? (skill.backPowerBonus ?? 0) : 0;
+
+  // 伤害段基数：技能组合权重（缺省物理=str*1、法术=mag*1，模板即职业过渡）+ 固定值 + 影袭背面威力
+  const weights = skill.weights ?? (isMagic ? { mag: 1 } : { str: 1 });
+  let segBase = (skill.power ?? 0) + backBonus;
+  for (const [k, w] of Object.entries(weights) as Array<[string, number]>) {
+    if (!w) continue;
+    segBase += statValue(attacker, atkT, k as 'str') * w;
+  }
+
+  // 克制系数 = 护甲矩阵 x prod 兵种克制（cap）；法术矩阵行走法术级克制（R4-3，暂 1）
   let counterMult = 1;
   if (skill.counters) {
     for (const tag of defT.tags ?? []) {
@@ -88,14 +89,21 @@ export function calcStrike(
       if (m !== undefined) counterMult *= m;
     }
   }
-  const matrix = DAMAGE_ARMOR_MATRIX[skill.damageType][defArmor] * counterMult;
-  // 背刺：背面伤害 +3 加算改为乘算
-  const backstabMult = atkTraits.includes('backstab')
+  const matrixMult = isMagic ? 1 : DAMAGE_ARMOR_MATRIX[skill.damageType][defArmor];
+  // 克制合成上限：护甲克制 × ∏兵种克制 整体 ≤3.0（§4.2）
+  const resistMult = Math.min(matrixMult * counterMult, COMBAT_PARAMS.counterCap);
+  const backstabMult = side === 'back' && atkTraits.includes('backstab')
     ? TRAIT_CONFIGS.backstab.backstabMultiplier ?? 1.5
     : 1;
-  const damage = side === 'back' && backstabMult !== 1
-    ? Math.floor(base * matrix * backstabMult)
-    : Math.floor(base * matrix) + PART_BONUS[side].damage;
+  // 全局伤害倍率总封顶（R8 评审定稿：全部乘数联乘后截断 ≤4.0）
+  const mult = Math.min(resistMult * backstabMult, COMBAT_PARAMS.totalDamageCap);
+
+  // 防御项：背刺技能=背面无视一半防御
+  const defForSkill = skill.halfDefFromBack && side === 'back'
+    ? statValue(defender, defT, defAxis) / 2
+    : statValue(defender, defT, defAxis);
+
+  const damage = Math.max(Math.floor(segBase * mult - defForSkill - terrDef), 0) + PART_BONUS[side].damage;
 
   // 沉稳：守方受到的部位命中补正减半
   const partHit = defTraits.includes('steady')

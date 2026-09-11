@@ -81,10 +81,9 @@ export function showTerrainInfo(terrain: TerrainType): void {
   const costLabel = config.moveCost === Infinity ? '不可通行' : `${config.moveCost}`;
   el.innerHTML =
     `<h4>地形：${config.label}</h4>` +
-    `<table>` +
     `<tr><td>移动消耗</td><td>${costLabel}</td></tr>` +
     `<tr><td>回避</td><td>+${config.evasion}</td></tr>` +
-    `<tr><td>防御</td><td>+${config.defense}</td></tr>` +
+    `<tr><td>物理防</td><td>+${config.pdefense}</td></tr>` +
     `</table>`;
 }
 

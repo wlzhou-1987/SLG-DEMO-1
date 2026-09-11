@@ -6,6 +6,7 @@ import type { SpellTemplate } from '../config/spells';
 import { getTemplate } from '../config/units';
 import { calcStrike } from './combat';
 import { EFFECT_PARAMS } from '../config/combat';
+import { statValue } from './status';
 import type { PartSide } from './combat';
 import type { ArmorType } from './types';
 
@@ -15,6 +16,17 @@ export type SpellForecast =
   | { kind: 'regen'; healPerTurn: number; turns: number }
   | { kind: 'shield'; armorType: ArmorType; absorb: number; turns: number }
   | { kind: 'curse'; damage: number; turns: number };
+
+/** 治疗段基数（R4-2）：Σ(属性×权重)+固定值——治疗不扣防御项与地形防（§4.3 治疗线） */
+function healSegment(caster: UnitState, spell: SpellTemplate): number {
+  const t = getTemplate(caster.templateId)!;
+  let v = spell.power ?? 0;
+  for (const [k, w] of Object.entries(spell.weights ?? { mag: 0.5 }) as Array<[string, number]>) {
+    if (!w) continue;
+    v += statValue(caster, t, k as 'str') * w;
+  }
+  return Math.floor(v);
+}
 
 export function calcSpellForecast(
   map: MapState,
@@ -35,13 +47,14 @@ export function calcSpellForecast(
           chantTurns: spell.chantTurns ?? 0
         };
       }
-      return { kind: 'heal', amount: spell.power };
+      // R4-2：治疗统一伤害段——Σ(属性×权重)+固定值（主要挂魔力；不扣防御不乘克制）
+      return { kind: 'heal', amount: healSegment(caster, spell) };
     }
     case 'lasting': {
       if (spell.shield) {
         return { kind: 'shield', armorType: spell.shield.armorType, absorb: spell.shield.absorb, turns: spell.durationTurns ?? 1 };
       }
-      return { kind: 'regen', healPerTurn: spell.power, turns: spell.durationTurns ?? 1 };
+      return { kind: 'regen', healPerTurn: healSegment(caster, spell), turns: spell.durationTurns ?? 1 };
     }
     case 'delayed': {
       return { kind: 'curse', damage: spell.power, turns: spell.durationTurns ?? 1 };

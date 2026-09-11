@@ -4,7 +4,7 @@ export interface TerrainConfig {
   type: TerrainType;
   moveCost: number;
   evasion: number;
-  defense: number;
+  pdefense: number;
   color: string;
   label: string;
 }
@@ -14,7 +14,7 @@ export const TERRAIN_CONFIGS: Record<TerrainType, TerrainConfig> = {
     type: 'plain',
     moveCost: 1,
     evasion: 0,
-    defense: 0,
+    pdefense: 0,
     color: '#4a7c4e',
     label: '平原'
   },
@@ -22,7 +22,7 @@ export const TERRAIN_CONFIGS: Record<TerrainType, TerrainConfig> = {
     type: 'forest',
     moveCost: 2,
     evasion: 20,
-    defense: 1,
+    pdefense: 1,
     color: '#2d5a3d',
     label: '森林'
   },
@@ -30,7 +30,7 @@ export const TERRAIN_CONFIGS: Record<TerrainType, TerrainConfig> = {
     type: 'mountain',
     moveCost: Infinity,
     evasion: 0,
-    defense: 0,
+    pdefense: 0,
     color: '#6b6b6b',
     label: '山'
   },
@@ -38,7 +38,7 @@ export const TERRAIN_CONFIGS: Record<TerrainType, TerrainConfig> = {
     type: 'base',
     moveCost: 1,
     evasion: 20,
-    defense: 2,
+    pdefense: 2,
     color: '#8b6914',
     label: '基地'
   }

@@ -32,12 +32,12 @@ export const SPELLS: Record<string, SpellTemplate> = {
   heal: {
     id: 'heal', name: '治疗', target: 'ally', learnable: true,
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
-    power: 10, castMode: 'instant', effectMode: 'instant', targetType: 'ally'
+    weights: { mag: 0.5 }, power: 0, castMode: 'instant', effectMode: 'instant', targetType: 'ally'
   },
   regen: {
     id: 'regen', name: '再生术', target: 'ally', learnable: true,
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
-    power: 5, castMode: 'instant', effectMode: 'lasting', durationTurns: 3, targetType: 'ally'
+    weights: { mag: 0.25 }, power: 0, castMode: 'instant', effectMode: 'lasting', durationTurns: 3, targetType: 'ally'
   },
   mithrilShield: {
     id: 'mithrilShield', name: '秘银护盾', target: 'ally', learnable: true,

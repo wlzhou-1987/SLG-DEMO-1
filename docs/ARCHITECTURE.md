@@ -34,7 +34,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/core/unit.ts | 单位实例：UnitState（含 moveSpent/statuses/loadout 技能装填·战斗内冻结/groupId/activated）、createUnitState（按编成或出厂装填初始化并冻结）、getUnitAt/getUnitActiveSkills（实例主动解析）/hasUnitTrait/resetUnitCounter | §4.1/§4.8/§4.9 | tests/core/unit.test.ts |
 | src/core/deployment.ts | 战前编成：RosterEntry（含可选技能装填 loadout）/DeploymentRules、isInDeployZone、validateDeployment（区内/不重叠/模板存在与我方/不重复/人数上下限/必上模板，全参数化）、applyPlacement（站位调整：空格移动/被占交换） | §7.0 | tests/core/deployment.test.ts |
 | src/core/range.ts | 范围计算：calcMovementCosts（Dijkstra；R3-9 封锁邻格仅终点不扩展）、calcMovementRange、calcAttackRange、isBlockaded（fortify+姿态移动阻碍） | §3/§4.8/§4.7 | tests/core/range.test.ts |
-| src/core/combat.ts | 战斗核心：attackSide（部位判定，防御姿态参数化——侧后按正面）、calcStrike/calcBattleForecast（预报，statValue 属性总值进公式）、resolveBattle；反击与攻击候选含普攻；calcAoeForecast/resolveAoeBattle（AoE 多段/独立命中/无反击）、applyDamageToUnit | §4.2~§4.5/§4.7/§4.9 | tests/core/combat.test.ts |
+| src/core/combat.ts | 战斗核心：attackSide（部位判定，防御姿态参数化）、calcStrike/calcBattleForecast（**R4-2 统一公式**：伤害段权重基数×克制（cap 3.0）×背刺（总封顶 4.0）−防御−地形防，先乘后减 max 内 floor）、resolveBattle；反击与攻击候选含普攻；calcAoeForecast/resolveAoeBattle、applyDamageToUnit | §4.2~§4.5/§4.7/§4.9 | tests/core/combat.test.ts |
 | src/core/area.ts | 效果区域解算（R3-7）：getAreaCells（disc 圆盘/sector 施法者正面三格扇形）、unitsInArea（区域+阵营筛选，R3-8 增可见性过滤——潜行不可见即不受 AoE） | §4.9 | tests/core/area.test.ts |
 | src/core/stealth.ts | 潜行机制（R3-8）：enterStealth/cancelStealth/isStealthed、isVisibleTo（绝对隐身 + 真实视野 revealRange 显形；己方阵营恒可见、动态判定出范围自动隐匿） | §4.9/§6 | tests/core/stealth.test.ts |
 | src/core/spell.ts | 法术预报与结算：calcSpellForecast（damage/heal/regen/shield/curse 五类）、resolveSpell（即时结算或挂状态）、resolveAoeSpell（R3-7 AoE 法术：以中心格区域内敌方独立结算） | §4.10/§4.12/§4.9 | tests/core/spell.test.ts |
@@ -51,7 +51,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/config/skills.ts | SKILLS 注册表（物理攻击+行为技能）：SkillTemplate（target 三值/主效果扁平伤害段/附属段声明/AoE 效果区域/资源与武器声明/瞬发/counters/learnable）、WeaponAtom 8 原子、主资源三枚举 | §4.9 | tests/config/skills.test.ts |
 | src/config/units.ts | 兵种模板：UnitTemplate（八维 str/mag/pdef/mdef/spd/tec/lck + weapons/resourceType/basicAttack 普攻数据/skills id 引用/traits 绑定被动/tags 占位标签；R4-1 终战档基线）、PLAYER_TEMPLATES（10）/ENEMY_TEMPLATES（7）、getTemplate、resolveSkill（SKILLS ∪ SPELLS）、getTemplateSkills、basicAttackSkill、hasTemplateTrait | §4.1/§4.9/§5.1/§5.2 | tests/config/skills.test.ts |
 | src/config/combat.ts | 战斗数值：DAMAGE_ARMOR_MATRIX（伤害×护甲矩阵）、PART_BONUS（部位补正）、COMBAT_PARAMS（命中/追击/超射程参数） | §4.2~§4.4/§4.7 | —（tests/core/combat 间接） |
-| src/config/terrain.ts | 地形配置：TERRAIN_CONFIGS（移动消耗/回避/防御/颜色/标签） | §3 | — |
+| src/config/terrain.ts | 地形配置：TERRAIN_CONFIGS（移动消耗/回避/物理防 pdefense〔R4-2 更名过渡，R6 只增字段〕/颜色/标签） | §3 | — |
 | src/config/spells.ts | 法术定义：SpellTemplate（继承 SkillTemplate，id/target/learnable；释放方式×生效方式）、SPELLS 六法术、getSpell/isSpell | §4.12 | —（tests/core/spell 间接） |
 | src/config/traits.ts | 特性修正：TRAIT_CONFIGS（再移动/背刺/沉稳/真实视野〔revealRange 声明，R3-8 结算〕，learnable 标记、weaponType 声明）、getTrait | §4.7 | —（tests/core/combat 间接） |
 | src/config/pool.ts | 通用技能池：getPool（三表 learnable 条目 union 视图）、learnBlockReason/canLearn（双过滤）、SLOT_LIMITS、findRegisteredEntry（三表全量查）、validateLoadoutForTemplate（装填合法性：未注册/分组/双约束） | §4.9 | tests/config/pool.test.ts |

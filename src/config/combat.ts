@@ -23,7 +23,9 @@ export const COMBAT_PARAMS = {
   pursuitSpeedDiff: 4,  // 追击速度差阈值
   rangePenaltyPerHex: 15, // 超射程每格命中惩罚
   hitMin: 5,
-  hitMax: 100
+  hitMax: 100,
+  counterCap: 3.0,
+  totalDamageCap: 4.0
 } as const;
 
 /** R3-9 状态与增益参数（占位数值，随 R4/R5 数值期重定；全部配置可调） */

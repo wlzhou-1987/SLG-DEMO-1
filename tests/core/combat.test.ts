@@ -5,6 +5,7 @@ import { getTemplate, getTemplateSkills, basicAttackSkill } from '../../src/conf
 import { SKILLS } from '../../src/config/skills';
 import { directionBetween } from '../../src/core/hex';
 import { DAMAGE_ARMOR_MATRIX } from '../../src/config/combat';
+import { SPELLS } from '../../src/config/spells';
 import type { SkillTemplate } from '../../src/config/skills';
 import { calcAoeForecast, resolveAoeBattle } from '../../src/core/combat';
 import { resetUnitCounter, createUnitState } from '../../src/core/unit';
@@ -57,7 +58,7 @@ describe('calcBattleForecast 战斗预报', () => {
     // 领主横斩(挥砍)攻剑士(轻甲)：max(10−4−0,0)×1.25 = 7.5 → 7
     const { attacker, defender } = makeUnits();
     const f = calcBattleForecast(map, attacker, defender, basicAttackSkill(getTemplate('lord')!));
-    expect(f.attacker.damage).toBe(12);
+    expect(f.attacker.damage).toBe(15);
     expect(f.attacker.damageType).toBe('slashing');
   });
 
@@ -74,7 +75,7 @@ describe('calcBattleForecast 战斗预报', () => {
     const { attacker, defender } = makeUnits();
     const f = calcBattleForecast(forestMap, attacker, defender, basicAttackSkill(getTemplate('lord')!));
     // max(10−4−1,0)×1.25 = 6.25 → 6
-    expect(f.attacker.damage).toBe(11);
+    expect(f.attacker.damage).toBe(14);
   });
 
   it('飞行守方不享地形防与回避加成', () => {
@@ -83,7 +84,7 @@ describe('calcBattleForecast 战斗预报', () => {
     const defender = createUnitState('pegasus', 'enemy', { q: 11, r: 15 });
     const f = calcBattleForecast(forestMap, attacker, defender, basicAttackSkill(getTemplate('lord')!));
     // 飞马 light：max(10−5−0,0)×1.25 = 6.25 → 6（若误吃森林+1 则为 5）
-    expect(f.attacker.damage).toBe(11);
+    expect(f.attacker.damage).toBe(14);
     // 回避 = 运×3 = 21（若误吃森林+20 则命中骤降 20）
     // 命中 = 50 + 10×5 − 21 = 79
     expect(f.attacker.hitRate).toBe(100);
@@ -103,7 +104,7 @@ describe('calcBattleForecast 战斗预报', () => {
     defender.facing = 0;
     const f = calcBattleForecast(map, attacker, defender, basicAttackSkill(getTemplate('lord')!));
     expect(f.attacker.side).toBe('back');
-    expect(f.attacker.damage).toBe(12 + 3);
+    expect(f.attacker.damage).toBe(15 + 3);
     expect(f.attacker.hitRate).toBe(100); // 88+25=113 被 clamp 到上限
   });
 
@@ -121,7 +122,7 @@ describe('calcBattleForecast 战斗预报', () => {
     const f = calcBattleForecast(map, attacker, defender, basicAttackSkill(getTemplate('lord')!));
     expect(f.counter).not.toBeNull();
     // 剑士横斩(挥砍) vs 领主(轻甲)：max(5−6−0,0)×1.25 = 0
-    expect(f.counter!.damage).toBe(0);
+    expect(f.counter!.damage).toBe(Math.max(Math.floor(13 * 1.25 - 15), 0));
   });
 
   it('弓手被贴脸无反击（最小射程死角）', () => {
@@ -140,7 +141,7 @@ describe('calcBattleForecast 战斗预报', () => {
     const f = calcBattleForecast(map, attacker, boss, basicAttackSkill(getTemplate('lord')!));
     expect(f.counter).not.toBeNull();
     expect(f.counter!.skillName).toBe('横扫');
-    expect(f.counter!.damage).toBe(10);
+    expect(f.counter!.damage).toBe(13);
   });
 
   it('追击：速度差 ≥4 快方多打一次', () => {
@@ -246,7 +247,7 @@ describe('M4 战斗扩展：power 与护盾吸收', () => {
     const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
     // 伤害 5 全被护盾吸收；领主反击 BOSS(重甲 def6)：max(10−6,0)×1.0 = 4
     expect(r.attackerHp).toBe(71);
-    expect(r.defenderHp).toBe(52);
+    expect(r.defenderHp).toBe(49);
     expect(defender.statuses.some(s => s.type === 'shield')).toBe(false);
   });
 
@@ -260,9 +261,9 @@ describe('M4 战斗扩展：power 与护盾吸收', () => {
     }];
     // BOSS 重锤 ×1 击（boss spd6 vs lord spd9 差 3 无追击；伤害 5 > 吸收 3 → 破盾 2 入 HP
     const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
-    expect(defender.hp).toBe(52 - 7);
+    expect(defender.hp).toBe(52 - 10);
     expect(defender.statuses.some(s => s.type === 'shield')).toBe(false);
-    expect(r.defenderHp).toBe(45);
+    expect(r.defenderHp).toBe(42);
   });
 
   it('护盾覆盖矩阵：按护盾护甲类型结算', () => {
@@ -277,7 +278,7 @@ describe('M4 战斗扩展：power 与护盾吸收', () => {
     }];
     const f = calcBattleForecast(map, attacker, defender, basicAttackSkill(getTemplate('axeman')!));
     // max(12-6,0)×0.75 = 4.5 → 4（若误按轻甲则为 floor(6×1.25)=7）
-    expect(f.attacker.damage).toBe(8);
+    expect(f.attacker.damage).toBe(4);
   });
 });
 
@@ -296,7 +297,7 @@ describe('特性修正管线', () => {
     swordsman.facing = 0;  // 朝东，盗贼在西 → 背面
     const f = calcBattleForecast(map, thief, swordsman, basicAttackSkill(getTemplate('thief')!));
     expect(f.attacker.side).toBe('back');
-    expect(f.attacker.damage).toBe(9);
+    expect(f.attacker.damage).toBe(17);
     // 正面不受特性影响
     const thief2 = createUnitState('thief', 'player', { q: 10, r: 14 });
     const swordsman2 = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
@@ -322,7 +323,7 @@ describe('特性修正管线', () => {
     const defender = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
     defender.facing = 0;
     const f = calcBattleForecast(map, attacker, defender, basicAttackSkill(getTemplate('swordsman')!));
-    expect(f.attacker.damage).toBe(2 + 3);
+    expect(f.attacker.damage).toBe(5 + 3);
   });
 });
 
@@ -349,7 +350,7 @@ describe('M6-1 战斗反馈：打击结果上报吸收量', () => {
       armorType: 'medium', absorbLeft: 3
     }];
     const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
-    expect(r.strikes[0].damage).toBe(10);
+    expect(r.strikes[0].damage).toBe(13);
     expect(r.strikes[0].absorbed).toBe(3);
   });
 
@@ -361,8 +362,8 @@ describe('M6-1 战斗反馈：打击结果上报吸收量', () => {
       armorType: 'medium', absorbLeft: 99
     }];
     const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
-    expect(r.strikes[0].damage).toBe(10);
-    expect(r.strikes[0].absorbed).toBe(10);
+    expect(r.strikes[0].damage).toBe(13);
+    expect(r.strikes[0].absorbed).toBe(13);
   });
 });
 
@@ -379,7 +380,7 @@ describe('R3-2 普攻口径落地', () => {
     const f = calcBattleForecast(map, attacker, defender, basicAttackSkill(getTemplate('boss')!));
     expect(f.attacker.damageType).toBe('blunt');
     // max(10−6,0)×0.75 = 3（矩阵系数现行值；R4-3 改梯度后随 R4 重定）
-    expect(f.attacker.damage).toBe(6);
+    expect(f.attacker.damage).toBe(2);
   });
 
   it('法杖普攻=低威力钝伤杖击（近战保底手段）', () => {
@@ -572,5 +573,95 @@ describe('R3-10 攻击修饰集', () => {
     });
     const enh = calcAoeForecast(map, enhanced, [foe], SKILLS.whirlwind)[0].damage;
     expect(enh).toBeGreaterThan(calcAoeForecast(map, axeman, [foe], SKILLS.whirlwind)[0].damage);
+  });
+});
+
+describe('R4-2 统一伤害段结构与公式', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+  const mkSkill = (over: Partial<SkillTemplate>): SkillTemplate => ({
+    id: 't', name: '测试技能', target: 'enemy', damageType: 'slashing',
+    rangeMin: 1, rangeMax: 1, learnable: false, ...over
+  });
+
+  it('乘算在 max 内：低攻高防 × 高克制仍有伤害（旧公式为 0）', () => {
+    const attacker = createUnitState('lord', 'player', { q: 10, r: 15 });   // str21
+    const defender = createUnitState('paladin', 'enemy', { q: 11, r: 15 }); // pdef26 heavy
+    // 突 vs 重甲 0.75 × 重甲特效 2 = 1.5：floor(21×1.5−26)=5；旧先减后乘 = max(21−26,0)×1.5 = 0
+    const f = calcBattleForecast(map, attacker, defender, mkSkill({
+      damageType: 'piercing', counters: { heavy: 2 }
+    }));
+    expect(f.attacker.damage).toBe(Math.floor(21 * 1.5 - 26));
+  });
+
+  it('三线之一：物理线扣 pdef、法术线扣 mdef（同一基数不同防御轴）', () => {
+    const attacker = createUnitState('mage', 'player', { q: 10, r: 15 }, { active: [], passive: [] }); // mag24
+    const defender = createUnitState('knight', 'enemy', { q: 11, r: 15 }); // pdef17 mdef13, 中甲
+    const phys = calcBattleForecast(map, attacker, defender, mkSkill({ damageType: 'blunt' }));   // str14
+    const magic = calcBattleForecast(map, attacker, defender, mkSkill({ damageType: 'magic' }));  // mag24
+    expect(phys.attacker.damage).toBe(Math.max(Math.floor(14 * 1.0 - 17), 0));
+    expect(magic.attacker.damage).toBe(Math.max(Math.floor(24 * 1.0 - 13), 0));
+  });
+
+  it('组合权重：{str:0.5, tec:0.5} = (力量+技)/2 作基数', () => {
+    const attacker = createUnitState('lord', 'player', { q: 10, r: 15 });   // str21 tec19 → 20
+    const defender = createUnitState('swordsman', 'enemy', { q: 11, r: 15 }); // pdef11 轻甲 斩×1.2
+    const f = calcBattleForecast(map, attacker, defender, mkSkill({
+      weights: { str: 0.5, tec: 0.5 }
+    }));
+    expect(f.attacker.damage).toBe(Math.floor((21 / 2 + 19 / 2) * 1.25 - 11));
+  });
+
+  it('缺省权重回落：物理技能=str×1、法术=mag×1', () => {
+    const attacker = createUnitState('thief', 'player', { q: 10, r: 15 });  // str17
+    const defender = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    const phys = calcBattleForecast(map, attacker, defender, mkSkill({ damageType: 'piercing' })); // 突vs轻1.0
+    expect(phys.attacker.damage).toBe(Math.max(Math.floor(17 * 1.0 - 11), 0));
+  });
+
+  it('固定值在乘区内：power 与基数一起乘克制矩阵', () => {
+    const attacker = createUnitState('lord', 'player', { q: 10, r: 15 });
+    const defender = createUnitState('swordsman', 'enemy', { q: 11, r: 15 }); // 轻甲 斩1.2
+    const f = calcBattleForecast(map, attacker, defender, mkSkill({ power: 5 }));
+    expect(f.attacker.damage).toBe(Math.floor((21 + 5) * 1.25 - 11));
+  });
+
+  it('克制合成上限 ×3.0：多标签 counters 联乘超限截断', () => {
+    const attacker = createUnitState('lord', 'player', { q: 10, r: 15 });
+    const defender = createUnitState('paladin', 'enemy', { q: 11, r: 15 }); // tags heavy+cavalry
+    const f = calcBattleForecast(map, attacker, defender, mkSkill({
+      damageType: 'piercing', counters: { heavy: 2, cavalry: 2 }  // 4.0 超 3.0 → 截 3.0
+    }));
+    expect(f.attacker.damage).toBe(Math.max(Math.floor(21 * 3.0 - 26), 0));
+  });
+
+  it('地形物理防：守方站森林 pdefense+1 进减法区（飞行不享）', () => {
+    const forestMap = createMapState({ forests: [{ q: 11, r: 15 }] });
+    const attacker = createUnitState('lord', 'player', { q: 10, r: 15 });
+    const defender = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    const f = calcBattleForecast(forestMap, attacker, defender, basicAttackSkill(getTemplate('lord')!));
+    expect(f.attacker.damage).toBe(Math.floor(21 * 1.25 - 11 - 1));
+    const flyer = createUnitState('pegasus', 'enemy', { q: 11, r: 15 }); // pdef12 轻甲
+    const f2 = calcBattleForecast(forestMap, attacker, flyer, basicAttackSkill(getTemplate('lord')!));
+    expect(f2.attacker.damage).toBe(Math.floor(21 * 1.25 - 12));
+  });
+
+  it('治疗统一段：mag×0.5 权重（牧师 mag21 → 10）', () => {
+    expect(SPELLS.heal.weights).toEqual({ mag: 0.5 });
+  });
+
+  it('总封顶挂点：克制合成×背刺联乘超 4.0 截断', () => {
+    const attacker = createUnitState('thief', 'player', { q: 10, r: 15 });   // 出厂 backstab
+    const defender = createUnitState('paladin', 'enemy', { q: 11, r: 15 }); // heavy+cavalry, pdef26
+    defender.facing = 0;  // 朝东，攻方在西(10,15) → 背面
+    const f = calcBattleForecast(map, attacker, defender, mkSkill({
+      damageType: 'blunt', counters: { heavy: 2, cavalry: 2 }
+    }));
+    expect(f.attacker.side).toBe('back');
+    // 克制 1.4×4=5.6→cap3.0；背刺 1.5 → 4.5→总封 4.0；floor(17×4.0−26)=42
+    expect(f.attacker.damage).toBe(Math.floor(17 * 4.0 - 26) + 3);
   });
 });
