@@ -13,6 +13,8 @@ import {
   basicAttackSkill
 } from '../../src/config/units';
 import { TRAIT_CONFIGS } from '../../src/config/traits';
+import { SPELLS } from '../../src/config/spells';
+import { learnBlockReason } from '../../src/config/pool';
 
 const ALL_TEMPLATES = [...PLAYER_TEMPLATES, ...ENEMY_TEMPLATES];
 
@@ -201,5 +203,36 @@ describe('R4-1 八维属性结构（终战档基线，GAME-DESIGN §5；R4-8 平
     const lord = ALL_TEMPLATES.find(t => t.id === 'lord')!;
     expect(mage.mag).toBeGreaterThan(lord.mag);
     expect(lord.str).toBeGreaterThan(mage.str);
+  });
+});
+
+describe('R5-1 资源消耗声明', () => {
+  it('cost 占位值锚：MP 六法术 15/35/25/12/20/20；怒气刺击 40/旋风斩 50；专注潜行 30（R5-3 定稿）', () => {
+    expect(SPELLS.fireball.cost).toBe(15);
+    expect(SPELLS.meteor.cost).toBe(35);
+    expect(SPELLS.curse.cost).toBe(25);
+    expect(SPELLS.heal.cost).toBe(12);
+    expect(SPELLS.regen.cost).toBe(20);
+    expect(SPELLS.mithrilShield.cost).toBe(20);
+    expect(SKILLS.stab.cost).toBe(40);
+    expect(SKILLS.whirlwind.cost).toBe(50);
+    expect(SKILLS.stealth.cost).toBe(30);
+  });
+
+  it('声明 cost 必须声明 resourceType（归属可判）', () => {
+    for (const s of Object.values(SKILLS)) {
+      if (s.cost !== undefined) expect(s.resourceType, `skill ${s.id}`).toBeDefined();
+    }
+    for (const s of Object.values(SPELLS)) {
+      if (s.cost !== undefined) expect(s.resourceType, `spell ${s.id}`).toBeDefined();
+    }
+  });
+
+  it('法术声明 mp 归属：非 MP 职业装填被资源过滤拦截（F3）', () => {
+    const lord = ALL_TEMPLATES.find(t => t.id === 'lord')!;
+    const mage = ALL_TEMPLATES.find(t => t.id === 'mage')!;
+    const fireballEntry = { id: 'fireball', name: '火球', kind: 'spell' as const, entry: SPELLS.fireball };
+    expect(learnBlockReason(lord, fireballEntry)).toBe('resource');
+    expect(learnBlockReason(mage, fireballEntry)).toBeNull();
   });
 });

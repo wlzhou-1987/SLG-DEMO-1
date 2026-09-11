@@ -13,6 +13,8 @@ const DAMAGE_LABELS: Record<DamageType, string> = {
   piercing: '穿刺', slashing: '斩击', blunt: '钝击', magic: '法术'
 };
 
+const RESOURCE_LABEL: Record<string, string> = { rage: '怒气', focus: '专注', mp: 'MP' };
+
 function unitEl(): HTMLElement | null {
   return document.getElementById('panel-unit');
 }
@@ -64,6 +66,7 @@ export function showUnitInfo(unit: UnitState): void {
     `<tr><td>幸运</td><td>${template.lck}</td><td>护甲</td><td>${ARMOR_LABELS[template.armor]}</td></tr>` +
     `<tr><td>移动</td><td>${template.movePoints}</td><td>飞行</td><td>${isFlying(template) ? '是' : '否'}</td></tr>` +
     `<tr><td>标签</td><td>${template.unitTags.join('·')}</td></tr>` +
+    `<tr><td>主资源</td><td>${RESOURCE_LABEL[template.resourceType] ?? template.resourceType} ${unit.resources.current}/${unit.resources.max}</td></tr>` +
     `</table>` +
     (statuses ? `<h4>当前状态</h4><ul>${statuses}</ul>` : '') +
     (traits ? `<h4>特性</h4><ul>${traits}</ul>` : '') +

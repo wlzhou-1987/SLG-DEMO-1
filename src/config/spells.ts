@@ -16,11 +16,13 @@ export const SPELLS: Record<string, SpellTemplate> = {
   fireball: {
     id: 'fireball', name: '火球', target: 'enemy', learnable: true,
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
+    resourceType: 'mp', cost: 15,
     power: 0, castMode: 'instant', effectMode: 'instant', targetType: 'enemy'
   },
   meteor: {
     id: 'meteor', name: '陨石术', target: 'enemy', learnable: true,
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
+    resourceType: 'mp', cost: 35,
     power: 6, castMode: 'chant', chantTurns: 2, effectMode: 'instant', targetType: 'enemy',
     area: { shape: 'disc', radius: 1 },
     armorResist: { heavy: 1.5 }  // R4-8 法术破重甲钥匙（§4.12：法术级对护甲克制）
@@ -28,21 +30,25 @@ export const SPELLS: Record<string, SpellTemplate> = {
   curse: {
     id: 'curse', name: '咒杀', target: 'enemy', learnable: true,
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
+    resourceType: 'mp', cost: 25,
     power: 10, castMode: 'instant', effectMode: 'delayed', durationTurns: 3, targetType: 'enemy'
   },
   heal: {
     id: 'heal', name: '治疗', target: 'ally', learnable: true,
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
+    resourceType: 'mp', cost: 12,
     weights: { mag: 0.5 }, power: 0, castMode: 'instant', effectMode: 'instant', targetType: 'ally'
   },
   regen: {
     id: 'regen', name: '再生术', target: 'ally', learnable: true,
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
+    resourceType: 'mp', cost: 20,
     weights: { mag: 0.25 }, power: 0, castMode: 'instant', effectMode: 'lasting', durationTurns: 3, targetType: 'ally'
   },
   mithrilShield: {
     id: 'mithrilShield', name: '秘银护盾', target: 'ally', learnable: true,
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
+    resourceType: 'mp', cost: 20,
     power: 0, castMode: 'instant', effectMode: 'lasting', durationTurns: 3,
     targetType: 'ally', shield: { armorType: 'medium', absorb: 10 }
   }

@@ -250,7 +250,7 @@ describe('撤销移动（取消行动）', () => {
     expect(game.phase.mode).toBe('actionMenu');
 
     menuClick('法术');
-    menuClick('法术·火球');
+    menuClick('法术·火球（MP15）');
     expect(game.phase.mode).toBe('targetSelect');
 
     click(foe);
@@ -336,7 +336,7 @@ describe('R3-8 潜行：行为技能与取消三态（game 集成）', () => {
     click(origin);      // 原地待命 → 行动菜单
     await waitMove();
     menuClick('攻击');
-    menuClick('攻击·潜行');
+    menuClick('攻击·潜行（专30）');
     expect(thief.statuses.some(s => s.type === 'stealth')).toBe(true);
     expect(['facingConfirm', 'reMove']).toContain(game.phase.mode);
   });

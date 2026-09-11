@@ -10,6 +10,7 @@ import { isSpell } from '../../src/config/spells';
 import type { SpellTemplate } from '../../src/config/spells';
 import { calcMovementCosts } from '../../src/core/range';
 import { calcBattleForecast, resolveBattle } from '../../src/core/combat';
+import { canAfford, payCost } from '../../src/core/resources';
 import { decideEnemyAction, checkGroupActivation, provokeGroup } from '../../src/core/ai';
 import { checkReinforcements } from '../../src/core/reinforce';
 import { tickStatuses } from '../../src/core/status';
@@ -158,12 +159,13 @@ function actPlayerUnit(map: MapState, units: UnitState[], u: UnitState, rng: () 
   u.position = { q: parseInt(bq), r: parseInt(br) };
   u.moveSpent = costs.get(bestKey) ?? 0;
 
-  // 攻击：期望净收益最高（击杀加权，惩罚反击）
+  // 攻击：期望净收益最高（击杀加权，惩罚反击）；R5-1 资源不足不入选、执行时扣费
   let bestAtk: { skill: SkillTemplate; target: UnitState; score: number } | null = null;
   for (const e of enemies) {
     const d = distance(u.position, e.position);
     for (const skill of skills) {
       if (d < skill.rangeMin || d > skill.rangeMax) continue;
+      if (!canAfford(u, skill)) continue;
       const forecast = calcBattleForecast(map, u, e, skill);
       const gain = forecast.attacker.damage * forecast.attacker.count * forecast.attacker.hitRate / 100;
       const counterCost = forecast.counter
@@ -179,6 +181,7 @@ function actPlayerUnit(map: MapState, units: UnitState[], u: UnitState, rng: () 
     const fs = calcBattleForecast(map, u, bestAtk.target, bestAtk.skill);
     const suicide = fs.counter !== null && fs.counter.damage >= u.hp;
     if (!suicide) {
+      payCost(u, bestAtk.skill);  // R5-1 扣费
       u.facing = directionBetween(u.position, bestAtk.target.position);
       const result = resolveBattle(map, u, bestAtk.target, bestAtk.skill, rng);
       u.hp = result.attackerHp;
@@ -249,6 +252,7 @@ function simulate(seed: number): SimResult {
       enemy.position = { ...action.dest };
       if (action.skill && action.target) {
         enemy.facing = directionBetween(enemy.position, action.target.position);
+        payCost(enemy, action.skill);  // R5-1 敌方同样扣费
         const result = resolveBattle(map, enemy, action.target, action.skill, rng);
         enemy.hp = result.attackerHp;
         action.target.hp = result.defenderHp;

@@ -4,6 +4,8 @@ import type { SkillTemplate } from '../config/skills';
 import type { SpellTemplate } from '../config/spells';
 import type { ActiveStatus } from './status';
 import type { GroupAiType } from '../config/map';
+import { initResources } from './resources';
+import type { ResourceState } from './resources';
 
 /** 技能装填（§4.9：挂人物实例，战斗内锁定） */
 export interface SkillLoadout {
@@ -23,7 +25,8 @@ export interface UnitState {
   moveSpent: number;             // 本回合已消耗移动力（§4.8 再移动剩余移动力）
   statuses: ActiveStatus[];
   loadout: SkillLoadout;         // 技能装填（R3-3：编成传入或出厂默认，战斗内冻结）
-  pendingResources?: { rage?: number; focus?: number; mp?: number };  // R3-9 资源生成计数暂存（结算归 R5）
+  resources: ResourceState;      // 主资源槽（§4.13，R5-1）
+  pendingResources?: { rage?: number; focus?: number; mp?: number };  // R3-9 资源生成计数暂存（R5-2 迁移真实资源后删除）
   groupId?: string;              // 敌方组归属（集结/全组激活）
   aiKind?: GroupAiType;          // 敌方 AI 类型；玩家单位无
   activated: boolean;            // 激活后永久主动（§6）；玩家/主动型/增援恒 true
@@ -58,6 +61,7 @@ export function createUnitState(
     moveSpent: 0,
     statuses: [],
     loadout: Object.freeze({ active: Object.freeze(active), passive: Object.freeze(passive) }),
+    resources: initResources(template),
     activated: true
   };
 }

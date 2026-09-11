@@ -35,6 +35,7 @@ import type { VictoryState } from './core/turn';
 import { decideEnemyAction, checkGroupActivation, provokeGroup } from './core/ai';
 import { checkReinforcements } from './core/reinforce';
 import { interruptChant, tickStatuses } from './core/status';
+import { canAfford, payCost } from './core/resources';
 import { showNotice } from './ui/notice';
 import { logBattle } from './ui/battle-log';
 
@@ -52,6 +53,7 @@ type Phase =
   | { mode: 'gameOver' };
 
 const ENEMY_ACTION_DELAY_MS = 300;
+const RESOURCE_SHORT: Record<string, string> = { rage: '怒', focus: '专', mp: 'MP' };  // R5-1 菜单消耗标签
 
 export class Game {
   private canvas: HTMLCanvasElement;
@@ -315,7 +317,11 @@ export class Game {
     const world = axialToPixel(unit.position, HEX_SIZE);
     const screen = this.camera.worldToScreen(world);
     showActionMenu(screen.x, screen.y, [
-      ...skills.map(s => ({ label: `${title}·${s.name}`, value: `skill:${s.name}` })),
+      ...skills.map(s => ({
+        label: `${title}·${s.name}${s.cost !== undefined ? `（${RESOURCE_SHORT[s.resourceType ?? 'mp']}${s.cost}）` : ''}`,
+        value: `skill:${s.name}`,
+        disabled: !canAfford(unit, s)  // R5-1 资源不足灰显不可选
+      })),
       { label: '返回', value: 'back', kind: 'cancel' }
     ], value => {
       if (value === 'back') {
@@ -337,6 +343,7 @@ export class Game {
   /** 行为技能（§4.9 行为主效果）：执行后走行动收尾；瞬发（R3-10）回行动菜单不结束行动 */
   private executeBehaviorSkill(unit: UnitState, skill: SkillTemplate, originPos?: HexCoord) {
     hideActionMenu();
+    if (!payCost(unit, skill)) return;  // R5-1 行为技能消耗（潜行 30 专注）
     // R3-9：行为技能统一执行器（潜行/防御姿态/祝福/战斗怒吼/嗜血）
     const msg = executeBehavior(unit, skill, this.units);
     if (msg) logBattle(`${this.unitName(unit)} ${msg.replace(`${unit.id} `, '')}`);
@@ -477,11 +484,13 @@ export class Game {
     );
   }
 
-  /** 确认法术：即时释放立即结算/挂状态；咏唱释放挂咏唱状态（§4.12） */
+  /** 确认法术：即时释放立即结算/挂状态；咏唱释放挂咏唱状态（§4.12）；R5-1 起唱即扣、打断经 interruptChant 返还 */
   private async confirmSpell(unit: UnitState, target: UnitState, spell: SpellTemplate) {
     hideForecastPanel();
     cancelStealth(unit);
-    interruptChant(unit);  // 释放其他法术打断已有咏唱
+    interruptChant(unit);  // 释放其他法术打断已有咏唱（返还其已扣资源）
+
+    if (!payCost(unit, spell)) return;  // 资源不足兜底（菜单已灰显）
 
     if (spell.castMode === 'chant') {
       unit.statuses.push({
@@ -537,6 +546,7 @@ export class Game {
     const wasStealthed = isStealthed(unit);
     cancelStealth(unit);
     const finalSkill = wasStealthed ? applyAmbushBonus(unit, skill) : skill;
+    if (!payCost(unit, finalSkill)) return;  // R5-1 结算前扣费；资源不足兜底（菜单已灰显）
     const noCounter = finalSkill.noCounterIfMoved === true && unit.moveSpent > 0;
     if (finalSkill.rush) {
       const dest = rushDestination(this.map, this.units, unit, target);
@@ -815,6 +825,7 @@ export class Game {
       await this.playMove(enemy, from, action.dest);
       if (action.skill && action.target) {
         enemy.facing = directionBetween(enemy.position, action.target.position);
+        payCost(enemy, action.skill);  // R5-1 敌方同样扣费（AI 择优已过滤资源不足）
         const result = resolveBattle(this.map, enemy, action.target, action.skill);
         enemy.hp = result.attackerHp;
         action.target.hp = result.defenderHp;

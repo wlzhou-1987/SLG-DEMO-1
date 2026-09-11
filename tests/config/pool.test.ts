@@ -98,10 +98,11 @@ describe('R3-4 canLearn：双过滤', () => {
     }
   });
 
-  it('法术默认免武器声明：火球无武器要求——近战职业也可学（法系互学接受）', () => {
+  it('R5-1 法术声明 mp 归属：非 MP 职业不可学（R3-4「法系互学」旧口径随 §4.13 作废）', () => {
     const fireball = entryOf('fireball');
-    expect(canLearn(lord, fireball)).toBe(true);
-    expect(canLearn(axeman, fireball)).toBe(true);
+    expect(canLearn(lord, fireball)).toBe(false);
+    expect(canLearn(axeman, fireball)).toBe(false);
+    expect(canLearn(mage, fireball)).toBe(true);
   });
 
   it('法术按技能差异化声明武器时受过滤（声明即过滤对法术同样生效）', () => {

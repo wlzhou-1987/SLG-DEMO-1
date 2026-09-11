@@ -47,7 +47,8 @@ describe('unit', () => {
           hp: 26,
           maxHp: 26,
           hasActed: false, statuses: [], activated: true, moveSpent: 0,
-          loadout: { active: [], passive: [] }
+          loadout: { active: [], passive: [] },
+          resources: { type: 'rage', current: 0, max: 100 }
         },
         {
           id: 'u2',
@@ -58,7 +59,8 @@ describe('unit', () => {
           hp: 26,
           maxHp: 26,
           hasActed: false, statuses: [], activated: true, moveSpent: 0,
-          loadout: { active: [], passive: [] }
+          loadout: { active: [], passive: [] },
+          resources: { type: 'rage', current: 0, max: 100 }
         }
       ];
       expect(getUnitAt(units, { q: 3, r: 3 })).toBe(units[0]);
@@ -81,7 +83,8 @@ describe('unit', () => {
           hp: 26,
           maxHp: 26,
           hasActed: false, statuses: [], activated: true, moveSpent: 0,
-          loadout: { active: [], passive: [] }
+          loadout: { active: [], passive: [] },
+          resources: { type: 'rage', current: 0, max: 100 }
         },
         {
           id: 'e1',
@@ -92,7 +95,8 @@ describe('unit', () => {
           hp: 18,
           maxHp: 18,
           hasActed: false, statuses: [], activated: true, moveSpent: 0,
-          loadout: { active: [], passive: [] }
+          loadout: { active: [], passive: [] },
+          resources: { type: 'rage', current: 0, max: 100 }
         }
       ];
       expect(getUnitAt(units, { q: 3, r: 3 }, 'player')?.faction).toBe('player');

@@ -85,6 +85,8 @@ html, body {
 .action-menu .item:last-child { border-bottom: none; }
 .action-menu .item:hover { background: #35405a; }
 .action-menu .item.cancel { color: #98a2b3; }
+.action-menu .item.disabled { color: #6b7280; cursor: not-allowed; }
+.action-menu .item.disabled:hover { background: none; }
 
 .battle-notice {
   position: absolute;

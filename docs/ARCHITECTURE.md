@@ -31,18 +31,19 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/core/types.ts | 全篇基础类型：HexCoord/PixelCoord/Facing/TerrainType/Faction/ArmorType/DamageType | §4.1 | —（纯类型） |
 | src/core/hex.ts | 六边形数学：neighbor/directionBetween/distance/inRange/ring、轴↔像素换算（axialToPixel/pixelToAxial）、hexCorners/isValidHex/facingToAngle | §3 | tests/core/hex.test.ts |
 | src/core/map.ts | 地图状态：createMapState（overrides 铺地形）、getTerrain/isPassable/getMoveCost；MAP_WIDTH/HEIGHT 常量 | §3 | tests/core/map.test.ts |
-| src/core/unit.ts | 单位实例：UnitState（含 moveSpent/statuses/loadout 技能装填·战斗内冻结/groupId/activated）、createUnitState（按编成或出厂装填初始化并冻结）、getUnitAt/getUnitActiveSkills（实例主动解析）/hasUnitTrait/resetUnitCounter | §4.1/§4.8/§4.9 | tests/core/unit.test.ts |
+| src/core/unit.ts | 单位实例：UnitState（含 moveSpent/statuses/loadout 技能装填·战斗内冻结/**resources 主资源槽**〔R5-1〕/groupId/activated）、createUnitState（按编成或出厂装填初始化并冻结，资源按模板初始化）、getUnitAt/getUnitActiveSkills（实例主动解析）/hasUnitTrait/resetUnitCounter | §4.1/§4.8/§4.9/§4.13 | tests/core/unit.test.ts |
 | src/core/deployment.ts | 战前编成：RosterEntry（含可选技能装填 loadout）/DeploymentRules、isInDeployZone、validateDeployment（区内/不重叠/模板存在与我方/不重复/人数上下限/必上模板，全参数化）、applyPlacement（站位调整：空格移动/被占交换） | §7.0 | tests/core/deployment.test.ts |
 | src/core/range.ts | 范围计算：calcMovementCosts（Dijkstra；R3-9 封锁邻格仅终点不扩展）、calcMovementRange、calcAttackRange、isBlockaded（fortify+姿态移动阻碍） | §3/§4.8/§4.7 | tests/core/range.test.ts |
 | src/core/combat.ts | 战斗核心：attackSide（部位判定，防御姿态参数化）、calcEvade（**R4-6 双轴回避**：速/运×对应轴系数+地形闪避，经 statValue 入修正管线）、calcStrike/calcBattleForecast（**R4-2 统一公式**：伤害段权重基数×克制（cap 3.0）×背刺（总封顶 4.0）−防御−地形防，先乘后减 max 内 floor；命中接对应轴回避；**R4-7 firstStrike 先攻标记**：守速差 ≥ 阈值〔10 可配、特性可降〕且反击存在）、resolveBattle（**R4-7 序列**：先攻反击→攻→反→追击，先攻击杀攻方则截断）；反击与攻击候选含普攻；calcAoeForecast/resolveAoeBattle、applyDamageToUnit | §4.2~§4.5/§4.7/§4.9 | tests/core/combat.test.ts |
 | src/core/area.ts | 效果区域解算（R3-7）：getAreaCells（disc 圆盘/sector 施法者正面三格扇形）、unitsInArea（区域+阵营筛选，R3-8 增可见性过滤——潜行不可见即不受 AoE） | §4.9 | tests/core/area.test.ts |
 | src/core/stealth.ts | 潜行机制（R3-8）：enterStealth/cancelStealth/isStealthed、isVisibleTo（绝对隐身 + 真实视野 revealRange 显形；己方阵营恒可见、动态判定出范围自动隐匿） | §4.9/§6 | tests/core/stealth.test.ts |
 | src/core/spell.ts | 法术预报与结算：calcSpellForecast（damage/heal/regen/shield/curse 五类）、resolveSpell（即时结算或挂状态；pyro 灼烧 **R4-7 施放时锁定**：每回合 max(1, floor(直伤/回合数))+末回合补足余数）、resolveAoeSpell（R3-7 AoE 法术：以中心格区域内敌方独立结算） | §4.10/§4.12/§4.9 | tests/core/spell.test.ts |
-| src/core/status.ts | 状态系统：九种 ActiveStatus（chant 锁定格/stealth/buff 衰减/stance/charge 蓄力/dot 灼烧〔R4-7 存值跳+末回合 finalTurnExtra 补足〕/…）、resolveArmor、tickStatuses、interruptChant、applyBuff、refreshAuras、statValue（模板+buff+姿态+冲锋/狂战被动；R4-6 AttrKey 扩 spd/lck 轴——回避入修正管线） | §4.10/§4.12/§4.9 | tests/core/status.test.ts |
+| src/core/status.ts | 状态系统：九种 ActiveStatus（chant 锁定格/stealth/buff 衰减/stance/charge 蓄力/dot 灼烧〔R4-7 存值跳+末回合 finalTurnExtra 补足〕/…）、resolveArmor、tickStatuses、interruptChant（R5-1 打断返还咏唱资源）、applyBuff、refreshAuras、statValue（模板+buff+姿态+冲锋/狂战被动；R4-6 AttrKey 扩 spd/lck 轴——回避入修正管线） | §4.10/§4.12/§4.9/§4.13 | tests/core/status.test.ts |
 | src/core/effects.ts | 行为技能与修饰执行器（R3-9/10）：executeBehavior（潜行/姿态/祝福/怒吼/嗜血）、resolveSkillSubs、resolveShout、rushDestination（冲杀落位与灰显条件）、applyAmbushBonus（破隐一击）、resolveChargeStrike（蓄力触发：额外威力+免距离惩罚） | §4.9 | tests/core/effects.test.ts |
 | src/core/turn.ts | 回合与胜负：checkVictory（全灭/领主阵亡）、startPlayerPhase（重置行动+基地回复） | §2/§3 | tests/core/turn.test.ts |
-| src/core/ai.ts | 敌方 AI：decideEnemyAction（落位×技能×目标枚举评分，击杀优先；BOSS 驻守；无目标向组质心最近我方集结）、checkGroupActivation（警戒范围扫描全组激活）、provokeGroup（被攻击激活） | §6 | tests/core/ai.test.ts |
+| src/core/ai.ts | 敌方 AI：decideEnemyAction（落位×技能×目标枚举评分，击杀优先；资源不足技能不入选〔R5-1 回落普攻〕；BOSS 驻守；无目标向组质心最近我方集结）、checkGroupActivation（警戒范围扫描全组激活）、provokeGroup（被攻击激活） | §6/§4.13 | tests/core/ai.test.ts |
 | src/core/reinforce.ts | 增援：checkReinforcements（回合/组血量触发、次数上限、刷新点 BFS 找空位，登场即激活） | §6 | tests/core/reinforce.test.ts |
+| src/core/resources.ts | 资源系统（R5-1，§4.13）：ResourceState 主资源槽、initResources（怒 0/专满/MP=mag×5 满按模板初始化）、canAfford/payCost（结算前扣费、不足拒扣）、refundCost（咏唱打断全额返还） | §4.13 | tests/core/resources.test.ts |
 
 ### 配置层 src/config/（新增内容=改配置不改代码）
 
@@ -76,7 +77,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/ui/topbar.ts | updateTopbar：顶栏回合/阶段/兵力与结束回合按钮 | §7.1 | — |
 | src/ui/prep.ts | createPrepScreen：战前准备面板（右侧）——出场名单勾选 + 技能配置区块（R3-5：选中角色 → 主动 0~5/被动 0~6 槽、通用池混排双过滤置灰、出厂默认、编辑后随编成传 loadout）+ 装备/地图占位区块 + 实时校验 + 开战按钮；站位记忆画布调整结果（getRoster/setChecked/setBoardRoster/selectUnit/addToSlot/removeFromSlot/poolEntries/refresh/clickStart） | §7.0/§4.9 | tests/ui/prep.test.ts |
 | src/ui/sidepanel.ts | showUnitInfo/clearUnitInfo、showTerrainInfo/clearTerrainInfo：右侧单位属性（含特性/状态）与地形面板 | §7.3 | — |
-| src/ui/action-menu.ts | showActionMenu/hideActionMenu：画布内浮动行动菜单 | §7.2 | — |
+| src/ui/action-menu.ts | showActionMenu/hideActionMenu：画布内浮动行动菜单（R5-1 disabled 灰显项不触发回调） | §7.2/§4.13 | tests/ui/action-menu.test.ts |
 | src/ui/forecast.ts | showForecastPanel/showSpellForecastPanel/showAoeForecastPanel：战斗/法术/AoE 多目标预报面板（确认/取消） | §4.5/§4.12/§4.9 | — |
 | src/ui/battle-log.ts | logBattle：战斗日志（最新在顶，30 条裁剪） | §7.4 | — |
 | src/ui/notice.ts | showNotice：战场提示条（增援登场等，定时淡出） | §7.4 | — |
@@ -85,7 +86,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 
 | 文件 | 职责 | 设计章节 | 测试 |
 | --- | --- | --- | --- |
-| src/game.ts | Game 类：游戏主循环与状态协调枢纽——构造支持注入我方战前编成（缺省 PLAYER_UNITS、非法 throw，§7.0）、Phase 状态机（idle/unitSelected/actionMenu/targetSelect/forecast/spellForecast/reMove/facingConfirm/enemyTurn/gameOver）、输入分发、玩家/敌方行动流、动画编排、胜负呈现 | §2/§4.8/§7.0/§7.2 | tests/game.test.ts |
+| src/game.ts | Game 类：游戏主循环与状态协调枢纽——构造支持注入我方战前编成（缺省 PLAYER_UNITS、非法 throw，§7.0）、Phase 状态机（idle/unitSelected/actionMenu/targetSelect/forecast/spellForecast/reMove/facingConfirm/enemyTurn/gameOver）、输入分发、玩家/敌方行动流（R5-1 四处扣费：confirmBattle/confirmSpell 即时与起唱/executeBehaviorSkill/敌方阶段）、技能菜单消耗标签+资源不足灰显、动画编排、胜负呈现 | §2/§4.8/§7.0/§7.2/§4.13 | tests/game.test.ts |
 | src/main.ts | 入口：两阶段编排——先挂战前准备界面，开战后按所选编成实例化 Game | §7.0/§9 | — |
 | src/style.css | 全局样式：布局与 UI 元素（topbar/面板/菜单/预报/日志/战前准备） | §7.0/§7.1 | — |
 | electron/main.cjs | Electron 主进程：仅创建窗口（dev 加载 127.0.0.1:5174，打包加载 dist/index.html） | §9 | — |

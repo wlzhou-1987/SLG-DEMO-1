@@ -255,4 +255,15 @@ describe('R3-8 AI 感知全忽略（潜行交互）', () => {
     const action = decideEnemyAction(map, [archer, hidden], archer);
     expect(action.target).toBe(hidden);
   });
+
+  it('R5-1 AI 资源过滤：敌法 MP 不足回落普攻（杖击），MP 充足时仍优选火球', () => {
+    const mageE = createUnitState('mage_enemy', 'enemy', { q: 10, r: 15 });
+    const lord = createUnitState('lord', 'player', { q: 11, r: 15 });
+    mageE.resources.current = 0;
+    const dry = decideEnemyAction(map, [mageE, lord], mageE);
+    expect(dry.skill?.name).toBe('普攻');
+    mageE.resources.current = 70;
+    const full = decideEnemyAction(map, [mageE, lord], mageE);
+    expect(full.skill?.name).toBe('火球');
+  });
 });

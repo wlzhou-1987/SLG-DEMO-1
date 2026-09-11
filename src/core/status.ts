@@ -5,6 +5,7 @@ import type { UnitTemplate } from '../config/units';
 import type { SpellTemplate } from '../config/spells';
 import { EFFECT_PARAMS } from '../config/combat';
 import { distance } from './hex';
+import { refundCost } from './resources';
 
 export interface ChantStatus {
   type: 'chant';
@@ -219,9 +220,12 @@ export function tickStatuses(units: UnitState[], faction: Faction): StatusEvent[
 
 /** 咏唱打断（§4.12：主动行动即打断）。有咏唱被移除返回 true */
 export function interruptChant(unit: UnitState): boolean {
-  const before = unit.statuses.length;
+  const chants = unit.statuses.filter(s => s.type === 'chant');
+  if (chants.length === 0) return false;
   unit.statuses = unit.statuses.filter(s => s.type !== 'chant');
-  return unit.statuses.length < before;
+  // §4.13 R5-1：被打断的法术全额返还资源（死亡/落空路径不经此，不返还）
+  for (const c of chants) refundCost(unit, c.spell);
+  return true;
 }
 
 /** 挂属性增益（R3-9）：同 skillName 的 buff 后生效覆盖先生效（§4.10 冲突规则口径） */

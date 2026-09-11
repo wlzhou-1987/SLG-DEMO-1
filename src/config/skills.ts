@@ -45,6 +45,7 @@ export interface SkillTemplate {
   subs?: SubEffect[];
   area?: EffectArea;
   resourceType?: ResourceType;
+  cost?: number;                 // R5-1 资源消耗量（声明 cost 必须声明 resourceType；未声明 = 免费）
   weaponType?: WeaponAtom | WeaponAtom[];
   counters?: Partial<Record<string, number>>;
   instant?: boolean;
@@ -74,7 +75,7 @@ export interface SkillTemplate {
 export const SKILLS: Record<string, SkillTemplate> = {
   stealth: {
     id: 'stealth', name: '潜行', target: 'self', damageType: 'piercing',
-    rangeMin: 0, rangeMax: 0, resourceType: 'focus',
+    rangeMin: 0, rangeMax: 0, resourceType: 'focus', cost: 30,
     behavior: { kind: 'stealth' }, learnable: true
   },
   defenseStance: {
@@ -97,7 +98,7 @@ export const SKILLS: Record<string, SkillTemplate> = {
   },
   stab: {
     id: 'stab', name: '刺击', target: 'enemy', damageType: 'piercing',
-    rangeMin: 1, rangeMax: 1, weaponType: 'sword', resourceType: 'rage',
+    rangeMin: 1, rangeMax: 1, weaponType: 'sword', resourceType: 'rage', cost: 40,
     counters: { heavy: 1.5, cavalry: 1.5 }, learnable: false
   },
   'backstab-strike': {
@@ -160,7 +161,7 @@ export const SKILLS: Record<string, SkillTemplate> = {
   },
   whirlwind: {
     id: 'whirlwind', name: '旋风斩', target: 'enemy', damageType: 'slashing',
-    rangeMin: 1, rangeMax: 1, weaponType: 'axe',
+    rangeMin: 1, rangeMax: 1, weaponType: 'axe', resourceType: 'rage', cost: 50,
     area: { shape: 'disc', radius: 1 }, learnable: false
   },
   holyShieldStrike: {

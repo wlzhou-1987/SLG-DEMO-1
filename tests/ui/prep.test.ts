@@ -145,39 +145,42 @@ describe('R3-5 技能配置区块', () => {
     expect(lord?.loadout).toBeUndefined();
   });
 
-  it('双过滤置灰：领主不可装横扫（武器不符），可装火球（法术免声明）', () => {
+  it('双过滤置灰：领主不可装横扫（武器不符）与火球（R5-1 资源不符），法师可装治疗系', () => {
     const prep = make();
     prep.selectUnit('lord');
-    const entries = prep.poolEntries('lord');
-    expect(entries.find(e => e.id === 'sweep')?.blocked).toBe('weapon');
-    expect(entries.find(e => e.id === 'fireball')?.blocked).toBeNull();
+    const lordEntries = prep.poolEntries('lord');
+    expect(lordEntries.find(e => e.id === 'sweep')?.blocked).toBe('weapon');
+    expect(lordEntries.find(e => e.id === 'fireball')?.blocked).toBe('resource');  // R5-1 法术=MP 资源技能
     expect(prep.addToSlot('lord', 'sweep')).toBe(false);
-    expect(prep.addToSlot('lord', 'fireball')).toBe(true);
+    expect(prep.addToSlot('lord', 'fireball')).toBe(false);
+    prep.selectUnit('mage');
+    expect(prep.poolEntries('mage').find(e => e.id === 'heal')?.blocked).toBeNull();
+    expect(prep.addToSlot('mage', 'heal')).toBe(true);
   });
 
   it('增删互斥：装入→槽内可移除→可再装；重复装入拒绝', () => {
     const prep = make();
-    prep.selectUnit('lord');
-    expect(prep.addToSlot('lord', 'fireball')).toBe(true);
-    expect(prep.addToSlot('lord', 'fireball')).toBe(false); // 重复
-    const lo = prep.getEffectiveLoadout('lord');
-    expect([...lo.active]).toEqual(['stab', 'fireball']);
-    prep.removeFromSlot('lord', 'active', 1);
-    expect([...prep.getEffectiveLoadout('lord').active]).toEqual(['stab']);
-    expect(prep.addToSlot('lord', 'fireball')).toBe(true);
+    prep.selectUnit('mage');
+    expect(prep.addToSlot('mage', 'heal')).toBe(true);
+    expect(prep.addToSlot('mage', 'heal')).toBe(false); // 重复
+    const lo = prep.getEffectiveLoadout('mage');
+    expect([...lo.active]).toEqual(['fireball', 'meteor', 'curse', 'heal']);
+    prep.removeFromSlot('mage', 'active', 3);
+    expect([...prep.getEffectiveLoadout('mage').active]).toEqual(['fireball', 'meteor', 'curse']);
+    expect(prep.addToSlot('mage', 'heal')).toBe(true);
   });
 
   it('主动槽上限 5：装满后拒绝并标注 full', () => {
     const prep = make();
-    prep.selectUnit('lord'); // 出厂 1 条 + 池内可装法术恰 6 条
-    for (const id of ['fireball', 'meteor', 'curse', 'heal']) {
-      expect(prep.addToSlot('lord', id)).toBe(true);
+    prep.selectUnit('mage'); // 出厂 3 条 + 池内可装治疗系 3 条
+    for (const id of ['heal', 'regen']) {
+      expect(prep.addToSlot('mage', id)).toBe(true);
     }
     // 5 满后第 6 条拒绝
-    expect(prep.getEffectiveLoadout('lord').active).toHaveLength(5);
-    expect(prep.addToSlot('lord', 'regen')).toBe(false);
-    const entries = prep.poolEntries('lord');
-    expect(entries.find(e => e.id === 'regen')?.full).toBe(true);
+    expect(prep.getEffectiveLoadout('mage').active).toHaveLength(5);
+    expect(prep.addToSlot('mage', 'mithrilShield')).toBe(false);
+    const entries = prep.poolEntries('mage');
+    expect(entries.find(e => e.id === 'mithrilShield')?.full).toBe(true);
   });
 
   it('被动槽：出厂被动可移除；learnable 被动（真实视野，R3-6 入池）可装入', () => {

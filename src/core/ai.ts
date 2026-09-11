@@ -6,6 +6,7 @@ import { getUnitActiveSkills } from './unit';
 import { isVisibleTo } from './stealth';
 import { calcMovementRange, calcAttackRange } from './range';
 import { calcBattleForecast, effectiveRangeMax } from './combat';
+import { canAfford } from './resources';
 import { distance, hexKey } from './hex';
 import type { HexCoord } from './types';
 
@@ -49,9 +50,10 @@ export function decideEnemyAction(
 
     for (const target of players) {
       const d = distance(dest, target.position);
-      // R3-2：普攻恒入择优候选（纯普攻单位同规则，§6）
+      // R3-2：普攻恒入择优候选（纯普攻单位同规则，§6）；R5-1：资源不足的技能不入选（回落普攻）
       for (const skill of [basicAttackSkill(template), ...getUnitActiveSkills(enemy)]) {
         if (d < skill.rangeMin || d > effectiveRangeMax(template, skill)) continue;
+        if (!canAfford(enemy, skill)) continue;
 
         const forecast = calcBattleForecast(map, attackerAt, target, skill);
         const expected =
