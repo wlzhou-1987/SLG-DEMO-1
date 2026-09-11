@@ -82,6 +82,24 @@ function actPlayerUnit(map: MapState, units: UnitState[], u: UnitState, rng: () 
     return;
   }
 
+  // 重伤撤退（基线操作）：HP < 35% 的非领主单位拉开与最近敌人的距离；终局（敌≤2）不撤退
+  if (u.templateId !== 'lord' && enemies.length > 2 && u.hp < u.maxHp * 0.35) {
+    const costs = calcMovementCosts(map, units, u.position, template.movePoints, isFlying(template));
+    let bestKey = hexKey(u.position);
+    let bestD = dNearest;
+    for (const key of costs.keys()) {
+      const [qs, rs] = key.split(',');
+      const pos: HexCoord = { q: parseInt(qs), r: parseInt(rs) };
+      if (occupied(units, pos, u)) continue;
+      const d = distance(pos, nearest.position);
+      if (d > bestD) { bestD = d; bestKey = key; }
+    }
+    const [bq, br] = bestKey.split(',');
+    u.position = { q: parseInt(bq), r: parseInt(br) };
+    u.hasActed = true;
+    return;
+  }
+
   // 敌远则缓进至 HOLD_DISTANCE 内（逐组接敌），已在内则正常作战
   if (dNearest > HOLD_DISTANCE) {
     const costs = calcMovementCosts(map, units, u.position, template.movePoints, isFlying(template));
@@ -118,8 +136,9 @@ function actPlayerUnit(map: MapState, units: UnitState[], u: UnitState, rng: () 
     }
   }
 
-  // 落点打分：可攻击 > 距敌更近 > 消耗更少
+  // 落点打分：可攻击 > 距敌更近 > 消耗更少；纯远程单位（全技能射程 ≥2）偏好最大射程风筝
   const skills = usableSkills(u);
+  const prefersRange = skills.every(s => s.rangeMin >= 2);
   const costs = calcMovementCosts(map, units, u.position, template.movePoints, isFlying(template));
   let bestKey = hexKey(u.position);
   let bestScore = -Infinity;
@@ -132,7 +151,7 @@ function actPlayerUnit(map: MapState, units: UnitState[], u: UnitState, rng: () 
       const d = distance(pos, e.position);
       return skills.some(s => d >= s.rangeMin && d <= s.rangeMax);
     });
-    const score = (canAttack ? 1000 : 0) - dNear * 10 - cost;
+    const score = (canAttack ? 1000 : 0) - dNear * 10 - cost + (canAttack && prefersRange ? dNear * 5 : 0);
     if (score > bestScore) { bestScore = score; bestKey = key; }
   }
   const [bq, br] = bestKey.split(',');
@@ -155,11 +174,16 @@ function actPlayerUnit(map: MapState, units: UnitState[], u: UnitState, rng: () 
       if (!bestAtk || score > bestAtk.score) bestAtk = { skill, target: e, score };
     }
   }
-  if (bestAtk) {
-    u.facing = directionBetween(u.position, bestAtk.target.position);
-    const result = resolveBattle(map, u, bestAtk.target, bestAtk.skill, rng);
-    u.hp = result.attackerHp;
-    bestAtk.target.hp = result.defenderHp;
+  // 理性守卫：最优攻击期望净收益 ≤0 不攻击；反击上限伤害 ≥ 自身 HP（自杀式攻击）不攻击
+  if (bestAtk && bestAtk.score > 0) {
+    const fs = calcBattleForecast(map, u, bestAtk.target, bestAtk.skill);
+    const suicide = fs.counter !== null && fs.counter.damage >= u.hp;
+    if (!suicide) {
+      u.facing = directionBetween(u.position, bestAtk.target.position);
+      const result = resolveBattle(map, u, bestAtk.target, bestAtk.skill, rng);
+      u.hp = result.attackerHp;
+      bestAtk.target.hp = result.defenderHp;
+    }
   } else {
     const near = enemies.reduce((a, b) =>
       distance(u.position, a.position) <= distance(u.position, b.position) ? a : b);
@@ -254,8 +278,8 @@ function simulate(seed: number): SimResult {
   };
 }
 
-describe('M6-4 平衡模拟', () => {
-  it('20 局模拟可复现并输出统计', () => {
+describe('R4-8 平衡模拟（终战档定稿）', () => {
+  it('20 局模拟：胜率 60~75%（12~15 胜）、可复现并输出统计', () => {
     const results = Array.from({ length: 20 }, (_, i) => simulate(i + 1));
     const wins = results.filter(r => r.winner === 'playerWin');
     const losses = results.filter(r => r.winner === 'playerLose');
@@ -265,9 +289,13 @@ describe('M6-4 平衡模拟', () => {
       `[平衡模拟] 玩家胜 ${wins.length} / 败 ${losses.length} / 平 ${draws.length}；` +
       `平均回合 ${avgTurns}；胜局平均存活 ${(wins.length ? (wins.reduce((s, r) => s + r.playersAlive, 0) / wins.length).toFixed(1) : '-')}`
     );
-    console.log('[明细] ' + results.slice(0, 8).map(r =>
+    console.log('[明细] ' + results.map(r =>
       `#${r.seed}${r.winner === 'playerWin' ? '胜' : r.winner === 'playerLose' ? '败' : '平'}` +
       `T${r.turns}存${r.playersAlive}敌${r.enemiesAlive}${r.lastEnemy ? '(' + r.lastEnemy + ')' : ''}`).join(' '));
+    // 胜率带（R4-8 定稿验收：种子固定、确定性回归门——数值改动使胜率出带时须重校平衡）
+    expect(wins.length).toBeGreaterThanOrEqual(12);
+    expect(wins.length).toBeLessThanOrEqual(15);
+    expect(draws.length).toBe(0);
     // 可复现性：同种子重跑结果一致
     expect(simulate(7)).toEqual(results[6]);
   });

@@ -78,7 +78,7 @@ describe('tickStatuses 阶段推进', () => {
       { type: 'delayed', skillName: '咒杀', turnsLeft: 1, appliedAtTurn: 1, damage: 10 }
     ]);
     const events = tickStatuses([enemy], 'enemy');
-    expect(enemy.hp).toBe(36 - 10);
+    expect(enemy.hp).toBe(32 - 10);
     expect(enemy.statuses).toHaveLength(0);
     expect(events.some(e => e.kind === 'delayedFire')).toBe(true);
   });
@@ -88,7 +88,7 @@ describe('tickStatuses 阶段推进', () => {
       { type: 'delayed', skillName: '咒杀', turnsLeft: 3, appliedAtTurn: 1, damage: 10 }
     ]);
     tickStatuses([enemy], 'enemy');
-    expect(enemy.hp).toBe(36);
+    expect(enemy.hp).toBe(32);
     expect(enemy.statuses[0].turnsLeft).toBe(2);
   });
 

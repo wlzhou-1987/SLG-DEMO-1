@@ -30,8 +30,8 @@ describe('unit', () => {
       expect(lord.hp).toBe(52);
       expect(lord.maxHp).toBe(52);
       const boss = createUnitState('boss', 'enemy', { q: 10, r: 2 });
-      expect(boss.hp).toBe(72);
-      expect(boss.maxHp).toBe(72);
+      expect(boss.hp).toBe(50);
+      expect(boss.maxHp).toBe(50);
     });
   });
 

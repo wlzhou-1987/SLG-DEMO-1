@@ -89,18 +89,18 @@ describe('calcBattleForecast 战斗预报', () => {
     const attacker = createUnitState('lord', 'player', { q: 10, r: 15 });
     const defender = createUnitState('pegasus', 'enemy', { q: 11, r: 15 });
     const f = calcBattleForecast(forestMap, attacker, defender, basicAttackSkill(getTemplate('lord')!));
-    // 飞马 light：max(10−5−0,0)×1.25 = 6.25 → 6（若误吃森林+1 则为 5）
+    // 飞马 light pdef12：floor(21×1.0−12) = 9（若误吃森林+1 则为 8）
     expect(f.attacker.damage).toBe(9);
-    // 回避 = 运×3 = 21（若误吃森林+20 则命中骤降 20）
-    // 命中 = 50 + 10×5 − 21 = 79
-    expect(f.attacker.hitRate).toBe(100);
+    // 回避 = 速21×3 + 运15×3 = 108（若误吃森林+20 则命中骤降 20）
+    // 命中 = 50 + 19×5 − 108 = 37
+    expect(f.attacker.hitRate).toBe(37);
   });
 
   it('命中公式与 clamp', () => {
     const { attacker, defender } = makeUnits();
     const f = calcBattleForecast(map, attacker, defender, basicAttackSkill(getTemplate('lord')!));
-    // 命中 = 50 + 领主技10×5 − 剑士运4×3 = 50+50−12 = 88
-    expect(f.attacker.hitRate).toBe(100);
+    // 命中 = 50 + 领主技19×5 − 剑士回避(速17×3+运8×3=75) = 145−75 = 70
+    expect(f.attacker.hitRate).toBe(70);
   });
 
   it('背面攻击：命中 +25 伤害 +3', () => {
@@ -111,7 +111,7 @@ describe('calcBattleForecast 战斗预报', () => {
     const f = calcBattleForecast(map, attacker, defender, basicAttackSkill(getTemplate('lord')!));
     expect(f.attacker.side).toBe('back');
     expect(f.attacker.damage).toBe(10 + 3);
-    expect(f.attacker.hitRate).toBe(100); // 88+25=113 被 clamp 到上限
+    expect(f.attacker.hitRate).toBe(70 + 25); // 95（未触 clamp）
   });
 
   it('超射程命中惩罚：每格 −15', () => {
@@ -119,8 +119,8 @@ describe('calcBattleForecast 战斗预报', () => {
     const attacker = createUnitState('lord', 'player', { q: 9, r: 15 });
     const defender = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
     const f = calcBattleForecast(map, attacker, defender, basicAttackSkill(getTemplate('lord')!));
-    // 距离 2 超出 rangeMax 1 → 88 − 15 = 73
-    expect(f.attacker.hitRate).toBe(100);
+    // 距离 2 超出 rangeMax 1 → 70 − 15 = 55
+    expect(f.attacker.hitRate).toBe(55);
   });
 
   it('守方可反击：近战互殴', () => {
@@ -147,7 +147,7 @@ describe('calcBattleForecast 战斗预报', () => {
     const f = calcBattleForecast(map, attacker, boss, basicAttackSkill(getTemplate('lord')!));
     expect(f.counter).not.toBeNull();
     expect(f.counter!.skillName).toBe('横扫');
-    expect(f.counter!.damage).toBe(8);
+    expect(f.counter!.damage).toBe(6);  // BOSS str21 横扫(斩) vs 轻甲：floor(21×1.0−15)=6
   });
 
   it('追击：速度差 ≥4 快方多打一次', () => {
@@ -251,11 +251,11 @@ describe('M4 战斗扩展：power 与护盾吸收', () => {
       armorType: 'medium', absorbLeft: 10
     }];
     const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
-    // 伤害 5 全被护盾吸收；领主反击 BOSS(重甲 def6)：max(10−6,0)×1.0 = 4
-    expect(r.attackerHp).toBe(72);
+    // 伤害 6 全被护盾吸收；领主反击 BOSS(重甲 pdef12)：floor(21×0.7−12)=2，lord 快 5 追击 ×2 → 50−4
+    expect(r.attackerHp).toBe(46);
     expect(r.defenderHp).toBe(52);
     const shieldLeft = defender.statuses.find(s2 => s2.type === 'shield');
-    expect((shieldLeft as { absorbLeft: number } | undefined)?.absorbLeft).toBe(2);
+    expect((shieldLeft as { absorbLeft: number } | undefined)?.absorbLeft).toBe(4);
   });
 
   it('破盾：超出吸收的部分扣 HP 且状态移除', () => {
@@ -266,11 +266,11 @@ describe('M4 战斗扩展：power 与护盾吸收', () => {
       type: 'shield', skillName: '秘银护盾', turnsLeft: 3, appliedAtTurn: 1,
       armorType: 'medium', absorbLeft: 3
     }];
-    // BOSS 重锤 ×1 击（boss spd6 vs lord spd9 差 3 无追击；伤害 5 > 吸收 3 → 破盾 2 入 HP
+    // BOSS 重锤 ×1 击（boss spd12 vs lord spd17 差 5 反击追击；伤害 6 > 吸收 3 → 破盾 3 入 HP
     const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
-    expect(defender.hp).toBe(52 - 5);
+    expect(defender.hp).toBe(52 - 3);
     expect(defender.statuses.some(s2 => s2.type === 'shield')).toBe(false);
-    expect(r.defenderHp).toBe(47);
+    expect(r.defenderHp).toBe(49);
   });
 
   it('护盾覆盖矩阵：按护盾护甲类型结算', () => {
@@ -314,14 +314,14 @@ describe('特性修正管线', () => {
   });
 
   it('沉稳：牧师受到的部位命中补正减半', () => {
-    // 剑士 tec8 攻牧师侧面：50+40−运6×3+补正；沉稳补正 10→5
-    // = 50+40−18+5 = 77（无特性应为 82）
+    // 剑士 tec16 攻牧师侧面：50+80−回避(速13×3+运13×3=78)+补正；沉稳补正 10→5
+    // = 130−78+5 = 57（无特性应为 62）
     const attacker = createUnitState('swordsman', 'enemy', { q: 10, r: 14 });
     const priest = createUnitState('priest', 'player', { q: 10, r: 15 }, { active: [], passive: ['steady'] });
     priest.facing = 0;  // 朝东，攻方在西北 → 侧面
     const f = calcBattleForecast(map, attacker, priest, basicAttackSkill(getTemplate('swordsman')!));
     expect(f.attacker.side).toBe('side');
-    expect(f.attacker.hitRate).toBe(96);
+    expect(f.attacker.hitRate).toBe(57);
   });
 
   it('无特性单位不受修正影响', () => {
@@ -357,7 +357,7 @@ describe('M6-1 战斗反馈：打击结果上报吸收量', () => {
       armorType: 'medium', absorbLeft: 3
     }];
     const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
-    expect(r.strikes[0].damage).toBe(8);
+    expect(r.strikes[0].damage).toBe(6);
     expect(r.strikes[0].absorbed).toBe(3);
   });
 
@@ -369,8 +369,8 @@ describe('M6-1 战斗反馈：打击结果上报吸收量', () => {
       armorType: 'medium', absorbLeft: 99
     }];
     const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
-    expect(r.strikes[0].damage).toBe(8);
-    expect(r.strikes[0].absorbed).toBe(8);
+    expect(r.strikes[0].damage).toBe(6);
+    expect(r.strikes[0].absorbed).toBe(6);
   });
 });
 
@@ -386,8 +386,8 @@ describe('R3-2 普攻口径落地', () => {
     const defender = createUnitState('lord', 'player', { q: 11, r: 15 });
     const f = calcBattleForecast(map, attacker, defender, basicAttackSkill(getTemplate('boss')!));
     expect(f.attacker.damageType).toBe('blunt');
-    // max(10−6,0)×0.75 = 3（矩阵系数现行值；R4-3 改梯度后随 R4 重定）
-    expect(f.attacker.damage).toBe(3);
+    // BOSS str21 钝 vs 轻甲 0.8：floor(21×0.8−15) = 1（R4-8 定稿值）
+    expect(f.attacker.damage).toBe(1);
   });
 
   it('法杖普攻=低威力钝伤杖击（近战保底手段）', () => {
@@ -695,11 +695,11 @@ describe('R4-3 物理矩阵梯度与法术级克制', () => {
     rangeMin: 1, rangeMax: 1, learnable: false, ...over
   });
 
-  it('斩 vs 重甲 0.7 梯度进乘区（lord str21 vs boss pdef20 heavy）', () => {
+  it('斩 vs 重甲 0.7 梯度进乘区（lord str21 vs boss pdef12 heavy）', () => {
     const attacker = createUnitState('lord', 'player', { q: 10, r: 15 });
     const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });
     const f = calcBattleForecast(map, attacker, boss, mkSkill({ damageType: 'slashing' }));
-    expect(f.attacker.damage).toBe(Math.max(Math.floor(21 * 0.7 - 20), 0));
+    expect(f.attacker.damage).toBe(Math.max(Math.floor(21 * 0.7 - 12), 0));
   });
 
   it('突 vs 轻甲 1.2（thief str17 vs swordsman pdef11）', () => {
@@ -709,19 +709,19 @@ describe('R4-3 物理矩阵梯度与法术级克制', () => {
     expect(f.attacker.damage).toBe(Math.floor(17 * 1.2 - 11));
   });
 
-  it('钝 vs 重甲 1.4（boss str23 vs paladin pdef26 heavy）', () => {
+  it('钝 vs 重甲 1.4（boss str21 vs paladin pdef26 heavy）', () => {
     const attacker = createUnitState('boss', 'enemy', { q: 10, r: 15 });
     const paladin = createUnitState('paladin', 'enemy', { q: 11, r: 15 });
     paladin.faction = 'player' as never;
     const f = calcBattleForecast(map, attacker, paladin, mkSkill({ damageType: 'blunt' }));
-    expect(f.attacker.damage).toBe(Math.max(Math.floor(23 * 1.4 - 26), 0));
+    expect(f.attacker.damage).toBe(Math.max(Math.floor(21 * 1.4 - 26), 0));
   });
 
-  it('法术默认不走矩阵：vs 重甲不再吃旧 magic 行 1.25（mage mag24 vs boss mdef11）', () => {
+  it('法术默认不走矩阵：vs 重甲不再吃旧 magic 行 1.25（mage mag24 vs boss mdef8）', () => {
     const mage = createUnitState('mage', 'player', { q: 10, r: 15 }, { active: [], passive: [] });
     const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });
     const f = calcBattleForecast(map, mage, boss, mkSkill({ damageType: 'magic' }));
-    expect(f.attacker.damage).toBe(Math.floor(24 * 1.0 - 11));  // 旧矩阵 magic.heavy=1.25 → 已移除
+    expect(f.attacker.damage).toBe(Math.floor(24 * 1.0 - 8));  // 旧矩阵 magic.heavy=1.25 → 已移除
   });
 
   it('法术级对护甲克制 armorResist 进乘区（vs heavy 1.25 配置）', () => {
@@ -730,7 +730,7 @@ describe('R4-3 物理矩阵梯度与法术级克制', () => {
     const f = calcBattleForecast(map, mage, boss, mkSkill({
       damageType: 'magic', armorResist: { heavy: 1.25 }
     }));
-    expect(f.attacker.damage).toBe(Math.floor(24 * 1.25 - 11));
+    expect(f.attacker.damage).toBe(Math.floor(24 * 1.25 - 8));
   });
 
   it('armorResist 与 counters 联乘后仍受克制合成 cap 3.0 约束', () => {
@@ -739,7 +739,7 @@ describe('R4-3 物理矩阵梯度与法术级克制', () => {
     const f = calcBattleForecast(map, mage, boss, mkSkill({
       damageType: 'magic', armorResist: { heavy: 2 }, counters: { heavy: 2 }  // 4.0 → cap 3.0
     }));
-    expect(f.attacker.damage).toBe(Math.floor(24 * 3.0 - 11));
+    expect(f.attacker.damage).toBe(Math.floor(24 * 3.0 - 8));
   });
 
   it('法术 armorResist 对未声明护甲格取 1.0', () => {
@@ -904,8 +904,8 @@ describe('R4-6 双轴命中回避', () => {
   });
 
   it('四系数独立可配：物理/法术 × 速/运 各自单独驱动结果', () => {
-    expect(COMBAT_PARAMS.evadeCoeffs).toEqual({  // 默认两轴同值（§4.3）
-      phys: { spd: 0, lck: 3 }, mag: { spd: 0, lck: 3 }
+    expect(COMBAT_PARAMS.evadeCoeffs).toEqual({  // R4-8 定稿：两轴同值，速 3 / 运 3（§4.3）
+      phys: { spd: 3, lck: 3 }, mag: { spd: 3, lck: 3 }
     });
     const thiefT = getTemplate('thief')!;
     const thief = createUnitState('thief', 'enemy', { q: 11, r: 15 });
@@ -917,51 +917,51 @@ describe('R4-6 双轴命中回避', () => {
 
   it('两轴独立端到端：改 mag 轴系数只影响法术命中、物理命中不变', () => {
     const mageT = getTemplate('mage')!;        // tec17 → 命中基数 135
-    const thiefT = getTemplate('thief')!;      // lck16 → 默认回避 48
+    const thiefT = getTemplate('thief')!;      // 回避 = 24×3+16×3 = 120
     const mage = createUnitState('mage', 'player', { q: 10, r: 15 }, { active: [], passive: [] });
     const thief = createUnitState('thief', 'enemy', { q: 11, r: 15 });
-    expect(calcStrike(map, mage, mageT, thief, thiefT, mkSkill({ damageType: 'blunt' })).hitRate).toBe(87);
-    expect(calcStrike(map, mage, mageT, thief, thiefT, mkSkill({ damageType: 'magic' })).hitRate).toBe(87);
+    expect(calcStrike(map, mage, mageT, thief, thiefT, mkSkill({ damageType: 'blunt' })).hitRate).toBe(15);
+    expect(calcStrike(map, mage, mageT, thief, thiefT, mkSkill({ damageType: 'magic' })).hitRate).toBe(15);
     const ec = (COMBAT_PARAMS as { evadeCoeffs: { phys: { spd: number; lck: number }; mag: { spd: number; lck: number } } }).evadeCoeffs;
     const saved = ec.mag;
     ec.mag = { spd: 0, lck: 6 };  // 法术轴运系数 3→6
     try {
-      expect(calcStrike(map, mage, mageT, thief, thiefT, mkSkill({ damageType: 'blunt' })).hitRate).toBe(87);    // 物理轴不受影响
-      expect(calcStrike(map, mage, mageT, thief, thiefT, mkSkill({ damageType: 'magic' })).hitRate).toBe(135 - 96); // 法术回避 16×6=96
+      expect(calcStrike(map, mage, mageT, thief, thiefT, mkSkill({ damageType: 'blunt' })).hitRate).toBe(15);  // 物理轴不受影响
+      expect(calcStrike(map, mage, mageT, thief, thiefT, mkSkill({ damageType: 'magic' })).hitRate).toBe(39);  // 回避 16×6=96 → 39
     } finally {
       ec.mag = saved;
     }
   });
 
-  it('默认行为锚：速系数占位 0，回避 = 运×3（R4-5 前行为不变）', () => {
+  it('定稿锚：速系数 3 / 运系数 3，回避 = (速+运)×3（可触发命中下限 5）', () => {
     const thiefT = getTemplate('thief')!;
     const thief = createUnitState('thief', 'enemy', { q: 11, r: 15 });
-    expect(calcEvade(thief, thiefT, 'phys', 0)).toBe(16 * 3);  // spd24 不进回避
+    expect(calcEvade(thief, thiefT, 'phys', 0)).toBe(24 * 3 + 16 * 3);  // 120
     const archerT = getTemplate('archer_enemy')!;  // tec15 → 125
     const archer = createUnitState('archer_enemy', 'player', { q: 10, r: 15 });
     const f = calcStrike(map, archer, archerT, thief, thiefT, mkSkill({ damageType: 'piercing' }));
-    expect(f.hitRate).toBe(125 - 48);
+    expect(f.hitRate).toBe(5);  // 125−120 触发 clamp 下限
   });
 
   it('修正管线改写（运轴）：运 buff 入 statValue → 回避上升命中下降', () => {
     const archerT = getTemplate('archer_enemy')!;  // tec15 → 125
-    const thiefT = getTemplate('thief')!;
+    const swT = getTemplate('swordsman')!;         // spd17 lck8 → 回避 75
     const forestMap = createMapState({ forests: [{ q: 11, r: 15 }] });
     const make = () => {
       const archer = createUnitState('archer_enemy', 'player', { q: 10, r: 15 });
-      const thief = createUnitState('thief', 'enemy', { q: 11, r: 15 });
-      return { archer, thief };
+      const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+      return { archer, sw };
     };
     const a = make();
-    expect(calcStrike(forestMap, a.archer, archerT, a.thief, thiefT, mkSkill({ damageType: 'piercing' })).hitRate)
-      .toBe(125 - (16 * 3 + 20));  // 森林：回避 48+20
+    expect(calcStrike(forestMap, a.archer, archerT, a.sw, swT, mkSkill({ damageType: 'piercing' })).hitRate)
+      .toBe(125 - (17 * 3 + 8 * 3 + 20));  // 森林：回避 75+20 = 95 → 30
     const b = make();
-    b.thief.statuses.push({
+    b.sw.statuses.push({
       type: 'buff', skillName: '幸运祝福', appliedAtTurn: 1, turnsLeft: 3,
       stat: 'lck', amount: 4, decay: 0
     });
-    expect(calcStrike(forestMap, b.archer, archerT, b.thief, thiefT, mkSkill({ damageType: 'piercing' })).hitRate)
-      .toBe(125 - (20 * 3 + 20));  // 运 +4 → 回避 80
+    expect(calcStrike(forestMap, b.archer, archerT, b.sw, swT, mkSkill({ damageType: 'piercing' })).hitRate)
+      .toBe(125 - (17 * 3 + 12 * 3 + 20));  // 运 +4 → 回避 107 → 18
   });
 
   it('修正管线改写（速轴）：速 buff 经 statValue 进回避', () => {
@@ -979,14 +979,14 @@ describe('R4-6 双轴命中回避', () => {
     const mageT = getTemplate('mage')!;  // tec17 → 135
     const mage = createUnitState('mage', 'player', { q: 10, r: 15 }, { active: [], passive: [] });
     const forestMap = createMapState({ forests: [{ q: 11, r: 15 }] });
-    const thiefT = getTemplate('thief')!;
-    const thief = createUnitState('thief', 'enemy', { q: 11, r: 15 });
-    expect(calcStrike(forestMap, mage, mageT, thief, thiefT, mkSkill({ damageType: 'blunt' })).hitRate).toBe(135 - 68);
-    expect(calcStrike(forestMap, mage, mageT, thief, thiefT, mkSkill({ damageType: 'magic' })).hitRate).toBe(135 - 68);
-    const pegasusT = getTemplate('pegasus')!;  // 飞行 lck15
+    const swT = getTemplate('swordsman')!;  // 回避 75
+    const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    expect(calcStrike(forestMap, mage, mageT, sw, swT, mkSkill({ damageType: 'blunt' })).hitRate).toBe(135 - 95);
+    expect(calcStrike(forestMap, mage, mageT, sw, swT, mkSkill({ damageType: 'magic' })).hitRate).toBe(135 - 95);
+    const pegasusT = getTemplate('pegasus')!;  // 飞行：回避 21×3+15×3 = 108，不享森林
     const pegasus = createUnitState('pegasus', 'enemy', { q: 11, r: 15 });
-    expect(calcStrike(forestMap, mage, mageT, pegasus, pegasusT, mkSkill({ damageType: 'blunt' })).hitRate).toBe(135 - 45);
-    expect(calcStrike(forestMap, mage, mageT, pegasus, pegasusT, mkSkill({ damageType: 'magic' })).hitRate).toBe(135 - 45);
+    expect(calcStrike(forestMap, mage, mageT, pegasus, pegasusT, mkSkill({ damageType: 'blunt' })).hitRate).toBe(135 - 108);
+    expect(calcStrike(forestMap, mage, mageT, pegasus, pegasusT, mkSkill({ damageType: 'magic' })).hitRate).toBe(135 - 108);
   });
 
   it('增益必中回归：治疗法术不掷命中（rng 必失败仍全额治疗）', () => {
@@ -1007,8 +1007,8 @@ describe('R4-7 先攻反击', () => {
 
   const map = createMapState();
 
-  it('阈值边界两态：守速差 10 触发先攻（反击先行）、差 7 不触发（正常序）', () => {
-    // boss spd14 攻 thief spd24：diff 10 ≥ 阈值 10
+  it('阈值边界两态：守速差 12 触发先攻（反击先行）、差 7 不触发（正常序）', () => {
+    // boss spd12 攻 thief spd24：diff 12 ≥ 阈值 10
     const boss = createUnitState('boss', 'enemy', { q: 10, r: 15 });
     const thief = createUnitState('thief', 'player', { q: 11, r: 15 });
     const f = calcBattleForecast(map, boss, thief, basicAttackSkill(getTemplate('boss')!));
@@ -1026,13 +1026,13 @@ describe('R4-7 先攻反击', () => {
   });
 
   it('结算顺序：先攻反击 → 攻方攻击 → 守方追击（先攻不重复反击）', () => {
-    // thief 反击 boss（重甲）0 伤、boss 攻击 thief 8 伤；thief 快 10 → 守方追击
+    // thief 反击 boss（重甲 pdef12）0 伤、boss 攻击 thief 6 伤；thief 快 12 → 守方追击
     const boss = createUnitState('boss', 'enemy', { q: 10, r: 15 });
     const thief = createUnitState('thief', 'player', { q: 11, r: 15 });
     const r = resolveBattle(map, boss, thief, basicAttackSkill(getTemplate('boss')!), () => 0);
     expect(r.strikes.map(s => s.byAttacker)).toEqual([false, true, false]);
-    expect(r.attackerHp).toBe(72);        // thief 突 vs 重甲两击均 0 伤
-    expect(r.defenderHp).toBe(46 - 8);    // boss 钝 vs 无甲 floor(23×0.8−10)=8
+    expect(r.attackerHp).toBe(50);        // thief 突 vs 重甲两击均 0 伤
+    expect(r.defenderHp).toBe(46 - 6);    // boss 钝 vs 无甲 floor(21×0.8−10)=6
   });
 
   it('先攻截断：先攻反击击杀攻方则其攻击不发生', () => {

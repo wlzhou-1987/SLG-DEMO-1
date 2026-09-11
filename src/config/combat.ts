@@ -20,10 +20,10 @@ export const COMBAT_PARAMS = {
   hitBase: 50,          // 命中基数
   hitPerTech: 5,        // 每点技巧命中
   // R4-6 双轴回避系数（§4.3）：回避 = 速×速系数 + 运×运系数 + 对应线地形闪避；
-  // 两轴四系数独立可配、默认同值；速系数占位 0（数值随 R4-8 平衡定稿）
+  // 两轴四系数独立可配、两轴同值；R4-8 定稿：速 3 / 运 3（回避 = (速+运)×3）
   evadeCoeffs: {
-    phys: { spd: 0, lck: 3 },
-    mag: { spd: 0, lck: 3 }
+    phys: { spd: 3, lck: 3 },
+    mag: { spd: 3, lck: 3 }
   },
   pursuitSpeedDiff: 4,  // 追击速度差阈值
   firstStrikeThreshold: 10,  // R4-7 先攻反击：守方速度超出攻方 ≥ 阈值时反击先行（可被守方特性降低）

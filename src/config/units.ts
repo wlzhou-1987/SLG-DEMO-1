@@ -71,7 +71,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['hammer', 'shield'], resourceType: 'rage',
     unitTags: ['heavy', 'cavalry'],
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
-    hp: 63, str: 23, mag: 0, pdef: 26, mdef: 12, spd: 10, tec: 15, lck: 9,
+    hp: 63, str: 28, mag: 0, pdef: 26, mdef: 12, spd: 10, tec: 15, lck: 9,
     traits: ['blessing-boost'],
     skills: ['shieldStrike', 'holyShieldStrike', 'blessing']
   },
@@ -131,7 +131,7 @@ export const PLAYER_TEMPLATES: UnitTemplate[] = [
     weapons: ['staff'], resourceType: 'mp',
     unitTags: ['infantry'],
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
-    hp: 41, str: 9, mag: 21, pdef: 8, mdef: 17, spd: 13, tec: 16, lck: 13,
+    hp: 46, str: 9, mag: 21, pdef: 8, mdef: 17, spd: 13, tec: 16, lck: 13,
     traits: ['heal-boost', 'pious'],
     skills: ['heal', 'regen', 'mithrilShield']
   },
@@ -154,7 +154,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     weapons: ['sword'], resourceType: 'rage',
     unitTags: ['infantry'],
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
-    hp: 36, str: 13, mag: 0, pdef: 11, mdef: 5, spd: 17, tec: 16, lck: 8,
+    hp: 32, str: 13, mag: 0, pdef: 11, mdef: 5, spd: 17, tec: 16, lck: 8,
     skills: []
   },
   {
@@ -163,7 +163,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     weapons: ['spear'], resourceType: 'rage',
     unitTags: ['infantry'],
     basicAttack: { damageType: 'piercing', rangeMin: 1, rangeMax: 1 },
-    hp: 38, str: 15, mag: 0, pdef: 13, mdef: 5, spd: 11, tec: 13, lck: 7,
+    hp: 33, str: 15, mag: 0, pdef: 13, mdef: 5, spd: 11, tec: 13, lck: 7,
     skills: []
   },
   {
@@ -172,7 +172,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     weapons: ['axe'], resourceType: 'rage',
     unitTags: ['heavy'],
     basicAttack: { damageType: 'slashing', rangeMin: 1, rangeMax: 1 },
-    hp: 40, str: 18, mag: 0, pdef: 11, mdef: 5, spd: 11, tec: 12, lck: 6,
+    hp: 35, str: 18, mag: 0, pdef: 11, mdef: 5, spd: 11, tec: 12, lck: 6,
     skills: []
   },
   {
@@ -181,7 +181,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     weapons: ['hammer'], resourceType: 'rage',
     unitTags: ['heavy'],
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
-    hp: 38, str: 16, mag: 0, pdef: 14, mdef: 6, spd: 10, tec: 12, lck: 6,
+    hp: 33, str: 16, mag: 0, pdef: 14, mdef: 6, spd: 10, tec: 12, lck: 6,
     skills: ['warHammer']
   },
   {
@@ -190,7 +190,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     weapons: ['bow'], resourceType: 'focus',
     unitTags: ['infantry'],
     basicAttack: { damageType: 'piercing', rangeMin: 2, rangeMax: 2 },
-    hp: 34, str: 13, mag: 0, pdef: 9, mdef: 5, spd: 12, tec: 15, lck: 7,
+    hp: 30, str: 13, mag: 0, pdef: 9, mdef: 5, spd: 12, tec: 15, lck: 7,
     skills: ['snipe']
   },
   {
@@ -199,7 +199,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     weapons: ['staff'], resourceType: 'mp',
     unitTags: ['infantry'],
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
-    hp: 30, str: 12, mag: 19, pdef: 7, mdef: 15, spd: 12, tec: 15, lck: 7,
+    hp: 27, str: 12, mag: 14, pdef: 7, mdef: 15, spd: 12, tec: 15, lck: 7,
     skills: ['fireball']
   },
   {
@@ -208,7 +208,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     weapons: ['hammer'], resourceType: 'rage',
     unitTags: ['heavy'],
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
-    hp: 72, str: 23, mag: 0, pdef: 20, mdef: 11, spd: 14, tec: 18, lck: 12,
+    hp: 50, str: 21, mag: 0, pdef: 12, mdef: 8, spd: 12, tec: 16, lck: 4,
     skills: ['warHammer', 'sweep']
   }
 ];

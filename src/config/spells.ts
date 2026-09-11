@@ -22,7 +22,8 @@ export const SPELLS: Record<string, SpellTemplate> = {
     id: 'meteor', name: '陨石术', target: 'enemy', learnable: true,
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
     power: 6, castMode: 'chant', chantTurns: 2, effectMode: 'instant', targetType: 'enemy',
-    area: { shape: 'disc', radius: 1 }
+    area: { shape: 'disc', radius: 1 },
+    armorResist: { heavy: 1.5 }  // R4-8 法术破重甲钥匙（§4.12：法术级对护甲克制）
   },
   curse: {
     id: 'curse', name: '咒杀', target: 'enemy', learnable: true,

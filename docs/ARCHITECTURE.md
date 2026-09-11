@@ -50,9 +50,9 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | --- | --- | --- | --- |
 | src/config/skills.ts | SKILLS 注册表（物理攻击+行为技能）：SkillTemplate（target 三值/主效果扁平伤害段/附属段声明/AoE 效果区域/资源与武器声明/瞬发/counters/learnable）、WeaponAtom 8 原子、主资源三枚举 | §4.9 | tests/config/skills.test.ts |
 | src/config/units.ts | 兵种模板：UnitTemplate（八维 str/mag/pdef/mdef/spd/tec/lck + weapons/resourceType/**unitTags 兵种标签**〔R4-4 正式化，flying 布尔收编〕/basicAttack/skills/traits）、UnitTag 枚举与 isFlying、PLAYER_TEMPLATES（10）/ENEMY_TEMPLATES（7）、getTemplate、resolveSkill（SKILLS ∪ SPELLS）、getTemplateSkills、basicAttackSkill、hasTemplateTrait | §4.1/§4.2/§4.9/§5.1/§5.2 | tests/config/skills.test.ts |
-| src/config/combat.ts | 战斗数值：DAMAGE_ARMOR_MATRIX（§4.2 定稿物理梯度，R4-3 法术行移出）、PART_BONUS、COMBAT_PARAMS（命中/**双轴回避系数 evadeCoeffs**〔R4-6：phys/mag×spd/lck 四值独立，默认速 0 运 3，R4-8 定稿〕/追击/先攻阈值 10〔R4-7，特性可降〕/递增距离惩罚 base15+step10/克制 cap 3.0/总封顶 4.0）、RANGE_PARAMS（R4-5 属性条件射程阈值）、EFFECT_PARAMS | §4.2~§4.4/§4.7 | —（tests/core/combat 间接） |
+| src/config/combat.ts | 战斗数值：DAMAGE_ARMOR_MATRIX（§4.2 定稿物理梯度，R4-3 法术行移出）、PART_BONUS、COMBAT_PARAMS（命中/**双轴回避系数 evadeCoeffs**〔R4-6 结构，R4-8 定稿速 3/运 3 两轴同值〕/追击/先攻阈值 10〔R4-7，特性可降〕/递增距离惩罚 base15+step10/克制 cap 3.0/总封顶 4.0）、RANGE_PARAMS（R4-5 属性条件射程阈值）、EFFECT_PARAMS | §4.2~§4.4/§4.7 | —（tests/core/combat 间接） |
 | src/config/terrain.ts | 地形配置：TERRAIN_CONFIGS（移动消耗/回避/物理防 pdefense〔R4-2 更名过渡，R6 只增字段〕/颜色/标签） | §3 | — |
-| src/config/spells.ts | 法术定义：SpellTemplate（继承 SkillTemplate，id/target/learnable；释放方式×生效方式）、SPELLS 六法术、getSpell/isSpell | §4.12 | —（tests/core/spell 间接） |
+| src/config/spells.ts | 法术定义：SpellTemplate（继承 SkillTemplate，id/target/learnable；释放方式×生效方式）、SPELLS 六法术（陨石术 armorResist heavy ×1.5——法术破重甲钥匙，R4-8）、getSpell/isSpell | §4.12 | —（tests/core/spell 间接） |
 | src/config/traits.ts | 特性修正：TRAIT_CONFIGS（再移动/背刺/沉稳/真实视野〔revealRange 声明，R3-8 结算〕，learnable 标记、weaponType 声明、firstStrikeThreshold 先攻降阈声明〔R4-7〕）、getTrait | §4.7 | —（tests/core/combat 间接） |
 | src/config/pool.ts | 通用技能池：getPool（三表 learnable 条目 union 视图）、learnBlockReason/canLearn（双过滤）、SLOT_LIMITS、findRegisteredEntry（三表全量查）、validateLoadoutForTemplate（装填合法性：未注册/分组/双约束） | §4.9 | tests/config/pool.test.ts |
 | src/config/map.ts | 关卡布局：MAP_OVERRIDES（地形）、PLAYER_UNITS（我方 10 人站位）、DEPLOY_ZONE（部署区）、ENEMY_GROUPS（9 敌组含 aiType；UnitPlacement 可选 loadout——敌方首版：弓手×4 狙击+真实视野、BOSS 重锤+横扫+真实视野）、GroupAiType | §3/§5.2/§6/§7.0 | tests/config/map.test.ts |

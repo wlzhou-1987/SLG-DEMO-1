@@ -33,6 +33,16 @@ describe('calcSpellForecast 法术预报', () => {
     if (f.kind === 'damage') expect(f.damage).toBe(25);
   });
 
+  it('R4-8 法术破重甲钥匙：陨石术 armorResist heavy ×1.5', () => {
+    const mage = createUnitState('mage', 'player', { q: 10, r: 15 });
+    const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });  // heavy mdef8
+    const f = calcSpellForecast(map, mage, boss, SPELLS.meteor);
+    if (f.kind === 'damage') expect(f.damage).toBe(Math.floor((24 + 6) * 1.5 - 8));  // 37
+    const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });  // light 未声明 → 1.0
+    const f2 = calcSpellForecast(map, mage, sw, SPELLS.meteor);
+    if (f2.kind === 'damage') expect(f2.damage).toBe(Math.floor((24 + 6) * 1.0 - 5));  // 25，非重甲无加成
+  });
+
   it('治疗预报固定 power', () => {
     const priest = createUnitState('priest', 'player', { q: 10, r: 15 });
     const lord = createUnitState('lord', 'player', { q: 11, r: 15 });
@@ -96,7 +106,7 @@ describe('resolveSpell 法术结算（即时释放部分）', () => {
     const swordsman = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
     const r1 = resolveSpell(map, mage, swordsman, SPELLS.fireball, () => 0);
     expect(r1.kind).toBe('damage');
-    expect(swordsman.hp).toBe(36 - 19);
+    expect(swordsman.hp).toBe(32 - 19);
     const r2 = resolveSpell(map, mage, swordsman, SPELLS.fireball, () => 1.0);
     if (r2.kind === 'damage') expect(r2.hit).toBe(false);
   });
