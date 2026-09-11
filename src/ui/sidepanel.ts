@@ -40,7 +40,7 @@ export function showUnitInfo(unit: UnitState): void {
     if (s.type === 'chant') return `咏唱 ${s.skillName}（剩 ${s.turnsLeft} 回合）`;
     if (s.type === 'regen') return `再生（每回合 +${s.healPerTurn}·剩 ${s.turnsLeft} 回合）`;
     if (s.type === 'stealth') return '潜行（对敌不可见，移动/攻击/技能取消）';
-    const ATTR_LABELS: Record<string, string> = { str: '力量', mag: '魔力', pdef: '物防', mdef: '魔防' };
+    const ATTR_LABELS: Record<string, string> = { str: '力量', mag: '魔力', pdef: '物防', mdef: '魔防', spd: '速', lck: '运' };
     if (s.type === 'buff') return `${s.skillName}（${ATTR_LABELS[s.stat] ?? s.stat} ${s.amount >= 0 ? '+' : ''}${s.amount}${s.decay > 0 ? '·衰减中' : ''}）`;
     if (s.type === 'stance') return '防御姿态（防御提升·移动取消）';
     if (s.type === 'charge') return `蓄力 ${s.skillName}（剩 ${s.turnsLeft} 回合）`;

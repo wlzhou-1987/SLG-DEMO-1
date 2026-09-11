@@ -13,6 +13,23 @@ import { resolveArmor, statValue } from './status';
 
 export type PartSide = 'front' | 'side' | 'back';
 
+/** 回避轴（R4-6 双轴）：物理线 / 法术线 */
+export type EvadeAxis = 'phys' | 'mag';
+
+/** 双轴回避（§4.3）：速×速系数 + 运×运系数 + 对应线地形闪避（R6 前两轴共用现地形闪避字段）；
+ *  经 statValue 入修正管线——buff/装备/特性改写速/运即改写回避 */
+export function calcEvade(
+  defender: UnitState,
+  defT: UnitTemplate,
+  axis: EvadeAxis,
+  terrEva: number,
+  coeffs: { spd: number; lck: number } = COMBAT_PARAMS.evadeCoeffs[axis]
+): number {
+  return statValue(defender, defT, 'spd') * coeffs.spd
+    + statValue(defender, defT, 'lck') * coeffs.lck
+    + terrEva;
+}
+
 /** 以守方朝向为基准判定攻击部位（§4.7）；guardStance=防御姿态参数化——侧后两格按正面处理（仅正后 1 格算背） */
 export function attackSide(
   defenderFacing: number,
@@ -115,7 +132,8 @@ export function calcStrike(
     ? Math.floor(PART_BONUS[side].hit / 2)
     : PART_BONUS[side].hit;
 
-  const evade = defT.lck * COMBAT_PARAMS.evadePerLuck + terrEva;
+  // R4-6：命中公式接对应轴回避（物理线 phys / 法术线 mag）
+  const evade = calcEvade(defender, defT, isMagic ? 'mag' : 'phys', terrEva);
   // R4-5 递增距离惩罚：第 n 个超程格 = base + step×(n−1)，累计求和（延伸格按基础射程计，§4.4）
   const over = Math.max(0, dist - skill.rangeMax);
   const rangePenalty = over === 0

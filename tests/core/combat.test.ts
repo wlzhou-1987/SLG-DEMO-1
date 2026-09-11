@@ -10,8 +10,10 @@ import { DAMAGE_ARMOR_MATRIX } from '../../src/config/combat';
 import { rangeBonus, effectiveRangeMax } from '../../src/core/combat';
 import { SPELLS } from '../../src/config/spells';
 import type { SkillTemplate } from '../../src/config/skills';
-import { calcAoeForecast, resolveAoeBattle } from '../../src/core/combat';
+import { calcAoeForecast, resolveAoeBattle, calcStrike, calcEvade } from '../../src/core/combat';
+import { COMBAT_PARAMS } from '../../src/config/combat';
 import { resetUnitCounter, createUnitState } from '../../src/core/unit';
+import { resolveSpell } from '../../src/core/spell';
 
 describe('attackSide 部位判定', () => {
   // 守方在 (5,5)，朝向 0（东）；左右紧邻 = NE/SE
@@ -879,5 +881,120 @@ describe('R4-5 射程条件加成与递增距离惩罚', () => {
     const foe = createUnitState('swordsman', 'enemy', { q: 10, r: 19 });  // dist 4
     const f = calcBattleForecast(map, mage, foe, SPELLS.fireball);
     expect(f.attacker.rangePenalty).toBe(40);
+  });
+});
+
+describe('R4-6 双轴命中回避', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+  const mkSkill = (over: Partial<SkillTemplate>): SkillTemplate => ({
+    id: 't', name: '测试技能', target: 'enemy', damageType: 'slashing',
+    rangeMin: 1, rangeMax: 1, learnable: false, ...over
+  });
+
+  it('回避公式：速×速系数 + 运×运系数 + 地形闪避（线性合成）', () => {
+    const thiefT = getTemplate('thief')!;  // spd24 lck16
+    const thief = createUnitState('thief', 'enemy', { q: 11, r: 15 });
+    expect(calcEvade(thief, thiefT, 'phys', 20, { spd: 2, lck: 3 })).toBe(24 * 2 + 16 * 3 + 20);
+    expect(calcEvade(thief, thiefT, 'phys', 0, { spd: 2, lck: 3 })).toBe(24 * 2 + 16 * 3);
+  });
+
+  it('四系数独立可配：物理/法术 × 速/运 各自单独驱动结果', () => {
+    expect(COMBAT_PARAMS.evadeCoeffs).toEqual({  // 默认两轴同值（§4.3）
+      phys: { spd: 0, lck: 3 }, mag: { spd: 0, lck: 3 }
+    });
+    const thiefT = getTemplate('thief')!;
+    const thief = createUnitState('thief', 'enemy', { q: 11, r: 15 });
+    expect(calcEvade(thief, thiefT, 'phys', 0, { spd: 1, lck: 0 })).toBe(24);  // 物理速系数
+    expect(calcEvade(thief, thiefT, 'phys', 0, { spd: 0, lck: 1 })).toBe(16);  // 物理运系数
+    expect(calcEvade(thief, thiefT, 'mag', 0, { spd: 1, lck: 0 })).toBe(24);   // 法术速系数
+    expect(calcEvade(thief, thiefT, 'mag', 0, { spd: 0, lck: 5 })).toBe(80);   // 法术运系数独立取值
+  });
+
+  it('两轴独立端到端：改 mag 轴系数只影响法术命中、物理命中不变', () => {
+    const mageT = getTemplate('mage')!;        // tec17 → 命中基数 135
+    const thiefT = getTemplate('thief')!;      // lck16 → 默认回避 48
+    const mage = createUnitState('mage', 'player', { q: 10, r: 15 }, { active: [], passive: [] });
+    const thief = createUnitState('thief', 'enemy', { q: 11, r: 15 });
+    expect(calcStrike(map, mage, mageT, thief, thiefT, mkSkill({ damageType: 'blunt' })).hitRate).toBe(87);
+    expect(calcStrike(map, mage, mageT, thief, thiefT, mkSkill({ damageType: 'magic' })).hitRate).toBe(87);
+    const ec = (COMBAT_PARAMS as { evadeCoeffs: { phys: { spd: number; lck: number }; mag: { spd: number; lck: number } } }).evadeCoeffs;
+    const saved = ec.mag;
+    ec.mag = { spd: 0, lck: 6 };  // 法术轴运系数 3→6
+    try {
+      expect(calcStrike(map, mage, mageT, thief, thiefT, mkSkill({ damageType: 'blunt' })).hitRate).toBe(87);    // 物理轴不受影响
+      expect(calcStrike(map, mage, mageT, thief, thiefT, mkSkill({ damageType: 'magic' })).hitRate).toBe(135 - 96); // 法术回避 16×6=96
+    } finally {
+      ec.mag = saved;
+    }
+  });
+
+  it('默认行为锚：速系数占位 0，回避 = 运×3（R4-5 前行为不变）', () => {
+    const thiefT = getTemplate('thief')!;
+    const thief = createUnitState('thief', 'enemy', { q: 11, r: 15 });
+    expect(calcEvade(thief, thiefT, 'phys', 0)).toBe(16 * 3);  // spd24 不进回避
+    const archerT = getTemplate('archer_enemy')!;  // tec15 → 125
+    const archer = createUnitState('archer_enemy', 'player', { q: 10, r: 15 });
+    const f = calcStrike(map, archer, archerT, thief, thiefT, mkSkill({ damageType: 'piercing' }));
+    expect(f.hitRate).toBe(125 - 48);
+  });
+
+  it('修正管线改写（运轴）：运 buff 入 statValue → 回避上升命中下降', () => {
+    const archerT = getTemplate('archer_enemy')!;  // tec15 → 125
+    const thiefT = getTemplate('thief')!;
+    const forestMap = createMapState({ forests: [{ q: 11, r: 15 }] });
+    const make = () => {
+      const archer = createUnitState('archer_enemy', 'player', { q: 10, r: 15 });
+      const thief = createUnitState('thief', 'enemy', { q: 11, r: 15 });
+      return { archer, thief };
+    };
+    const a = make();
+    expect(calcStrike(forestMap, a.archer, archerT, a.thief, thiefT, mkSkill({ damageType: 'piercing' })).hitRate)
+      .toBe(125 - (16 * 3 + 20));  // 森林：回避 48+20
+    const b = make();
+    b.thief.statuses.push({
+      type: 'buff', skillName: '幸运祝福', appliedAtTurn: 1, turnsLeft: 3,
+      stat: 'lck', amount: 4, decay: 0
+    });
+    expect(calcStrike(forestMap, b.archer, archerT, b.thief, thiefT, mkSkill({ damageType: 'piercing' })).hitRate)
+      .toBe(125 - (20 * 3 + 20));  // 运 +4 → 回避 80
+  });
+
+  it('修正管线改写（速轴）：速 buff 经 statValue 进回避', () => {
+    const thiefT = getTemplate('thief')!;
+    const thief = createUnitState('thief', 'enemy', { q: 11, r: 15 });
+    expect(calcEvade(thief, thiefT, 'mag', 0, { spd: 1, lck: 0 })).toBe(24);
+    thief.statuses.push({
+      type: 'buff', skillName: '风行', appliedAtTurn: 1, turnsLeft: 3,
+      stat: 'spd', amount: 6, decay: 0
+    });
+    expect(calcEvade(thief, thiefT, 'mag', 0, { spd: 1, lck: 0 })).toBe(30);
+  });
+
+  it('两轴共用现地形闪避字段（R6 前）：法术线同吃森林 +20，飞行守方两轴均不享', () => {
+    const mageT = getTemplate('mage')!;  // tec17 → 135
+    const mage = createUnitState('mage', 'player', { q: 10, r: 15 }, { active: [], passive: [] });
+    const forestMap = createMapState({ forests: [{ q: 11, r: 15 }] });
+    const thiefT = getTemplate('thief')!;
+    const thief = createUnitState('thief', 'enemy', { q: 11, r: 15 });
+    expect(calcStrike(forestMap, mage, mageT, thief, thiefT, mkSkill({ damageType: 'blunt' })).hitRate).toBe(135 - 68);
+    expect(calcStrike(forestMap, mage, mageT, thief, thiefT, mkSkill({ damageType: 'magic' })).hitRate).toBe(135 - 68);
+    const pegasusT = getTemplate('pegasus')!;  // 飞行 lck15
+    const pegasus = createUnitState('pegasus', 'enemy', { q: 11, r: 15 });
+    expect(calcStrike(forestMap, mage, mageT, pegasus, pegasusT, mkSkill({ damageType: 'blunt' })).hitRate).toBe(135 - 45);
+    expect(calcStrike(forestMap, mage, mageT, pegasus, pegasusT, mkSkill({ damageType: 'magic' })).hitRate).toBe(135 - 45);
+  });
+
+  it('增益必中回归：治疗法术不掷命中（rng 必失败仍全额治疗）', () => {
+    const priest = createUnitState('priest', 'player', { q: 10, r: 15 }, { active: [], passive: [] });
+    const lord = createUnitState('lord', 'player', { q: 11, r: 15 });
+    lord.hp = 30;
+    const r = resolveSpell(map, priest, lord, SPELLS.heal, () => 0.99);
+    expect(r.kind).toBe('heal');
+    expect(r.hit).toBeUndefined();
+    expect(lord.hp).toBe(40);  // mag21×0.5=10
   });
 });

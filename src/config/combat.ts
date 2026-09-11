@@ -19,7 +19,12 @@ export const PART_BONUS = {
 export const COMBAT_PARAMS = {
   hitBase: 50,          // 命中基数
   hitPerTech: 5,        // 每点技巧命中
-  evadePerLuck: 3,      // 每点幸运回避
+  // R4-6 双轴回避系数（§4.3）：回避 = 速×速系数 + 运×运系数 + 对应线地形闪避；
+  // 两轴四系数独立可配、默认同值；速系数占位 0（数值随 R4-8 平衡定稿）
+  evadeCoeffs: {
+    phys: { spd: 0, lck: 3 },
+    mag: { spd: 0, lck: 3 }
+  },
   pursuitSpeedDiff: 4,  // 追击速度差阈值
   rangePenaltyBase: 15,   // R4-5 递增距离惩罚：第 1 个超程格
   rangePenaltyStep: 10,   // 每多 1 格递增值（第 n 格 = base + step×(n−1) 累计求和）

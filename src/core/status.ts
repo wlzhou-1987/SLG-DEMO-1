@@ -49,15 +49,16 @@ export interface StealthStatus {
   appliedAtTurn: number;
 }
 
-/** 属性增益 buff（R3-9/R4-1）：可声明随回合衰减（祝福=mdef 轴）；光环类经 source 标记每回合刷新 */
-export type AttrKey = 'str' | 'mag' | 'pdef' | 'mdef';
+/** 属性增益 buff（R3-9/R4-1）：可声明随回合衰减（祝福=mdef 轴）；光环类经 source 标记每回合刷新
+ *  R4-6 扩速/运轴：回避经 statValue 入修正管线（装备/技能/特性可改写，无需新机制） */
+export type AttrKey = 'str' | 'mag' | 'pdef' | 'mdef' | 'spd' | 'lck';
 
 export interface BuffStatus {
   type: 'buff';
   skillName: string;
   turnsLeft: number;         // -1 = 无限（衰减归零或刷新移除）
   appliedAtTurn: number;
-  stat: AttrKey;             // 属性轴（八维四轴：力量/魔力/物防/魔防）
+  stat: AttrKey;             // 属性轴（力量/魔力/物防/魔防/速/运）
   amount: number;            // 当前剩余增益
   decay: number;             // 每回合衰减量（0 = 不衰减）
   source?: 'aura';           // 光环来源标记（tick 时统一刷新）
