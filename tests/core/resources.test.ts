@@ -1,10 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createUnitState, resetUnitCounter } from '../../src/core/unit';
 import { getTemplate, basicAttackSkill } from '../../src/config/units';
-import { initResources, canAfford, payCost, refundCost } from '../../src/core/resources';
+import { initResources, canAfford, payCost, refundCost, tickResources } from '../../src/core/resources';
 import { SPELLS } from '../../src/config/spells';
 import { SKILLS } from '../../src/config/skills';
-import { interruptChant } from '../../src/core/status';
+import { interruptChant, tickStatuses } from '../../src/core/status';
+import { resolveBattle } from '../../src/core/combat';
+import { resolveSpell } from '../../src/core/spell';
+import { executeBehavior } from '../../src/core/effects';
+import { createMapState } from '../../src/core/map';
 
 describe('R5-1 资源槽与消耗结算', () => {
   beforeEach(() => {
@@ -67,5 +71,101 @@ describe('R5-1 资源槽与消耗结算', () => {
     expect(canAfford(lord, SKILLS.stab)).toBe(false);  // 怒气 0 < 40
     const thief = createUnitState('thief', 'player', { q: 10, r: 15 });
     expect(canAfford(thief, SKILLS.stealth)).toBe(true);  // 专注 100 ≥ 30
+  });
+});
+
+describe('R5-2 生成与恢复结算', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+
+  it('普攻命中积攒三资源：怒+10 / 专+5 / MP+5（§4.9）', () => {
+    // 领主普攻命中剑士（贴脸互殴，反击同积攒）：领主 命中+10 与 受击+8 = 18；剑士同理 18
+    const lord = createUnitState('lord', 'player', { q: 10, r: 15 });
+    const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    resolveBattle(map, lord, sw, basicAttackSkill(getTemplate('lord')!), () => 0);
+    expect(lord.resources.current).toBe(10 + 8);  // 命中 +10、被反击受击 +8
+    expect(sw.resources.current).toBe(8 + 10);    // 受击 +8、反击命中 +10（同速无追击）
+    // 弓箭（专注）普攻命中：+5（距离 2 无反击）
+    const archer = createUnitState('archer', 'player', { q: 10, r: 15 });
+    const sw2 = createUnitState('swordsman', 'enemy', { q: 10, r: 17 });  // dist 2
+    archer.resources.current = 50;
+    resolveBattle(map, archer, sw2, basicAttackSkill(getTemplate('archer')!), () => 0);
+    expect(archer.resources.current).toBe(55);
+    // 法师（MP）杖击普攻命中：+5（剑士快 3 无追击；法师受击不积攒 MP）
+    const mage = createUnitState('mage', 'player', { q: 10, r: 15 });
+    const sw3 = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    mage.resources.current = 30;
+    resolveBattle(map, mage, sw3, basicAttackSkill(getTemplate('mage')!), () => 0);
+    expect(mage.resources.current).toBe(35);
+  });
+
+  it('技能命中仅怒气积攒（专注/MP 技能命中不积攒）', () => {
+    // 盗贼背刺（技能，免费）命中×2（盗贼快 7 追击）：专注不增；剑士 受击×2 +8×2 + 反击命中 +10 = 26
+    const thief = createUnitState('thief', 'player', { q: 10, r: 15 });
+    const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    resolveBattle(map, thief, sw, SKILLS['backstab-strike'], () => 0);
+    expect(thief.resources.current).toBe(100);  // 技能命中专注不积攒（满亦封顶）
+    expect(sw.resources.current).toBe(8 + 8 + 10);
+  });
+
+  it('落空不积攒（攻击者与受击者均无所得）', () => {
+    const lord = createUnitState('lord', 'player', { q: 10, r: 15 });
+    const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    resolveBattle(map, lord, sw, basicAttackSkill(getTemplate('lord')!), () => 0.99);
+    expect(lord.resources.current).toBe(0);
+    expect(sw.resources.current).toBe(0);
+  });
+
+  it('专注回合恢复：己方阶段开始 +20（封顶 100）', () => {
+    const thief = createUnitState('thief', 'player', { q: 10, r: 15 });
+    thief.resources.current = 75;
+    tickResources([thief], 'player');
+    expect(thief.resources.current).toBe(95);
+    tickResources([thief], 'player');
+    expect(thief.resources.current).toBe(100);  // 封顶
+    // 敌方阶段不推进我方
+    tickResources([thief], 'enemy');
+    expect(thief.resources.current).toBe(100);
+  });
+
+  it('MP 歇息两态：未施法回合 +15；施法回合不恢复且标志重置', () => {
+    const mage = createUnitState('mage', 'player', { q: 10, r: 15 });
+    mage.resources.current = 40;
+    tickResources([mage], 'player');
+    expect(mage.resources.current).toBe(55);  // 未施法 → 恢复
+    mage.castSpellThisTurn = true;
+    mage.resources.current = 40;
+    tickResources([mage], 'player');
+    expect(mage.resources.current).toBe(40);  // 施法回合不恢复
+    tickResources([mage], 'player');
+    expect(mage.resources.current).toBe(55);  // 标志已重置 → 下回合恢复
+  });
+
+  it('法术结算标记施法（resolveSpell 即时与咏唱触发）', () => {
+    const mage = createUnitState('mage', 'player', { q: 10, r: 15 });
+    const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    resolveSpell(map, mage, sw, SPELLS.fireball, () => 0);
+    expect(mage.castSpellThisTurn).toBe(true);
+  });
+
+  it('附属段资源生成入真实资源：战斗怒吼 +2 怒（封顶）', () => {
+    const defender = createUnitState('defender', 'player', { q: 10, r: 15 });
+    executeBehavior(defender, SKILLS.warCry, [defender]);
+    expect(defender.resources.current).toBe(2);   // 原 pendingResources 计数 → 真实怒气
+    expect((defender as { pendingResources?: unknown }).pendingResources).toBeUndefined();
+  });
+
+  it('强化祝福回合开始回怒气入真实资源（原暂存迁移）', () => {
+    const paladin = createUnitState('paladin', 'player', { q: 10, r: 15 });
+    paladin.statuses.push({
+      type: 'buff', skillName: '祝福', appliedAtTurn: 1, turnsLeft: 3,
+      stat: 'mdef', amount: 3, decay: 1
+    });
+    tickStatuses([paladin], 'player');
+    expect(paladin.resources.current).toBeGreaterThanOrEqual(1);  // 祝福期间每回合 +1
+    expect((paladin as { pendingResources?: unknown }).pendingResources).toBeUndefined();
   });
 });

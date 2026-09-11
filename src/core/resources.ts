@@ -1,6 +1,7 @@
 import type { UnitState } from './unit';
 import type { UnitTemplate } from '../config/units';
 import type { SkillTemplate } from '../config/skills';
+import type { Faction } from './types';
 import { RESOURCE_PARAMS } from '../config/combat';
 
 /** 主资源槽（§4.13）：三资源共用结构，差异在配置的生成/恢复规则 */
@@ -39,4 +40,43 @@ export function payCost(unit: UnitState, skill: SkillTemplate): boolean {
 export function refundCost(unit: UnitState, skill: SkillTemplate): void {
   if (skill.cost === undefined) return;
   unit.resources.current = Math.min(unit.resources.max, unit.resources.current + skill.cost);
+}
+
+// ---------- R5-2 生成与恢复（§4.13） ----------
+
+/** 入池（封顶上限）：附属段/特性段资源生成共用 */
+export function gainResource(unit: UnitState, amount: number): void {
+  unit.resources.current = Math.min(unit.resources.max, unit.resources.current + amount);
+}
+
+/** 攻击命中积攒：怒气任意攻击命中 +10；专注/MP 仅普攻命中 +5（§4.9/§4.13） */
+export function gainOnHit(unit: UnitState, isBasic: boolean): void {
+  if (unit.resources.type === 'rage') {
+    gainResource(unit, RESOURCE_PARAMS.ragePerHit);
+  } else if (isBasic && unit.resources.type === 'focus') {
+    gainResource(unit, RESOURCE_PARAMS.basicGainFocus);
+  } else if (isBasic && unit.resources.type === 'mp') {
+    gainResource(unit, RESOURCE_PARAMS.basicGainMp);
+  }
+}
+
+/** 受击积攒：仅怒气系 +8（暴击额外 +15 随 R7 暴击系统落地） */
+export function gainOnStruck(unit: UnitState): void {
+  if (unit.resources.type === 'rage') {
+    gainResource(unit, RESOURCE_PARAMS.ragePerHitTaken);
+  }
+}
+
+/** 阶段开始资源推进（§4.13）：专注固定回 20；MP 歇息（上回合未施法）回 15 后重置标记 */
+export function tickResources(units: UnitState[], faction: Faction): void {
+  for (const u of units) {
+    if (u.faction !== faction || u.hp <= 0) continue;
+    if (u.resources.type === 'focus') {
+      gainResource(u, RESOURCE_PARAMS.focusRegenPerTurn);
+    }
+    if (u.resources.type === 'mp' && !u.castSpellThisTurn) {
+      gainResource(u, RESOURCE_PARAMS.mpRestRegen);
+    }
+    u.castSpellThisTurn = false;
+  }
 }

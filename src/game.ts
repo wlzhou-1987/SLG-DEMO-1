@@ -35,7 +35,7 @@ import type { VictoryState } from './core/turn';
 import { decideEnemyAction, checkGroupActivation, provokeGroup } from './core/ai';
 import { checkReinforcements } from './core/reinforce';
 import { interruptChant, tickStatuses } from './core/status';
-import { canAfford, payCost } from './core/resources';
+import { canAfford, payCost, tickResources } from './core/resources';
 import { showNotice } from './ui/notice';
 import { logBattle } from './ui/battle-log';
 
@@ -489,6 +489,7 @@ export class Game {
     hideForecastPanel();
     cancelStealth(unit);
     interruptChant(unit);  // 释放其他法术打断已有咏唱（返还其已扣资源）
+    unit.castSpellThisTurn = true;  // R5-2 施法标记（咏唱起唱即算施放）
 
     if (!payCost(unit, spell)) return;  // 资源不足兜底（菜单已灰显）
 
@@ -825,6 +826,7 @@ export class Game {
       await this.playMove(enemy, from, action.dest);
       if (action.skill && action.target) {
         enemy.facing = directionBetween(enemy.position, action.target.position);
+        if (isSpell(action.skill)) enemy.castSpellThisTurn = true;  // R5-2 敌方施法标记
         payCost(enemy, action.skill);  // R5-1 敌方同样扣费（AI 择优已过滤资源不足）
         const result = resolveBattle(this.map, enemy, action.target, action.skill);
         enemy.hp = result.attackerHp;
@@ -860,6 +862,7 @@ export class Game {
   /** 阶段开始推进状态并应用触发事件；返回胜负态 */
   private tickPhase(faction: 'player' | 'enemy'): VictoryState {
     const events = tickStatuses(this.units, faction);
+    tickResources(this.units, faction);  // R5-2 资源阶段推进（专注回 20/MP 歇息/施法标记重置）
     if (faction === 'player') refreshAuras(this.units, faction);
     if (events.length > 0) {
       for (const e of events) {

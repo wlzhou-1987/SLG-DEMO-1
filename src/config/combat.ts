@@ -48,7 +48,14 @@ export const RANGE_PARAMS = {
 export const RESOURCE_PARAMS = {
   rageMax: 100,
   focusMax: 100,
-  mpPerMag: 5
+  mpPerMag: 5,
+  ragePerHit: 10,        // R5-2 怒气：任意攻击命中积攒（普攻与技能均计）
+  basicGainFocus: 5,     // R5-2 专注：仅普攻命中积攒
+  basicGainMp: 5,        // R5-2 MP：仅普攻（杖击）命中积攒
+  ragePerHitTaken: 8,    // R5-2 怒气：受击积攒
+  ragePerCrit: 15,       // R5-2 怒气：暴击额外积攒（暴击系统 R7——声明先行，落地后消费）
+  focusRegenPerTurn: 20, // R5-2 专注：己方阶段开始固定回复
+  mpRestRegen: 15        // R5-2 MP 歇息：未施法回合 → 己方下回合开始恢复
 } as const;
 
 /** R3-9 状态与增益参数（占位数值，随 R4/R5 数值期重定；全部配置可调） */

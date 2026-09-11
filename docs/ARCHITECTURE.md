@@ -39,11 +39,11 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/core/stealth.ts | 潜行机制（R3-8）：enterStealth/cancelStealth/isStealthed、isVisibleTo（绝对隐身 + 真实视野 revealRange 显形；己方阵营恒可见、动态判定出范围自动隐匿） | §4.9/§6 | tests/core/stealth.test.ts |
 | src/core/spell.ts | 法术预报与结算：calcSpellForecast（damage/heal/regen/shield/curse 五类）、resolveSpell（即时结算或挂状态；pyro 灼烧 **R4-7 施放时锁定**：每回合 max(1, floor(直伤/回合数))+末回合补足余数）、resolveAoeSpell（R3-7 AoE 法术：以中心格区域内敌方独立结算） | §4.10/§4.12/§4.9 | tests/core/spell.test.ts |
 | src/core/status.ts | 状态系统：九种 ActiveStatus（chant 锁定格/stealth/buff 衰减/stance/charge 蓄力/dot 灼烧〔R4-7 存值跳+末回合 finalTurnExtra 补足〕/…）、resolveArmor、tickStatuses、interruptChant（R5-1 打断返还咏唱资源）、applyBuff、refreshAuras、statValue（模板+buff+姿态+冲锋/狂战被动；R4-6 AttrKey 扩 spd/lck 轴——回避入修正管线） | §4.10/§4.12/§4.9/§4.13 | tests/core/status.test.ts |
-| src/core/effects.ts | 行为技能与修饰执行器（R3-9/10）：executeBehavior（潜行/姿态/祝福/怒吼/嗜血）、resolveSkillSubs、resolveShout、rushDestination（冲杀落位与灰显条件）、applyAmbushBonus（破隐一击）、resolveChargeStrike（蓄力触发：额外威力+免距离惩罚） | §4.9 | tests/core/effects.test.ts |
+| src/core/effects.ts | 行为技能与修饰执行器（R3-9/10）：executeBehavior（潜行/姿态/祝福/怒吼/嗜血）、resolveSkillSubs（附属段资源入真实主资源，R5-2）、resolveShout、rushDestination（冲杀落位与灰显条件）、applyAmbushBonus（破隐一击）、resolveChargeStrike（蓄力触发：额外威力+免距离惩罚） | §4.9/§4.13 | tests/core/effects.test.ts |
 | src/core/turn.ts | 回合与胜负：checkVictory（全灭/领主阵亡）、startPlayerPhase（重置行动+基地回复） | §2/§3 | tests/core/turn.test.ts |
 | src/core/ai.ts | 敌方 AI：decideEnemyAction（落位×技能×目标枚举评分，击杀优先；资源不足技能不入选〔R5-1 回落普攻〕；BOSS 驻守；无目标向组质心最近我方集结）、checkGroupActivation（警戒范围扫描全组激活）、provokeGroup（被攻击激活） | §6/§4.13 | tests/core/ai.test.ts |
 | src/core/reinforce.ts | 增援：checkReinforcements（回合/组血量触发、次数上限、刷新点 BFS 找空位，登场即激活） | §6 | tests/core/reinforce.test.ts |
-| src/core/resources.ts | 资源系统（R5-1，§4.13）：ResourceState 主资源槽、initResources（怒 0/专满/MP=mag×5 满按模板初始化）、canAfford/payCost（结算前扣费、不足拒扣）、refundCost（咏唱打断全额返还） | §4.13 | tests/core/resources.test.ts |
+| src/core/resources.ts | 资源系统（R5-1/R5-2，§4.13）：ResourceState 主资源槽、initResources（怒 0/专满/MP=mag×5 满按模板初始化）、canAfford/payCost（结算前扣费、不足拒扣）、refundCost（咏唱打断全额返还）、gainOnHit/gainOnStruck（命中积攒：怒任意攻击+受击、专/MP 仅普攻）、gainResource（附属段/特性段入池封顶）、tickResources（阶段推进：专注回 20/MP 歇息回 15+施法标记重置） | §4.13 | tests/core/resources.test.ts |
 
 ### 配置层 src/config/（新增内容=改配置不改代码）
 

@@ -5,7 +5,7 @@ import type { UnitTemplate } from '../config/units';
 import type { SpellTemplate } from '../config/spells';
 import { EFFECT_PARAMS } from '../config/combat';
 import { distance } from './hex';
-import { refundCost } from './resources';
+import { refundCost, gainResource } from './resources';
 
 export interface ChantStatus {
   type: 'chant';
@@ -188,12 +188,9 @@ export function tickStatuses(units: UnitState[], faction: Faction): StatusEvent[
           status.amount -= status.decay;
           status.turnsLeft--;
           if (status.decay > 0 && unit.loadout.passive.includes('blessing-boost')) {
-            // 强化祝福：祝福期间每回合回血 + 怒气计数暂存（结算归 R5）
+            // 强化祝福：祝福期间每回合回血 + 怒气入真实主资源（R5-2 迁移，原计数暂存删除）
             unit.hp = Math.min(unit.maxHp, unit.hp + EFFECT_PARAMS.blessingBoostHeal);
-            unit.pendingResources = {
-              ...unit.pendingResources,
-              rage: (unit.pendingResources?.rage ?? 0) + EFFECT_PARAMS.blessingBoostRage
-            };
+            gainResource(unit, EFFECT_PARAMS.blessingBoostRage);
           }
           if (status.amount <= 0 || status.turnsLeft <= 0) {
             removed.push(status);

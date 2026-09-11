@@ -26,7 +26,7 @@ export interface UnitState {
   statuses: ActiveStatus[];
   loadout: SkillLoadout;         // 技能装填（R3-3：编成传入或出厂默认，战斗内冻结）
   resources: ResourceState;      // 主资源槽（§4.13，R5-1）
-  pendingResources?: { rage?: number; focus?: number; mp?: number };  // R3-9 资源生成计数暂存（R5-2 迁移真实资源后删除）
+  castSpellThisTurn?: boolean;   // R5-2 本回合已施法（0 耗亦算）——MP 歇息恢复判定，阶段开始重置
   groupId?: string;              // 敌方组归属（集结/全组激活）
   aiKind?: GroupAiType;          // 敌方 AI 类型；玩家单位无
   activated: boolean;            // 激活后永久主动（§6）；玩家/主动型/增援恒 true

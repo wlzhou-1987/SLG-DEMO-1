@@ -176,7 +176,7 @@ describe('R3-9 状态与增益', () => {
     });
     tickStatuses([paladin], 'player');
     expect(paladin.hp).toBeGreaterThan(10);
-    expect(paladin.pendingResources?.rage).toBeGreaterThan(0);
+    expect(paladin.resources.current).toBeGreaterThan(0);  // R5-2 强化祝福怒气入真实资源
   });
 
   it('光环：领主（aura）范围内友军获 atk 增益，范围外无；刷新不叠加', () => {
@@ -221,10 +221,10 @@ describe('R3-9 状态与增益', () => {
     expect(stanceBack.attacker.side).toBe('back');
   });
 
-  it('附属段 immediate：战斗怒吼释放暂存怒气计数（结算归 R5）', () => {
+  it('附属段 immediate：战斗怒吼释放入真实怒气（R5-2 迁移）', () => {
     const defender = createUnitState('defender', 'player', { q: 5, r: 5 });
     resolveSkillSubs(defender, SKILLS.warCry);
-    expect(defender.pendingResources?.rage).toBeGreaterThan(0);
+    expect(defender.resources.current).toBeGreaterThan(0);
   });
 
   it('战斗怒吼：自身与周围 1 格友军获 atk 增益（ally AoE）', () => {

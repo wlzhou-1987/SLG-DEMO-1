@@ -10,6 +10,7 @@ import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS, EFFECT_PARAMS, RANGE_PA
 import { TERRAIN_CONFIGS } from '../config/terrain';
 import { TRAIT_CONFIGS } from '../config/traits';
 import { resolveArmor, statValue } from './status';
+import { gainOnHit, gainOnStruck } from './resources';
 
 export type PartSide = 'front' | 'side' | 'back';
 
@@ -286,6 +287,13 @@ export function resolveBattle(
     attackerHp = attacker.hp;
     defenderHp = defender.hp;
     strikes.push({ byAttacker, hit, damage, absorbed, side: s.side, skillName: s.skillName });
+    if (hit) {
+      // R5-2 资源积攒（§4.13）：攻击者命中入池（怒任意攻击/专与MP仅普攻）、受击方回怒
+      const striker = byAttacker ? attacker : defender;
+      const struck = byAttacker ? defender : attacker;
+      gainOnHit(striker, s.skillName === '普攻');
+      gainOnStruck(struck);
+    }
     if (byAttacker) return defenderHp === 0;
     return attackerHp === 0;
   };
@@ -378,6 +386,10 @@ export function resolveAoeBattle(
     const hit = rng() < forecast.hitRate / 100;
     const damage = hit ? forecast.damage : 0;
     const absorbed = applyDamageToUnit(t, defT, damage);
+    if (hit) {
+      gainOnHit(caster, skill.id === 'basic');  // R5-2 命中积攒
+      gainOnStruck(t);
+    }
     results.push({ targetId: t.id, hit, damage, absorbed, forecast });
   }
   return results;

@@ -442,7 +442,7 @@ describe('R3-10 瞬发行动经济学（嗜血）', () => {
     menuClick('攻击·嗜血');
     expect(axeman.hp).toBeLessThan(hp0);                       // 自伤
     expect(axeman.statuses.some(s => s.type === 'buff' && s.skillName === '嗜血')).toBe(true);
-    expect(axeman.pendingResources?.rage).toBeGreaterThan(0);  // 怒气暂存
+    expect(axeman.resources.current).toBeGreaterThan(0);       // R5-2 怒气入真实资源
     expect(game.phase.mode).toBe('actionMenu');                // 行动未结束
     menuClick('待机');
     const menu = mapWrap().children.find(c => c.className === 'action-menu');

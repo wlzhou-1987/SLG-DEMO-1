@@ -7,6 +7,7 @@ import { getTemplate } from '../config/units';
 import { calcStrike } from './combat';
 import { EFFECT_PARAMS } from '../config/combat';
 import { statValue } from './status';
+import { gainOnStruck } from './resources';
 import type { PartSide } from './combat';
 import type { ArmorType } from './types';
 
@@ -77,6 +78,7 @@ export function resolveSpell(
 ): SpellResult {
   const forecast = calcSpellForecast(map, caster, target, spell);
   const castTurn = 0;  // 回合数由调用方维护，此处仅保序（后施加覆盖先生效）
+  caster.castSpellThisTurn = true;  // R5-2 施法标记（0 耗亦算，MP 歇息判定）
 
   switch (forecast.kind) {
     case 'damage': {
@@ -96,6 +98,7 @@ export function resolveSpell(
       }
       if (hit) {
         target.hp = Math.max(0, target.hp - damage);
+        gainOnStruck(target);  // R5-2 法术命中受击回怒
       }
       return { ...forecast, hit, targetHp: target.hp };
     }
@@ -150,11 +153,15 @@ export function resolveAoeSpell(
   const cells = getAreaCells(spell.area, caster, center);
   const targets = unitsInArea(units, cells, caster.faction);
   const casterT = getTemplate(caster.templateId)!;
+  caster.castSpellThisTurn = true;  // R5-2 施法标记
   return targets.map(t => {
     const strike = calcStrike(map, caster, casterT, t, getTemplate(t.templateId)!, spell);
     const hit = rng() < strike.hitRate / 100;
     const damage = hit ? strike.damage : 0;
-    if (hit) t.hp = Math.max(0, t.hp - damage);
+    if (hit) {
+      t.hp = Math.max(0, t.hp - damage);
+      gainOnStruck(t);  // R5-2 受击回怒
+    }
     return { targetId: t.id, hit, damage, targetHp: t.hp };
   });
 }

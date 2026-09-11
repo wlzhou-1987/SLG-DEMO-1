@@ -5,20 +5,19 @@ import { enterStealth } from './stealth';
 import { applyBuff } from './status';
 import { cancelStealth } from './stealth';
 import { resolveBattle } from './combat';
+import { gainResource } from './resources';
 import { distance, directionBetween, neighbor as hexNeighbor } from './hex';
 import { isPassable } from './map';
 import { getUnitAt } from './unit';
 import type { MapState } from './map';
 import type { HexCoord, Facing } from './types';
 
-/** 附属段结算（§4.9 丙方案）：immediate 资源段计数暂存（结算归 R5） */
+/** 附属段结算（§4.9）：immediate 资源段入施放者真实主资源（§4.13 R5-2；归属不符为死配置不生效） */
 export function resolveSkillSubs(caster: UnitState, skill: SkillTemplate): void {
   for (const sub of skill.subs ?? []) {
-    if (sub.kind === 'resource' && sub.timing === 'immediate') {
-      caster.pendingResources = {
-        ...caster.pendingResources,
-        [sub.resourceType]: (caster.pendingResources?.[sub.resourceType] ?? 0) + sub.amount
-      } as { rage?: number; focus?: number; mp?: number };
+    if (sub.kind === 'resource' && sub.timing === 'immediate'
+        && sub.resourceType === caster.resources.type) {
+      gainResource(caster, sub.amount);
     }
   }
 }
