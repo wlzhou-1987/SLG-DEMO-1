@@ -43,8 +43,7 @@ export const RANGE_PARAMS = {
   spellBonus: 1
 } as const;
 
-/** R5 资源参数（§4.13 设计定稿：怒气 100 空起 / 专注 100 满起每回合回 20 / MP 上限 = mag×5；
- *  积攒/消耗/恢复量占位随 R5-3 平衡定稿） */
+/** R5 资源参数（§4.13；R5-3 定稿 2026-09-11——tests/balance 20 局 14 胜 6 败 0 平） */
 export const RESOURCE_PARAMS = {
   rageMax: 100,
   focusMax: 100,

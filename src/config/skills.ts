@@ -99,7 +99,7 @@ export const SKILLS: Record<string, SkillTemplate> = {
   stab: {
     id: 'stab', name: '刺击', target: 'enemy', damageType: 'piercing',
     rangeMin: 1, rangeMax: 1, weaponType: 'sword', resourceType: 'rage', cost: 40,
-    counters: { heavy: 1.5, cavalry: 1.5 }, learnable: false
+    counters: { heavy: 1.8, cavalry: 1.5 }, learnable: false
   },
   'backstab-strike': {
     id: 'backstab-strike', name: '背刺', target: 'enemy', damageType: 'piercing',

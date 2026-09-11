@@ -208,7 +208,7 @@ export const ENEMY_TEMPLATES: UnitTemplate[] = [
     weapons: ['hammer'], resourceType: 'rage',
     unitTags: ['heavy'],
     basicAttack: { damageType: 'blunt', rangeMin: 1, rangeMax: 1 },
-    hp: 50, str: 21, mag: 0, pdef: 12, mdef: 8, spd: 12, tec: 16, lck: 4,
+    hp: 50, str: 24, mag: 0, pdef: 12, mdef: 8, spd: 12, tec: 16, lck: 4,
     skills: ['warHammer', 'sweep']
   }
 ];

@@ -176,11 +176,13 @@ function actPlayerUnit(map: MapState, units: UnitState[], u: UnitState, rng: () 
       if (!bestAtk || score > bestAtk.score) bestAtk = { skill, target: e, score };
     }
   }
-  // 理性守卫：最优攻击期望净收益 ≤0 不攻击；反击上限伤害 ≥ 自身 HP（自杀式攻击）不攻击
-  if (bestAtk && bestAtk.score > 0) {
+  // 理性守卫：最优攻击期望净收益 ≤0 不攻击；反击上限伤害 ≥ 自身 HP（自杀式攻击）不攻击；
+  // 终局死战（敌 ≤2）：胜利需敌方全灭，平局=必非赢——无视两守卫搏命，把僵局交给 rng
+  const lastStand = enemies.length <= 2;
+  if (bestAtk && (lastStand || bestAtk.score > 0)) {
     const fs = calcBattleForecast(map, u, bestAtk.target, bestAtk.skill);
     const suicide = fs.counter !== null && fs.counter.damage >= u.hp;
-    if (!suicide) {
+    if (lastStand || !suicide) {
       payCost(u, bestAtk.skill);  // R5-1 扣费
       if (isSpell(bestAtk.skill)) u.castSpellThisTurn = true;  // R5-2 施法标记
       u.facing = directionBetween(u.position, bestAtk.target.position);
@@ -286,8 +288,8 @@ function simulate(seed: number): SimResult {
   };
 }
 
-describe('R4-8 平衡模拟（终战档定稿）', () => {
-  it('20 局模拟：胜率 60~75%（12~15 胜）、可复现并输出统计', () => {
+describe('平衡模拟（R4-8 定稿 / R5-3 资源经济重校）', () => {
+  it('20 局模拟：胜率 60~75%（12~15 胜）0 平、可复现并输出统计', () => {
     const results = Array.from({ length: 20 }, (_, i) => simulate(i + 1));
     const wins = results.filter(r => r.winner === 'playerWin');
     const losses = results.filter(r => r.winner === 'playerLose');
@@ -303,8 +305,7 @@ describe('R4-8 平衡模拟（终战档定稿）', () => {
     // 胜率带（R4-8 定稿验收：种子固定、确定性回归门——数值改动使胜率出带时须重校平衡）
     expect(wins.length).toBeGreaterThanOrEqual(12);
     expect(wins.length).toBeLessThanOrEqual(15);
-    // R5-2 资源经济落地后出现 1 平（BOSS 终局僵局）——放宽为 ≤1，R5-3 数值定稿时重校收口
-    expect(draws.length).toBeLessThanOrEqual(1);
+    expect(draws.length).toBe(0);  // R5-3 收口：终局死战规则 + 数值定稿后 0 平
     // 可复现性：同种子重跑结果一致
     expect(simulate(7)).toEqual(results[6]);
   });

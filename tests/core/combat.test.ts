@@ -147,7 +147,7 @@ describe('calcBattleForecast 战斗预报', () => {
     const f = calcBattleForecast(map, attacker, boss, basicAttackSkill(getTemplate('lord')!));
     expect(f.counter).not.toBeNull();
     expect(f.counter!.skillName).toBe('横扫');
-    expect(f.counter!.damage).toBe(6);  // BOSS str21 横扫(斩) vs 轻甲：floor(21×1.0−15)=6
+    expect(f.counter!.damage).toBe(9);  // BOSS str24 横扫(斩) vs 轻甲：floor(24×1.0−15)=9
   });
 
   it('追击：速度差 ≥4 快方多打一次', () => {
@@ -251,11 +251,11 @@ describe('M4 战斗扩展：power 与护盾吸收', () => {
       armorType: 'medium', absorbLeft: 10
     }];
     const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
-    // 伤害 6 全被护盾吸收；领主反击 BOSS(重甲 pdef12)：floor(21×0.7−12)=2，lord 快 5 追击 ×2 → 50−4
+    // 伤害 9 全被护盾吸收；领主反击 BOSS(重甲 pdef12)：floor(21×0.7−12)=2，lord 快 5 追击 ×2 → 50−4
     expect(r.attackerHp).toBe(46);
     expect(r.defenderHp).toBe(52);
     const shieldLeft = defender.statuses.find(s2 => s2.type === 'shield');
-    expect((shieldLeft as { absorbLeft: number } | undefined)?.absorbLeft).toBe(4);
+    expect((shieldLeft as { absorbLeft: number } | undefined)?.absorbLeft).toBe(1);
   });
 
   it('破盾：超出吸收的部分扣 HP 且状态移除', () => {
@@ -266,11 +266,11 @@ describe('M4 战斗扩展：power 与护盾吸收', () => {
       type: 'shield', skillName: '秘银护盾', turnsLeft: 3, appliedAtTurn: 1,
       armorType: 'medium', absorbLeft: 3
     }];
-    // BOSS 重锤 ×1 击（boss spd12 vs lord spd17 差 5 反击追击；伤害 6 > 吸收 3 → 破盾 3 入 HP
+    // BOSS 重锤 ×1 击（boss spd12 vs lord spd17 差 5 反击追击；伤害 9 > 吸收 3 → 破盾 6 入 HP
     const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
-    expect(defender.hp).toBe(52 - 3);
+    expect(defender.hp).toBe(52 - 6);
     expect(defender.statuses.some(s2 => s2.type === 'shield')).toBe(false);
-    expect(r.defenderHp).toBe(49);
+    expect(r.defenderHp).toBe(46);
   });
 
   it('护盾覆盖矩阵：按护盾护甲类型结算', () => {
@@ -357,7 +357,7 @@ describe('M6-1 战斗反馈：打击结果上报吸收量', () => {
       armorType: 'medium', absorbLeft: 3
     }];
     const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
-    expect(r.strikes[0].damage).toBe(6);
+    expect(r.strikes[0].damage).toBe(9);
     expect(r.strikes[0].absorbed).toBe(3);
   });
 
@@ -369,8 +369,8 @@ describe('M6-1 战斗反馈：打击结果上报吸收量', () => {
       armorType: 'medium', absorbLeft: 99
     }];
     const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
-    expect(r.strikes[0].damage).toBe(6);
-    expect(r.strikes[0].absorbed).toBe(6);
+    expect(r.strikes[0].damage).toBe(9);
+    expect(r.strikes[0].absorbed).toBe(9);
   });
 });
 
@@ -386,8 +386,8 @@ describe('R3-2 普攻口径落地', () => {
     const defender = createUnitState('lord', 'player', { q: 11, r: 15 });
     const f = calcBattleForecast(map, attacker, defender, basicAttackSkill(getTemplate('boss')!));
     expect(f.attacker.damageType).toBe('blunt');
-    // BOSS str21 钝 vs 轻甲 0.8：floor(21×0.8−15) = 1（R4-8 定稿值）
-    expect(f.attacker.damage).toBe(1);
+    // BOSS str24 钝 vs 轻甲 0.8：floor(24×0.8−15) = 4（R5-3 定稿值）
+    expect(f.attacker.damage).toBe(4);
   });
 
   it('法杖普攻=低威力钝伤杖击（近战保底手段）', () => {
@@ -709,12 +709,12 @@ describe('R4-3 物理矩阵梯度与法术级克制', () => {
     expect(f.attacker.damage).toBe(Math.floor(17 * 1.2 - 11));
   });
 
-  it('钝 vs 重甲 1.4（boss str21 vs paladin pdef26 heavy）', () => {
+  it('钝 vs 重甲 1.4（boss str24 vs paladin pdef26 heavy）', () => {
     const attacker = createUnitState('boss', 'enemy', { q: 10, r: 15 });
     const paladin = createUnitState('paladin', 'enemy', { q: 11, r: 15 });
     paladin.faction = 'player' as never;
     const f = calcBattleForecast(map, attacker, paladin, mkSkill({ damageType: 'blunt' }));
-    expect(f.attacker.damage).toBe(Math.max(Math.floor(21 * 1.4 - 26), 0));
+    expect(f.attacker.damage).toBe(Math.max(Math.floor(24 * 1.4 - 26), 0));
   });
 
   it('法术默认不走矩阵：vs 重甲不再吃旧 magic 行 1.25（mage mag24 vs boss mdef8）', () => {
@@ -1026,13 +1026,13 @@ describe('R4-7 先攻反击', () => {
   });
 
   it('结算顺序：先攻反击 → 攻方攻击 → 守方追击（先攻不重复反击）', () => {
-    // thief 反击 boss（重甲 pdef12）0 伤、boss 攻击 thief 6 伤；thief 快 12 → 守方追击
+    // thief 反击 boss（重甲 pdef12）0 伤、boss 攻击 thief 9 伤；thief 快 12 → 守方追击
     const boss = createUnitState('boss', 'enemy', { q: 10, r: 15 });
     const thief = createUnitState('thief', 'player', { q: 11, r: 15 });
     const r = resolveBattle(map, boss, thief, basicAttackSkill(getTemplate('boss')!), () => 0);
     expect(r.strikes.map(s => s.byAttacker)).toEqual([false, true, false]);
     expect(r.attackerHp).toBe(50);        // thief 突 vs 重甲两击均 0 伤
-    expect(r.defenderHp).toBe(46 - 6);    // boss 钝 vs 无甲 floor(21×0.8−10)=6
+    expect(r.defenderHp).toBe(46 - 9);    // boss 钝 vs 无甲 floor(24×0.8−10)=9
   });
 
   it('先攻截断：先攻反击击杀攻方则其攻击不发生', () => {
