@@ -84,10 +84,14 @@ export function resolveSpell(
       let damage = forecast.damage;
       if (hit && caster.loadout.passive.includes('pyro') && (spell.id === 'fireball' || spell.id === 'meteor')) {
         damage = Math.floor(damage * EFFECT_PARAMS.pyroBoostMult);
+        // R4-7 施放时锁定：每回合 = max(1, floor(直伤/回合数))，余数末回合补足（§4.3，预报=实际）
+        const turns = EFFECT_PARAMS.pyroDotTurns;
+        const perTurn = Math.max(1, Math.floor(damage / turns));
         target.statuses.push({
           type: 'dot', skillName: '灼烧', appliedAtTurn: castTurn,
-          turnsLeft: EFFECT_PARAMS.pyroDotTurns,
-          damagePerTurn: Math.max(1, Math.floor(damage / 2))
+          turnsLeft: turns,
+          damagePerTurn: perTurn,
+          finalTurnExtra: Math.max(0, damage - perTurn * turns)
         });
       }
       if (hit) {

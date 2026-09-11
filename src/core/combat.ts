@@ -57,6 +57,7 @@ export interface StrikeForecast {
 export interface BattleForecast {
   attacker: StrikeForecast;
   counter: StrikeForecast | null;
+  firstStrike: boolean;  // R4-7 先攻反击：守方反击先行结算（§4.3）
 }
 
 /** 单方打击预报（attacker 向 defender 发动 skill） */
@@ -147,6 +148,16 @@ export function calcStrike(
   return { skillName: skill.name, damageType: skill.damageType, side, damage, hitRate, count: 1, rangePenalty };
 }
 
+/** 先攻反击阈值（R4-7）：默认 10 可配，守方特性声明可降（取最低，§4.3） */
+function firstStrikeThresholdFor(passives: readonly string[]): number {
+  let t: number = COMBAT_PARAMS.firstStrikeThreshold;
+  for (const id of passives) {
+    const v = TRAIT_CONFIGS[id]?.firstStrikeThreshold;
+    if (v !== undefined && v < t) t = v;
+  }
+  return t;
+}
+
 /** 守方反击技能：普攻恒入候选，射程覆盖攻方位置者中期望伤害最高（§4.3/§4.9） */
 function pickCounterSkill(
   defT: UnitTemplate,
@@ -219,7 +230,11 @@ export function calcBattleForecast(
     counter.count = 2;
   }
 
-  return { attacker: attackerStrike, counter };
+  // R4-7 先攻反击：守方速度超出攻方 ≥ 阈值时，反击先行结算（反击存在为前提）
+  const firstStrike = counter !== null
+    && defT.spd - atkT.spd >= firstStrikeThresholdFor(defender.loadout.passive);
+
+  return { attacker: attackerStrike, counter, firstStrike };
 }
 
 export interface StrikeResult {
@@ -275,12 +290,16 @@ export function resolveBattle(
     return attackerHp === 0;
   };
 
+  // R4-7 先攻反击（触发时）→ 攻方攻击 → 守方反击 → 追击；先攻击杀攻方则其攻击不发生（§4.3）
+  if (forecast.counter && forecast.firstStrike && strike(forecast.counter, false)) {
+    return { strikes, attackerHp, defenderHp };
+  }
   // 第一击：攻方
   if (strike(forecast.attacker, true)) {
     return { strikes, attackerHp, defenderHp };
   }
-  // 第二击：守方反击
-  if (forecast.counter && strike(forecast.counter, false)) {
+  // 第二击：守方反击（先攻已结算时该位已消耗，不重复反击）
+  if (!forecast.firstStrike && forecast.counter && strike(forecast.counter, false)) {
     return { strikes, attackerHp, defenderHp };
   }
   // 第三击：追击（双方 count 里第二击即追击）

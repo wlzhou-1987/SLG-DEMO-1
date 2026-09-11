@@ -26,6 +26,7 @@ export const COMBAT_PARAMS = {
     mag: { spd: 0, lck: 3 }
   },
   pursuitSpeedDiff: 4,  // 追击速度差阈值
+  firstStrikeThreshold: 10,  // R4-7 先攻反击：守方速度超出攻方 ≥ 阈值时反击先行（可被守方特性降低）
   rangePenaltyBase: 15,   // R4-5 递增距离惩罚：第 1 个超程格
   rangePenaltyStep: 10,   // 每多 1 格递增值（第 n 格 = base + step×(n−1) 累计求和）
   hitMin: 5,

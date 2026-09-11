@@ -14,6 +14,7 @@ import { calcAoeForecast, resolveAoeBattle, calcStrike, calcEvade } from '../../
 import { COMBAT_PARAMS } from '../../src/config/combat';
 import { resetUnitCounter, createUnitState } from '../../src/core/unit';
 import { resolveSpell } from '../../src/core/spell';
+import { TRAIT_CONFIGS } from '../../src/config/traits';
 
 describe('attackSide 部位判定', () => {
   // 守方在 (5,5)，朝向 0（东）；左右紧邻 = NE/SE
@@ -996,5 +997,81 @@ describe('R4-6 双轴命中回避', () => {
     expect(r.kind).toBe('heal');
     expect(r.hit).toBeUndefined();
     expect(lord.hp).toBe(40);  // mag21×0.5=10
+  });
+});
+
+describe('R4-7 先攻反击', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+
+  it('阈值边界两态：守速差 10 触发先攻（反击先行）、差 7 不触发（正常序）', () => {
+    // boss spd14 攻 thief spd24：diff 10 ≥ 阈值 10
+    const boss = createUnitState('boss', 'enemy', { q: 10, r: 15 });
+    const thief = createUnitState('thief', 'player', { q: 11, r: 15 });
+    const f = calcBattleForecast(map, boss, thief, basicAttackSkill(getTemplate('boss')!));
+    expect(f.counter).not.toBeNull();
+    expect(f.firstStrike).toBe(true);
+    const r = resolveBattle(map, boss, thief, basicAttackSkill(getTemplate('boss')!), () => 0);
+    expect(r.strikes[0].byAttacker).toBe(false);  // 先攻反击先结算
+    // swordsman spd17 攻 thief spd24：diff 7 < 10
+    const sw = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
+    const thief2 = createUnitState('thief', 'player', { q: 11, r: 15 });
+    const f2 = calcBattleForecast(map, sw, thief2, basicAttackSkill(getTemplate('swordsman')!));
+    expect(f2.firstStrike).toBe(false);
+    const r2 = resolveBattle(map, sw, thief2, basicAttackSkill(getTemplate('swordsman')!), () => 0);
+    expect(r2.strikes[0].byAttacker).toBe(true);  // 攻方先结算
+  });
+
+  it('结算顺序：先攻反击 → 攻方攻击 → 守方追击（先攻不重复反击）', () => {
+    // thief 反击 boss（重甲）0 伤、boss 攻击 thief 8 伤；thief 快 10 → 守方追击
+    const boss = createUnitState('boss', 'enemy', { q: 10, r: 15 });
+    const thief = createUnitState('thief', 'player', { q: 11, r: 15 });
+    const r = resolveBattle(map, boss, thief, basicAttackSkill(getTemplate('boss')!), () => 0);
+    expect(r.strikes.map(s => s.byAttacker)).toEqual([false, true, false]);
+    expect(r.attackerHp).toBe(72);        // thief 突 vs 重甲两击均 0 伤
+    expect(r.defenderHp).toBe(46 - 8);    // boss 钝 vs 无甲 floor(23×0.8−10)=8
+  });
+
+  it('先攻截断：先攻反击击杀攻方则其攻击不发生', () => {
+    const mageE = createUnitState('mage_enemy', 'enemy', { q: 10, r: 15 });  // spd12
+    mageE.hp = 10;
+    const thief = createUnitState('thief', 'player', { q: 11, r: 15 });     // spd24，反击 15 伤
+    const r = resolveBattle(map, mageE, thief, basicAttackSkill(getTemplate('mage_enemy')!), () => 0);
+    expect(r.strikes.map(s => s.byAttacker)).toEqual([false]);  // 仅先攻反击
+    expect(r.attackerHp).toBe(0);
+    expect(r.defenderHp).toBe(46);  // 攻方攻击未发生
+  });
+
+  it('技能降阈值：守方特性声明阈值 5 时 diff 7 触发（默认 10 不触发）', () => {
+    const swT = getTemplate('swordsman')!;
+    TRAIT_CONFIGS['test-first-strike'] = {
+      id: 'test-first-strike', name: '迅捷反击', desc: '测试用', learnable: false,
+      firstStrikeThreshold: 5
+    };
+    try {
+      const sw = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
+      const withTrait = createUnitState('thief', 'player', { q: 11, r: 15 }, { active: [], passive: ['test-first-strike'] });
+      expect(calcBattleForecast(map, sw, withTrait, basicAttackSkill(swT)).firstStrike).toBe(true);   // 7 ≥ 5
+      const without = createUnitState('thief', 'player', { q: 11, r: 15 }, { active: [], passive: [] });
+      expect(calcBattleForecast(map, sw, without, basicAttackSkill(swT)).firstStrike).toBe(false);  // 7 < 10
+    } finally {
+      delete TRAIT_CONFIGS['test-first-strike'];
+    }
+  });
+
+  it('无反击则无先攻：反击射程够不着或 noCounter 时不触发', () => {
+    const bossT = getTemplate('boss')!;
+    const boss = createUnitState('boss', 'enemy', { q: 10, r: 15 });
+    const farThief = createUnitState('thief', 'player', { q: 12, r: 15 });  // dist 2，thief 普攻射程 1
+    const f = calcBattleForecast(map, boss, farThief, basicAttackSkill(bossT));
+    expect(f.counter).toBeNull();
+    expect(f.firstStrike).toBe(false);
+    const nearThief = createUnitState('thief', 'player', { q: 11, r: 15 });
+    const f2 = calcBattleForecast(map, boss, nearThief, basicAttackSkill(bossT), { noCounter: true });
+    expect(f2.counter).toBeNull();
+    expect(f2.firstStrike).toBe(false);
   });
 });

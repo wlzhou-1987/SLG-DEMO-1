@@ -3,7 +3,10 @@ import { calcSpellForecast, resolveSpell, resolveAoeSpell } from '../../src/core
 import { createMapState } from '../../src/core/map';
 import { createUnitState, resetUnitCounter } from '../../src/core/unit';
 import { SPELLS } from '../../src/config/spells';
+import type { SpellTemplate } from '../../src/config/spells';
 import { tickStatuses } from '../../src/core/status';
+import type { DotStatus } from '../../src/core/status';
+import { EFFECT_PARAMS } from '../../src/config/combat';
 
 describe('calcSpellForecast 法术预报', () => {
   beforeEach(() => resetUnitCounter());
@@ -141,5 +144,54 @@ describe('R3-10 法术修饰（炎爆/强化治疗/虔诚溅射）', () => {
     wounded.hp = 10;
     resolveSpell(map, priest, wounded, SPELLS.heal, () => 0);
     expect(wounded.hp).toBe(10 + 10 + Math.floor(16 * 0.5));  // 基础 10 + tec/2
+  });
+});
+
+describe('R4-7 DoT 施放时锁定', () => {
+  beforeEach(() => resetUnitCounter());
+
+  const map = createMapState();
+
+  it('施放时锁定：每回合 = max(1, floor(直伤/回合数))，余数记入末回合补足', () => {
+    const mage = createUnitState('mage', 'player', { q: 10, r: 15 });  // 出厂 pyro
+    const foe = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    const hp0 = foe.hp;
+    resolveSpell(map, mage, foe, SPELLS.fireball, () => 0);
+    const direct = hp0 - foe.hp;  // 炎爆加成后直伤 = DoT 锁定基准
+    const dot = foe.statuses.find(s => s.type === 'dot') as DotStatus;
+    const turns = EFFECT_PARAMS.pyroDotTurns;
+    expect(dot.turnsLeft).toBe(turns);
+    expect(dot.damagePerTurn).toBe(Math.max(1, Math.floor(direct / turns)));
+    expect(dot.finalTurnExtra).toBe(Math.max(0, direct - Math.max(1, Math.floor(direct / turns)) * turns));
+  });
+
+  it('末回合补足：按存值跳、两跳合计 = 直伤', () => {
+    // 防骑 mdef12：直伤 floor(24−12)=12 → 炎爆 floor(12×1.25)=15（奇数，余数可观察）
+    const mage = createUnitState('mage', 'player', { q: 10, r: 15 });
+    const foe = createUnitState('paladin', 'enemy', { q: 11, r: 15 });
+    const hp0 = foe.hp;
+    resolveSpell(map, mage, foe, SPELLS.fireball, () => 0);
+    const direct = hp0 - foe.hp;
+    const perTurn = Math.max(1, Math.floor(direct / EFFECT_PARAMS.pyroDotTurns));
+    const hpAfterCast = foe.hp;
+    tickStatuses([foe], 'enemy');
+    expect(foe.hp).toBe(hpAfterCast - perTurn);   // 首跳按存值
+    tickStatuses([foe], 'enemy');
+    expect(foe.hp).toBe(hpAfterCast - direct);    // 末跳补足余数，合计 = 直伤
+    expect(foe.statuses.some(s => s.type === 'dot')).toBe(false);
+  });
+
+  it('保底 1 不回退：直伤 0 时每回合仍跳 1（小幅总伤溢价为接受设计）', () => {
+    const mage = createUnitState('mage', 'player', { q: 10, r: 15 });
+    const foe = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    const ember: SpellTemplate = { ...SPELLS.fireball, weights: { mag: 0 }, power: 0 };  // 直伤 0
+    resolveSpell(map, mage, foe, ember, () => 0);
+    const dot = foe.statuses.find(s => s.type === 'dot') as DotStatus;
+    expect(dot.damagePerTurn).toBe(1);
+    expect(dot.finalTurnExtra).toBe(0);
+    const hp = foe.hp;
+    tickStatuses([foe], 'enemy');
+    tickStatuses([foe], 'enemy');
+    expect(foe.hp).toBe(hp - 2);
   });
 });

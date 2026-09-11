@@ -73,13 +73,14 @@ export interface StanceStatus {
   stanceId: 'defense';
 }
 
-/** 灼烧 DoT（R3-10 炎爆）：每回合固定伤害 */
+/** 灼烧 DoT（R3-10 炎爆；R4-7 施放时锁定存值 + 末回合补足余数，§4.3） */
 export interface DotStatus {
   type: 'dot';
   skillName: string;
   turnsLeft: number;
   appliedAtTurn: number;
   damagePerTurn: number;
+  finalTurnExtra?: number;   // 末回合补足余数（合计不足直接结果时补差，不为负）
 }
 
 
@@ -135,8 +136,11 @@ export function tickStatuses(units: UnitState[], faction: Faction): StatusEvent[
           break;
         }
         case 'dot': {
-          unit.hp = Math.max(0, unit.hp - status.damagePerTurn);
-          events.push({ kind: 'delayedFire', unitId: unit.id, skillName: status.skillName, damage: status.damagePerTurn });
+          const dotDmg = status.turnsLeft <= 1
+            ? status.damagePerTurn + (status.finalTurnExtra ?? 0)  // R4-7 末回合补足余数
+            : status.damagePerTurn;
+          unit.hp = Math.max(0, unit.hp - dotDmg);
+          events.push({ kind: 'delayedFire', unitId: unit.id, skillName: status.skillName, damage: dotDmg });
           status.turnsLeft--;
           if (status.turnsLeft <= 0) removed.push(status);
           break;
