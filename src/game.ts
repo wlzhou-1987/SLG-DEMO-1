@@ -5,7 +5,7 @@ import { createUnitState, getUnitAt, getUnitActiveSkills, hasUnitTrait } from '.
 import { axialToPixel, pixelToAxial, isValidHex, distance, hexKey, directionBetween, neighbor } from './core/hex';
 import type { HexCoord, Facing } from './core/types';
 import { calcMovementRange, calcAttackRange, calcMovementCosts } from './core/range';
-import { calcBattleForecast, resolveBattle, calcAoeForecast, resolveAoeBattle } from './core/combat';
+import { calcBattleForecast, resolveBattle, calcAoeForecast, resolveAoeBattle, effectiveRangeMax } from './core/combat';
 import type { BattleForecast, StrikeResult } from './core/combat';
 import { calcSpellForecast, resolveSpell, resolveAoeSpell } from './core/spell';
 import type { SpellForecast, SpellResult } from './core/spell';
@@ -425,7 +425,8 @@ export class Game {
       const isEnemy = u.faction !== unit.faction;
       if (isEnemy === wantAlly) continue;
       const d = distance(unit.position, u.position);
-      if (d >= skill.rangeMin && d <= skill.rangeMax) {
+      const rMax = effectiveRangeMax(getTemplate(unit.templateId)!, skill);
+      if (d >= skill.rangeMin && d <= rMax) {
         if (skill.rush && rushDestination(this.map, this.units, unit, u) === null) continue;
         targets.add(hexKey(u.position));
       }

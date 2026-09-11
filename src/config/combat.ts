@@ -21,11 +21,20 @@ export const COMBAT_PARAMS = {
   hitPerTech: 5,        // 每点技巧命中
   evadePerLuck: 3,      // 每点幸运回避
   pursuitSpeedDiff: 4,  // 追击速度差阈值
-  rangePenaltyPerHex: 15, // 超射程每格命中惩罚
+  rangePenaltyBase: 15,   // R4-5 递增距离惩罚：第 1 个超程格
+  rangePenaltyStep: 10,   // 每多 1 格递增值（第 n 格 = base + step×(n−1) 累计求和）
   hitMin: 5,
   hitMax: 100,
   counterCap: 3.0,
   totalDamageCap: 4.0
+} as const;
+
+/** R4-5 属性条件射程（§4.4 定稿：弓挂力量、法术挂魔力；阈值可配，占位值随 R4-8 数值定稿） */
+export const RANGE_PARAMS = {
+  bowStrThreshold: 19,   // 力量 ≥ 19 弓类射程 +1（终战档：我方弓箭 19 吃、敌弓 13 不吃）
+  spellMagThreshold: 20, // 魔力 ≥ 20 法术施法距离 +1（法师 24 吃、敌方法师 19 不吃）
+  bowBonus: 1,
+  spellBonus: 1
 } as const;
 
 /** R3-9 状态与增益参数（占位数值，随 R4/R5 数值期重定；全部配置可调） */

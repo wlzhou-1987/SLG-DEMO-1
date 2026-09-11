@@ -7,6 +7,7 @@ import { directionBetween } from '../../src/core/hex';
 import { calcMovementRange } from '../../src/core/range';
 import { isFlying } from '../../src/config/units';
 import { DAMAGE_ARMOR_MATRIX } from '../../src/config/combat';
+import { rangeBonus, effectiveRangeMax } from '../../src/core/combat';
 import { SPELLS } from '../../src/config/spells';
 import type { SkillTemplate } from '../../src/config/skills';
 import { calcAoeForecast, resolveAoeBattle } from '../../src/core/combat';
@@ -817,5 +818,66 @@ describe('R4-4 兵种标签与克制合成', () => {
     const lord = createUnitState('lord', 'player', { q: 10, r: 15 });
     const range2 = calcMovementRange(flyMap, [lord], lord.position, 5, isFlying(getTemplate('lord')!));
     expect(range2.has('11,15')).toBe(false);  // 地面被山挡
+  });
+});
+
+describe('R4-5 射程条件加成与递增距离惩罚', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+
+  it('递增序列：超程 1 格 −15、2 格 −40、3 格 −75（15+10×(n−1) 累计）', () => {
+    const priest = createUnitState('priest', 'player', { q: 10, r: 15 }, { active: [], passive: ['steady'] });
+    const b = basicAttackSkill(getTemplate('swordsman')!);
+    const at = (q: number) => {
+      const a = createUnitState('swordsman', 'enemy', { q, r: 15 }, { active: [], passive: ['steady'] });
+      return calcBattleForecast(map, a, priest, b).attacker.rangePenalty ?? 0;
+    };
+    expect(at(11)).toBe(0);
+    expect(at(12)).toBe(15);
+    expect(at(13)).toBe(40);
+    expect(at(14)).toBe(75);
+  });
+
+  it('弓力量阈值两态：弓箭 str19 ≥ 19 射程 +1；敌弓 str13 无加成', () => {
+    const archer = getTemplate('archer')!;
+    const archerEnemy = getTemplate('archer_enemy')!;
+    expect(rangeBonus(archer, SKILLS.snipe)).toBe(1);
+    expect(rangeBonus(archerEnemy, SKILLS.snipe)).toBe(0);
+  });
+
+  it('法术魔力阈值两态：法师 mag24 ≥ 20 射程 +1；敌方法师 mag19 无', () => {
+    expect(rangeBonus(getTemplate('mage')!, SPELLS.fireball)).toBe(1);
+    expect(rangeBonus(getTemplate('mage_enemy')!, SPELLS.fireball)).toBe(0);
+  });
+
+  it('非弓物理与普攻近战无加成', () => {
+    expect(rangeBonus(getTemplate('lord')!, SKILLS.stab)).toBe(0);
+    expect(rangeBonus(getTemplate('knight')!, basicAttackSkill(getTemplate('knight')!))).toBe(0);
+  });
+
+  it('弓手普攻（武器数据）享受力量加成', () => {
+    expect(rangeBonus(getTemplate('archer')!, basicAttackSkill(getTemplate('archer')!))).toBe(1);
+  });
+
+  it('effectiveRangeMax = 基础 + 加成（弓箭狙击 2+1=3）', () => {
+    expect(effectiveRangeMax(getTemplate('archer')!, SKILLS.snipe)).toBe(3);
+    expect(effectiveRangeMax(getTemplate('lord')!, basicAttackSkill(getTemplate('lord')!))).toBe(1);
+  });
+
+  it('延伸格吃惩罚：弓箭 effective 3 格打 dist 3，惩罚按基础 rangeMax 2 计算 = −15', () => {
+    const archer = createUnitState('archer', 'player', { q: 10, r: 15 });
+    const foe = createUnitState('swordsman', 'enemy', { q: 10, r: 18 });  // dist 3
+    const f = calcBattleForecast(map, archer, foe, SKILLS.snipe);
+    expect(f.attacker.rangePenalty).toBe(15);  // 基础 2，超 1 格
+  });
+
+  it('法术距离惩罚同款递增（法师打 dist 4：基础 2 超 2 格 = −40）', () => {
+    const mage = createUnitState('mage', 'player', { q: 10, r: 15 });
+    const foe = createUnitState('swordsman', 'enemy', { q: 10, r: 19 });  // dist 4
+    const f = calcBattleForecast(map, mage, foe, SPELLS.fireball);
+    expect(f.attacker.rangePenalty).toBe(40);
   });
 });

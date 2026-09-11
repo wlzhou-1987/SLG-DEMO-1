@@ -5,7 +5,7 @@ import { getTemplate, basicAttackSkill, isFlying } from '../config/units';
 import { getUnitActiveSkills } from './unit';
 import { isVisibleTo } from './stealth';
 import { calcMovementRange, calcAttackRange } from './range';
-import { calcBattleForecast } from './combat';
+import { calcBattleForecast, effectiveRangeMax } from './combat';
 import { distance, hexKey } from './hex';
 import type { HexCoord } from './types';
 
@@ -51,7 +51,7 @@ export function decideEnemyAction(
       const d = distance(dest, target.position);
       // R3-2：普攻恒入择优候选（纯普攻单位同规则，§6）
       for (const skill of [basicAttackSkill(template), ...getUnitActiveSkills(enemy)]) {
-        if (d < skill.rangeMin || d > skill.rangeMax) continue;
+        if (d < skill.rangeMin || d > effectiveRangeMax(template, skill)) continue;
 
         const forecast = calcBattleForecast(map, attackerAt, target, skill);
         const expected =
@@ -132,7 +132,7 @@ export function checkGroupActivation(map: MapState, units: UnitState[]): void {
       const moveRange = calcMovementRange(map, units, m.position, template.movePoints, isFlying(template));
       const resolved = [basicAttackSkill(template), ...getUnitActiveSkills(m)];
       const rangeMin = Math.min(...resolved.map(s => s.rangeMin));
-      const rangeMax = Math.max(...resolved.map(s => s.rangeMax));
+      const rangeMax = Math.max(...resolved.map(s => effectiveRangeMax(template, s)));
       const alert = calcAttackRange(moveRange, rangeMin, rangeMax);
       return players.some(p => moveRange.has(hexKey(p.position)) || alert.has(hexKey(p.position)));
     });

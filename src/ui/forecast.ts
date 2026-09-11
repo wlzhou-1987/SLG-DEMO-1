@@ -17,7 +17,7 @@ function strikeRow(label: string, s: StrikeForecast): string {
     `<div class="strike">` +
     `<span class="who">${label}·${s.skillName}（${DAMAGE_LABELS[s.damageType]}·${SIDE_LABELS[s.side]}）</span>` +
     `<span>伤害 ${s.damage} ×${s.count}</span>` +
-    `<span>命中 ${s.hitRate}%</span>` +
+    `<span>命中 ${s.hitRate}%${s.rangePenalty ? `（距离 −${s.rangePenalty}）` : ''}</span>` +
     `</div>`
   );
 }

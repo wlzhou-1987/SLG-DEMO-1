@@ -6,7 +6,7 @@ import type { SkillTemplate } from '../config/skills';
 import type { UnitTemplate } from '../config/units';
 import { getTemplate, getTemplateSkills, basicAttackSkill, isFlying } from '../config/units';
 import { directionBetween, distance } from './hex';
-import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS, EFFECT_PARAMS } from '../config/combat';
+import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS, EFFECT_PARAMS, RANGE_PARAMS } from '../config/combat';
 import { TERRAIN_CONFIGS } from '../config/terrain';
 import { TRAIT_CONFIGS } from '../config/traits';
 import { resolveArmor, statValue } from './status';
@@ -34,6 +34,7 @@ export interface StrikeForecast {
   damage: number;   // 单次命中伤害（预报值）
   hitRate: number;  // 0-100
   count: number;    // 攻击次数（追击时 2）
+  rangePenalty?: number;  // R4-5 超程递增惩罚合计（预报明细显示）
 }
 
 export interface BattleForecast {
@@ -115,13 +116,17 @@ export function calcStrike(
     : PART_BONUS[side].hit;
 
   const evade = defT.lck * COMBAT_PARAMS.evadePerLuck + terrEva;
-  const rangePenalty = COMBAT_PARAMS.rangePenaltyPerHex * Math.max(0, dist - skill.rangeMax);
+  // R4-5 递增距离惩罚：第 n 个超程格 = base + step×(n−1)，累计求和（延伸格按基础射程计，§4.4）
+  const over = Math.max(0, dist - skill.rangeMax);
+  const rangePenalty = over === 0
+    ? 0
+    : COMBAT_PARAMS.rangePenaltyBase * over + COMBAT_PARAMS.rangePenaltyStep * over * (over - 1) / 2;
   const rawHit =
     COMBAT_PARAMS.hitBase + atkT.tec * COMBAT_PARAMS.hitPerTech - evade +
     partHit - rangePenalty;
   const hitRate = Math.max(COMBAT_PARAMS.hitMin, Math.min(COMBAT_PARAMS.hitMax, rawHit));
 
-  return { skillName: skill.name, damageType: skill.damageType, side, damage, hitRate, count: 1 };
+  return { skillName: skill.name, damageType: skill.damageType, side, damage, hitRate, count: 1, rangePenalty };
 }
 
 /** 守方反击技能：普攻恒入候选，射程覆盖攻方位置者中期望伤害最高（§4.3/§4.9） */
@@ -339,4 +344,26 @@ export function resolveAoeBattle(
     results.push({ targetId: t.id, hit, damage, absorbed, forecast });
   }
   return results;
+}
+
+
+/** R4-5 属性条件射程加成（§4.4：弓挂力量、法术挂魔力；阈值可配；普攻按模板武器判弓） */
+export function rangeBonus(t: import('../config/units').UnitTemplate, skill: SkillTemplate): number {
+  if (skill.id === 'basic') {
+    return t.weapons.includes('bow') && t.str >= RANGE_PARAMS.bowStrThreshold ? RANGE_PARAMS.bowBonus : 0;
+  }
+  if (skill.damageType === 'magic') {
+    return t.mag >= RANGE_PARAMS.spellMagThreshold ? RANGE_PARAMS.spellBonus : 0;
+  }
+  const wt = skill.weaponType;
+  const isBow = wt === 'bow' || (Array.isArray(wt) && wt.includes('bow'));
+  return isBow && t.str >= RANGE_PARAMS.bowStrThreshold ? RANGE_PARAMS.bowBonus : 0;
+}
+
+/** 实际射程上限 = 技能基础 + 属性加成（目标选择/警戒范围用；惩罚仍按基础 rangeMax） */
+export function effectiveRangeMax(
+  t: import('../config/units').UnitTemplate,
+  skill: SkillTemplate
+): number {
+  return skill.rangeMax + rangeBonus(t, skill);
 }
