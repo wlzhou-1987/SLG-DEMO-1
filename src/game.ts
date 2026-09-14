@@ -30,7 +30,7 @@ import { showUnitInfo, clearUnitInfo, showTerrainInfo, clearTerrainInfo } from '
 import { showActionMenu, hideActionMenu } from './ui/action-menu';
 import { showForecastPanel, hideForecastPanel, showSpellForecastPanel, showAoeForecastPanel } from './ui/forecast';
 import { getTerrain } from './core/map';
-import { checkVictory, startPlayerPhase } from './core/turn';
+import { checkVictory, startPlayerPhase, applyTerrainRegen } from './core/turn';
 import type { VictoryState } from './core/turn';
 import { decideEnemyAction, checkGroupActivation, provokeGroup } from './core/ai';
 import { checkReinforcements } from './core/reinforce';
@@ -432,7 +432,7 @@ export class Game {
       const isEnemy = u.faction !== unit.faction;
       if (isEnemy === wantAlly) continue;
       const d = distance(unit.position, u.position);
-      const rMax = effectiveRangeMax(getTemplate(unit.templateId)!, skill);
+      const rMax = effectiveRangeMax(getTemplate(unit.templateId)!, skill, getTerrain(this.map, unit.position));
       if (d >= skill.rangeMin && d <= rMax) {
         if (skill.rush && rushDestination(this.map, this.units, unit, u) === null) continue;
         targets.add(hexKey(u.position));
@@ -851,7 +851,7 @@ export class Game {
     if (this.tickPhase('player') !== 'ongoing') return;
 
     this.turn++;
-    startPlayerPhase(this.units, this.map);
+    startPlayerPhase(this.units);
     this.phaseLabel = '玩家';
     this.phase = { mode: 'idle' };
     logBattle(`── 回合 ${this.turn} · 玩家阶段 ──`, 'phase');
@@ -863,6 +863,7 @@ export class Game {
   private tickPhase(faction: 'player' | 'enemy'): VictoryState {
     const events = tickStatuses(this.units, faction);
     tickResources(this.units, faction);  // R5-2 资源阶段推进（专注回 20/MP 歇息/施法标记重置）
+    applyTerrainRegen(this.units, faction, this.map);  // R6-1 地形回复（持有者阵营阶段开始，§3）
     if (faction === 'player') refreshAuras(this.units, faction);
     if (events.length > 0) {
       for (const e of events) {

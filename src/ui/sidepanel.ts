@@ -83,11 +83,19 @@ export function showTerrainInfo(terrain: TerrainType): void {
   if (!el) return;
   const config = TERRAIN_CONFIGS[terrain];
   const costLabel = config.moveCost === Infinity ? '不可通行' : `${config.moveCost}`;
+  // R6-1：效果字段条件显示（非 0 才占行），平原只剩标题与移动消耗
+  const rows: string[] = [`<tr><td>移动消耗</td><td>${costLabel}</td></tr>`];
+  if (config.pdefense > 0) rows.push(`<tr><td>物理防</td><td>+${config.pdefense}</td></tr>`);
+  if (config.mdefense > 0) rows.push(`<tr><td>法术防</td><td>+${config.mdefense}</td></tr>`);
+  if (config.pevasion > 0) rows.push(`<tr><td>物理闪避</td><td>+${config.pevasion}</td></tr>`);
+  if (config.mevasion > 0) rows.push(`<tr><td>法术闪避</td><td>+${config.mevasion}</td></tr>`);
+  if (config.hpRegenPct > 0) rows.push(`<tr><td>HP 回复</td><td>${config.hpRegenPct}%</td></tr>`);
+  if (config.mpRegen > 0) rows.push(`<tr><td>MP 回复</td><td>+${config.mpRegen}</td></tr>`);
+  if (config.rangeBonus > 0) rows.push(`<tr><td>射程</td><td>+${config.rangeBonus}</td></tr>`);
   el.innerHTML =
     `<h4>地形：${config.label}</h4>` +
-    `<tr><td>移动消耗</td><td>${costLabel}</td></tr>` +
-    `<tr><td>回避</td><td>+${config.evasion}</td></tr>` +
-    `<tr><td>物理防</td><td>+${config.pdefense}</td></tr>` +
+    `<table>` +
+    rows.join('') +
     `</table>`;
 }
 

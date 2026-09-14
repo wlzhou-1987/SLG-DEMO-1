@@ -1,4 +1,4 @@
-import type { HexCoord, DamageType } from './types';
+import type { HexCoord, DamageType, TerrainType } from './types';
 import type { MapState } from './map';
 import { getTerrain } from './map';
 import type { UnitState } from './unit';
@@ -17,7 +17,7 @@ export type PartSide = 'front' | 'side' | 'back';
 /** 回避轴（R4-6 双轴）：物理线 / 法术线 */
 export type EvadeAxis = 'phys' | 'mag';
 
-/** 双轴回避（§4.3）：速×速系数 + 运×运系数 + 对应线地形闪避（R6 前两轴共用现地形闪避字段）；
+/** 双轴回避（§4.3）：速×速系数 + 运×运系数 + 对应线地形闪避（R6-1 起由调用方按轴传 pevasion/mevasion）；
  *  经 statValue 入修正管线——buff/装备/特性改写速/运即改写回避 */
 export function calcEvade(
   defender: UnitState,
@@ -74,11 +74,16 @@ export function calcStrike(
   const side = attackSide(defender.facing, attacker.position, defender.position, guardStance);
   const dist = distance(attacker.position, defender.position);
 
-  // 守方地形加成（飞行不享，§4.11）；R4-2：地形 defense 更名物理防过渡（R6 只增字段）
+  const isMagic = skill.damageType === 'magic';
+  const defAxis: 'pdef' | 'mdef' = isMagic ? 'mdef' : 'pdef';
+
+  // 守方地形加成（飞行不享，§4.11）；R6-1：防/闪按伤害线取双轴字段（§4.3）
   const terrain = getTerrain(map, defender.position);
   const defFlying = isFlying(defT);
-  const terrDef = !defFlying && terrain !== undefined ? TERRAIN_CONFIGS[terrain].pdefense : 0;
-  const terrEva = !defFlying && terrain !== undefined ? TERRAIN_CONFIGS[terrain].evasion : 0;
+  const terrDef = !defFlying && terrain !== undefined
+    ? TERRAIN_CONFIGS[terrain][isMagic ? 'mdefense' : 'pdefense'] : 0;
+  const terrEva = !defFlying && terrain !== undefined
+    ? TERRAIN_CONFIGS[terrain][isMagic ? 'mevasion' : 'pevasion'] : 0;
 
   // 守方护甲解析：活跃护盾覆盖类型（§4.10）；吸收在 resolveBattle 应用
   const { armor: defArmor } = resolveArmor(defender, defT);
@@ -90,8 +95,6 @@ export function calcStrike(
   // ---------- R4-2 统一伤害公式 ----------
   // 伤害 = max( floor( ((权重基数 + 固定值) x 克制系数 - 防御项 - 地形防 ), 0 ) + 部位伤害加算
   // 三线：物理扣 pdef、魔法扣 mdef；克制乘算位于 max 内（先乘后减）
-  const isMagic = skill.damageType === 'magic';
-  const defAxis: 'pdef' | 'mdef' = isMagic ? 'mdef' : 'pdef';
   const backBonus = side === 'back' ? (skill.backPowerBonus ?? 0) : 0;
 
   // 伤害段基数：技能组合权重（缺省物理=str*1、法术=mag*1，模板即职业过渡）+ 固定值 + 影袭背面威力
@@ -409,10 +412,17 @@ export function rangeBonus(t: import('../config/units').UnitTemplate, skill: Ski
   return isBow && t.str >= RANGE_PARAMS.bowStrThreshold ? RANGE_PARAMS.bowBonus : 0;
 }
 
-/** 实际射程上限 = 技能基础 + 属性加成（目标选择/警戒范围用；惩罚仍按基础 rangeMax） */
+/** R6-1 地形额外射程（§3/§4.4：即时读、只加最大射程；飞行不享加成型地形效果 §4.11） */
+function terrainRangeBonus(t: import('../config/units').UnitTemplate, terrain?: TerrainType): number {
+  if (terrain === undefined || isFlying(t)) return 0;
+  return TERRAIN_CONFIGS[terrain].rangeBonus;
+}
+
+/** 实际射程上限 = 技能基础 + 属性加成 + 地形加成（目标选择/择优用；惩罚仍按基础 rangeMax） */
 export function effectiveRangeMax(
   t: import('../config/units').UnitTemplate,
-  skill: SkillTemplate
+  skill: SkillTemplate,
+  terrain?: TerrainType
 ): number {
-  return skill.rangeMax + rangeBonus(t, skill);
+  return skill.rangeMax + rangeBonus(t, skill) + terrainRangeBonus(t, terrain);
 }

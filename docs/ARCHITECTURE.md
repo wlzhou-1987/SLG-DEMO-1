@@ -20,7 +20,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 ## 2. 典型调用链（定位代码用）
 
 - **玩家一次攻击**：`render/input` onClick → `game.ts` handleClick（unitSelected 移动 → playMove → 行动菜单 → 目标选择）→ `core/combat.calcBattleForecast`（预报）→ `ui/forecast` 确认 → `core/combat.resolveBattle`（结算）→ `game.ts` removeDead/playStrikes（`render/animator` 突进/闪烁 + `render/effects` 飘字）→ `ui/battle-log`；法术路线走 `core/spell` 同构
-- **敌方阶段**：`game.ts` endPlayerPhase → runEnemyPhase → `core/status.tickStatuses`（敌方状态推进）→ `core/reinforce.checkReinforcements`（增援）→ `core/ai.checkGroupActivation`（警戒扫描）→ 逐敌 `core/ai.decideEnemyAction` + `core/combat.resolveBattle` → `core/turn.startPlayerPhase`（回合+1）→ `core/turn.checkVictory`
+- **敌方阶段**：`game.ts` endPlayerPhase → runEnemyPhase → `core/status.tickStatuses`（敌方状态推进）→ `core/resources.tickResources` → `core/turn.applyTerrainRegen`（R6-1 地形回复，持有者阵营阶段开始）→ `core/reinforce.checkReinforcements`（增援）→ `core/ai.checkGroupActivation`（警戒扫描）→ 逐敌 `core/ai.decideEnemyAction` + `core/combat.resolveBattle` → `core/turn.startPlayerPhase`（回合+1）→ `core/turn.checkVictory`
 
 ## 3. 文件清单
 
@@ -34,14 +34,14 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/core/unit.ts | 单位实例：UnitState（含 moveSpent/statuses/loadout 技能装填·战斗内冻结/**resources 主资源槽**〔R5-1〕/groupId/activated）、createUnitState（按编成或出厂装填初始化并冻结，资源按模板初始化）、getUnitAt/getUnitActiveSkills（实例主动解析）/hasUnitTrait/resetUnitCounter | §4.1/§4.8/§4.9/§4.13 | tests/core/unit.test.ts |
 | src/core/deployment.ts | 战前编成：RosterEntry（含可选技能装填 loadout）/DeploymentRules、isInDeployZone、validateDeployment（区内/不重叠/模板存在与我方/不重复/人数上下限/必上模板，全参数化）、applyPlacement（站位调整：空格移动/被占交换） | §7.0 | tests/core/deployment.test.ts |
 | src/core/range.ts | 范围计算：calcMovementCosts（Dijkstra；R3-9 封锁邻格仅终点不扩展）、calcMovementRange、calcAttackRange、isBlockaded（fortify+姿态移动阻碍） | §3/§4.8/§4.7 | tests/core/range.test.ts |
-| src/core/combat.ts | 战斗核心：attackSide（部位判定，防御姿态参数化）、calcEvade（**R4-6 双轴回避**：速/运×对应轴系数+地形闪避，经 statValue 入修正管线）、calcStrike/calcBattleForecast（**R4-2 统一公式**：伤害段权重基数×克制（cap 3.0）×背刺（总封顶 4.0）−防御−地形防，先乘后减 max 内 floor；命中接对应轴回避；**R4-7 firstStrike 先攻标记**：守速差 ≥ 阈值〔10 可配、特性可降〕且反击存在）、resolveBattle（**R4-7 序列**：先攻反击→攻→反→追击，先攻击杀攻方则截断）；反击与攻击候选含普攻；calcAoeForecast/resolveAoeBattle、applyDamageToUnit | §4.2~§4.5/§4.7/§4.9 | tests/core/combat.test.ts |
+| src/core/combat.ts | 战斗核心：attackSide（部位判定，防御姿态参数化）、calcEvade（**R4-6 双轴回避**：速/运×对应轴系数+地形闪避，经 statValue 入修正管线）、calcStrike/calcBattleForecast（**R4-2 统一公式**：伤害段权重基数×克制（cap 3.0）×背刺（总封顶 4.0）−防御−地形防，先乘后减 max 内 floor；命中接对应轴回避；**R4-7 firstStrike 先攻标记**：守速差 ≥ 阈值〔10 可配、特性可降〕且反击存在；**R6-1 地形防/闪按伤害线取双轴字段**，飞行不享）、resolveBattle（**R4-7 序列**：先攻反击→攻→反→追击，先攻击杀攻方则截断）；反击与攻击候选含普攻；calcAoeForecast/resolveAoeBattle、applyDamageToUnit、effectiveRangeMax（**R6-1 含地形额外射程**，飞行不享） | §4.2~§4.5/§4.7/§4.9/§3 | tests/core/combat.test.ts |
 | src/core/area.ts | 效果区域解算（R3-7）：getAreaCells（disc 圆盘/sector 施法者正面三格扇形）、unitsInArea（区域+阵营筛选，R3-8 增可见性过滤——潜行不可见即不受 AoE） | §4.9 | tests/core/area.test.ts |
 | src/core/stealth.ts | 潜行机制（R3-8）：enterStealth/cancelStealth/isStealthed、isVisibleTo（绝对隐身 + 真实视野 revealRange 显形；己方阵营恒可见、动态判定出范围自动隐匿） | §4.9/§6 | tests/core/stealth.test.ts |
 | src/core/spell.ts | 法术预报与结算：calcSpellForecast（damage/heal/regen/shield/curse 五类）、resolveSpell（即时结算或挂状态；pyro 灼烧 **R4-7 施放时锁定**：每回合 max(1, floor(直伤/回合数))+末回合补足余数）、resolveAoeSpell（R3-7 AoE 法术：以中心格区域内敌方独立结算） | §4.10/§4.12/§4.9 | tests/core/spell.test.ts |
 | src/core/status.ts | 状态系统：九种 ActiveStatus（chant 锁定格/stealth/buff 衰减/stance/charge 蓄力/dot 灼烧〔R4-7 存值跳+末回合 finalTurnExtra 补足〕/…）、resolveArmor、tickStatuses、interruptChant（R5-1 打断返还咏唱资源）、applyBuff、refreshAuras、statValue（模板+buff+姿态+冲锋/狂战被动；R4-6 AttrKey 扩 spd/lck 轴——回避入修正管线） | §4.10/§4.12/§4.9/§4.13 | tests/core/status.test.ts |
 | src/core/effects.ts | 行为技能与修饰执行器（R3-9/10）：executeBehavior（潜行/姿态/祝福/怒吼/嗜血）、resolveSkillSubs（附属段资源入真实主资源，R5-2）、resolveShout、rushDestination（冲杀落位与灰显条件）、applyAmbushBonus（破隐一击）、resolveChargeStrike（蓄力触发：额外威力+免距离惩罚） | §4.9/§4.13 | tests/core/effects.test.ts |
-| src/core/turn.ts | 回合与胜负：checkVictory（全灭/领主阵亡）、startPlayerPhase（重置行动+基地回复） | §2/§3 | tests/core/turn.test.ts |
-| src/core/ai.ts | 敌方 AI：decideEnemyAction（落位×技能×目标枚举评分，击杀优先；资源不足技能不入选〔R5-1 回落普攻〕；BOSS 驻守；无目标向组质心最近我方集结）、checkGroupActivation（警戒范围扫描全组激活）、provokeGroup（被攻击激活） | §6/§4.13 | tests/core/ai.test.ts |
+| src/core/turn.ts | 回合与胜负：checkVictory（全灭/领主阵亡）、startPlayerPhase（仅重置行动/移动力标记）、applyTerrainRegen（R6-1 地形回复数据驱动：HP 百分比+MP 固定值，阵营过滤、死亡跳过） | §2/§3 | tests/core/turn.test.ts |
+| src/core/ai.ts | 敌方 AI：decideEnemyAction（落位×技能×目标枚举评分，击杀优先；资源不足技能不入选〔R5-1 回落普攻〕；择优射程含地形额外射程〔R6-1 按落位地形，警戒范围不含——口径注 ai.ts〕；BOSS 驻守；无目标向组质心最近我方集结）、checkGroupActivation（警戒范围扫描全组激活）、provokeGroup（被攻击激活） | §6/§4.13 | tests/core/ai.test.ts |
 | src/core/reinforce.ts | 增援：checkReinforcements（回合/组血量触发、次数上限、刷新点 BFS 找空位，登场即激活） | §6 | tests/core/reinforce.test.ts |
 | src/core/resources.ts | 资源系统（R5-1/R5-2，§4.13）：ResourceState 主资源槽、initResources（怒 0/专满/MP=mag×5 满按模板初始化）、canAfford/payCost（结算前扣费、不足拒扣）、refundCost（咏唱打断全额返还）、gainOnHit/gainOnStruck（命中积攒：怒任意攻击+受击、专/MP 仅普攻）、gainResource（附属段/特性段入池封顶）、tickResources（阶段推进：专注回 20/MP 歇息回 15+施法标记重置） | §4.13 | tests/core/resources.test.ts |
 
@@ -52,7 +52,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/config/skills.ts | SKILLS 注册表（物理攻击+行为技能）：SkillTemplate（target 三值/主效果扁平伤害段/附属段声明/AoE 效果区域/资源与武器声明/瞬发/counters/learnable）、WeaponAtom 8 原子、主资源三枚举 | §4.9 | tests/config/skills.test.ts |
 | src/config/units.ts | 兵种模板：UnitTemplate（八维 str/mag/pdef/mdef/spd/tec/lck + weapons/resourceType/**unitTags 兵种标签**〔R4-4 正式化，flying 布尔收编〕/basicAttack/skills/traits）、UnitTag 枚举与 isFlying、PLAYER_TEMPLATES（10）/ENEMY_TEMPLATES（7）、getTemplate、resolveSkill（SKILLS ∪ SPELLS）、getTemplateSkills、basicAttackSkill、hasTemplateTrait | §4.1/§4.2/§4.9/§5.1/§5.2 | tests/config/skills.test.ts |
 | src/config/combat.ts | 战斗数值：DAMAGE_ARMOR_MATRIX（§4.2 定稿物理梯度，R4-3 法术行移出）、PART_BONUS、COMBAT_PARAMS（命中/**双轴回避系数 evadeCoeffs**〔R4-6 结构，R4-8 定稿速 3/运 3 两轴同值〕/追击/先攻阈值 10〔R4-7，特性可降〕/递增距离惩罚 base15+step10/克制 cap 3.0/总封顶 4.0）、RANGE_PARAMS（R4-5 属性条件射程阈值）、EFFECT_PARAMS | §4.2~§4.4/§4.7 | —（tests/core/combat 间接） |
-| src/config/terrain.ts | 地形配置：TERRAIN_CONFIGS（移动消耗/回避/物理防 pdefense〔R4-2 更名过渡，R6 只增字段〕/颜色/标签） | §3 | — |
+| src/config/terrain.ts | 地形配置：TERRAIN_CONFIGS（移动消耗 + R6-1 显式效果字段——物理防/法术防/物理闪避 pevasion/法术闪避 mevasion/HP 回复 hpRegenPct/MP 回复/额外射程 rangeBonus/颜色/标签） | §3 | tests/config/terrain.test.ts |
 | src/config/spells.ts | 法术定义：SpellTemplate（继承 SkillTemplate，id/target/learnable；释放方式×生效方式）、SPELLS 六法术（陨石术 armorResist heavy ×1.5——法术破重甲钥匙，R4-8）、getSpell/isSpell | §4.12 | —（tests/core/spell 间接） |
 | src/config/traits.ts | 特性修正：TRAIT_CONFIGS（再移动/背刺/沉稳/真实视野〔revealRange 声明，R3-8 结算〕，learnable 标记、weaponType 声明、firstStrikeThreshold 先攻降阈声明〔R4-7〕）、getTrait | §4.7 | —（tests/core/combat 间接） |
 | src/config/pool.ts | 通用技能池：getPool（三表 learnable 条目 union 视图）、learnBlockReason/canLearn（双过滤）、SLOT_LIMITS、findRegisteredEntry（三表全量查）、validateLoadoutForTemplate（装填合法性：未注册/分组/双约束） | §4.9 | tests/config/pool.test.ts |
@@ -76,7 +76,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | --- | --- | --- | --- |
 | src/ui/topbar.ts | updateTopbar：顶栏回合/阶段/兵力与结束回合按钮 | §7.1 | — |
 | src/ui/prep.ts | createPrepScreen：战前准备面板（右侧）——出场名单勾选 + 技能配置区块（R3-5：选中角色 → 主动 0~5/被动 0~6 槽、通用池混排双过滤置灰、出厂默认、编辑后随编成传 loadout）+ 装备/地图占位区块 + 实时校验 + 开战按钮；站位记忆画布调整结果（getRoster/setChecked/setBoardRoster/selectUnit/addToSlot/removeFromSlot/poolEntries/refresh/clickStart） | §7.0/§4.9 | tests/ui/prep.test.ts |
-| src/ui/sidepanel.ts | showUnitInfo/clearUnitInfo、showTerrainInfo/clearTerrainInfo：右侧单位属性（含特性/状态）与地形面板 | §7.3 | — |
+| src/ui/sidepanel.ts | showUnitInfo/clearUnitInfo、showTerrainInfo/clearTerrainInfo：右侧单位属性（含特性/状态）与地形面板（R6-1 效果字段条件显示） | §7.3/§3 | — |
 | src/ui/action-menu.ts | showActionMenu/hideActionMenu：画布内浮动行动菜单（R5-1 disabled 灰显项不触发回调） | §7.2/§4.13 | tests/ui/action-menu.test.ts |
 | src/ui/forecast.ts | showForecastPanel/showSpellForecastPanel/showAoeForecastPanel：战斗/法术/AoE 多目标预报面板（确认/取消） | §4.5/§4.12/§4.9 | — |
 | src/ui/battle-log.ts | logBattle：战斗日志（最新在顶，30 条裁剪） | §7.4 | — |

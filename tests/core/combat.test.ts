@@ -15,6 +15,7 @@ import { COMBAT_PARAMS } from '../../src/config/combat';
 import { resetUnitCounter, createUnitState } from '../../src/core/unit';
 import { resolveSpell } from '../../src/core/spell';
 import { TRAIT_CONFIGS } from '../../src/config/traits';
+import { TERRAIN_CONFIGS } from '../../src/config/terrain';
 
 describe('attackSide 部位判定', () => {
   // 守方在 (5,5)，朝向 0（东）；左右紧邻 = NE/SE
@@ -975,7 +976,7 @@ describe('R4-6 双轴命中回避', () => {
     expect(calcEvade(thief, thiefT, 'mag', 0, { spd: 1, lck: 0 })).toBe(30);
   });
 
-  it('两轴共用现地形闪避字段（R6 前）：法术线同吃森林 +20，飞行守方两轴均不享', () => {
+  it('双轴地形闪避过渡同值（R6-1）：法术线吃 mevasion 字段，4 地形暂与 pevasion 同值', () => {
     const mageT = getTemplate('mage')!;  // tec17 → 135
     const mage = createUnitState('mage', 'player', { q: 10, r: 15 }, { active: [], passive: [] });
     const forestMap = createMapState({ forests: [{ q: 11, r: 15 }] });
@@ -1075,3 +1076,92 @@ describe('R4-7 先攻反击', () => {
     expect(f2.firstStrike).toBe(false);
   });
 });
+
+describe('R6-1 地形效果双轴字段（§3/§4.3：物理/法术独立取值）', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+  const mkSkill = (over: Partial<SkillTemplate>): SkillTemplate => ({
+    id: 't', name: '测试技能', target: 'enemy', damageType: 'slashing',
+    rangeMin: 1, rangeMax: 1, learnable: false, ...over
+  });
+
+  it('双轴地形防独立：物理扣 pdefense、法术扣 mdefense（临时分离验证）', () => {
+    const forestMap = createMapState({ forests: [{ q: 11, r: 15 }] });
+    const lordT = getTemplate('lord')!;
+    const mageT = getTemplate('mage')!;
+    const saved = TERRAIN_CONFIGS.forest.mdefense;
+    TERRAIN_CONFIGS.forest.mdefense = 5;
+    try {
+      // 物理：平原 vs 森林伤害差 = pdefense(1)
+      const slash = (m: ReturnType<typeof createMapState>) => {
+        const attacker = createUnitState('lord', 'player', { q: 10, r: 15 });
+        const defender = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+        return calcStrike(m, attacker, lordT, defender, getTemplate('swordsman')!, mkSkill({ damageType: 'slashing' })).damage;
+      };
+      expect(slash(map) - slash(forestMap)).toBe(1);
+      // 法术：平原 vs 森林伤害差 = mdefense(5)，不再吃 pdefense
+      const magic = (m: ReturnType<typeof createMapState>) => {
+        const attacker = createUnitState('mage', 'player', { q: 10, r: 15 }, { active: [], passive: [] });
+        const defender = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+        return calcStrike(m, attacker, mageT, defender, getTemplate('swordsman')!, mkSkill({ damageType: 'magic' })).damage;
+      };
+      expect(magic(map) - magic(forestMap)).toBe(5);
+    } finally {
+      TERRAIN_CONFIGS.forest.mdefense = saved;
+    }
+  });
+
+  it('双轴地形闪避独立：物理吃 pevasion、法术吃 mevasion（临时分离验证）', () => {
+    const forestMap = createMapState({ forests: [{ q: 11, r: 15 }] });
+    const mageT = getTemplate('mage')!;      // tec17 → 命中基数 135
+    const swT = getTemplate('swordsman')!;   // 回避 75
+    const saved = TERRAIN_CONFIGS.forest.mevasion;
+    TERRAIN_CONFIGS.forest.mevasion = 10;
+    try {
+      const strike = (dt: 'blunt' | 'magic') => {
+        const attacker = createUnitState('mage', 'player', { q: 10, r: 15 }, { active: [], passive: [] });
+        const defender = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+        return calcStrike(forestMap, attacker, mageT, defender, swT, mkSkill({ damageType: dt })).hitRate;
+      };
+      expect(strike('blunt')).toBe(135 - 75 - 20);  // 物理吃 pevasion 20
+      expect(strike('magic')).toBe(135 - 75 - 10);  // 法术吃 mevasion 10
+    } finally {
+      TERRAIN_CONFIGS.forest.mevasion = saved;
+    }
+  });
+
+  it('飞行守方双轴地形闪避均不享：mevasion 拉满也不影响命中', () => {
+    const forestMap = createMapState({ forests: [{ q: 11, r: 15 }] });
+    const mageT = getTemplate('mage')!;      // tec17 → 135
+    const pegasusT = getTemplate('pegasus')!;  // 回避 108，不享地形
+    const saved = TERRAIN_CONFIGS.forest.mevasion;
+    TERRAIN_CONFIGS.forest.mevasion = 999;
+    try {
+      const attacker = createUnitState('mage', 'player', { q: 10, r: 15 }, { active: [], passive: [] });
+      const pegasus = createUnitState('pegasus', 'enemy', { q: 11, r: 15 });
+      expect(calcStrike(forestMap, attacker, mageT, pegasus, pegasusT, mkSkill({ damageType: 'magic' })).hitRate)
+        .toBe(135 - 108);
+    } finally {
+      TERRAIN_CONFIGS.forest.mevasion = saved;
+    }
+  });
+
+  it('地形额外射程：effectiveRangeMax 接 rangeBonus，飞行不享受', () => {
+    const archerT = getTemplate('archer')!;    // 力 ≥ 阈值 → 狙击属性加成 +1
+    const pegasusT = getTemplate('pegasus')!;
+    expect(effectiveRangeMax(archerT, SKILLS.snipe, 'plain')).toBe(3);   // 2+1+0
+    expect(effectiveRangeMax(archerT, SKILLS.snipe)).toBe(3);           // 无地形参数不加
+    const saved = TERRAIN_CONFIGS.forest.rangeBonus;
+    TERRAIN_CONFIGS.forest.rangeBonus = 1;
+    try {
+      expect(effectiveRangeMax(archerT, SKILLS.snipe, 'forest')).toBe(4);  // 2+1+1
+      expect(effectiveRangeMax(pegasusT, basicAttackSkill(pegasusT), 'forest')).toBe(1);  // 飞行不吃地形射程
+    } finally {
+      TERRAIN_CONFIGS.forest.rangeBonus = saved;
+    }
+  });
+});
+

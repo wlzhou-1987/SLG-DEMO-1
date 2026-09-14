@@ -16,7 +16,7 @@ import { checkReinforcements } from '../../src/core/reinforce';
 import { tickStatuses } from '../../src/core/status';
 import type { StatusEvent } from '../../src/core/status';
 import { resolveSpell } from '../../src/core/spell';
-import { checkVictory, startPlayerPhase } from '../../src/core/turn';
+import { checkVictory, startPlayerPhase, applyTerrainRegen } from '../../src/core/turn';
 import { hexKey, distance, directionBetween } from '../../src/core/hex';
 import type { HexCoord } from '../../src/core/types';
 
@@ -246,6 +246,7 @@ function simulate(seed: number): SimResult {
 
     applyStatusEvents(map, units, tickStatuses(units, 'enemy'), rng);
     tickResources(units, 'enemy');  // R5-2 资源阶段推进
+    applyTerrainRegen(units, 'enemy', map);  // R6-1 地形回复（敌方阶段开始）
     cleanup();
     units.push(...checkReinforcements(map, turn, units, fired));
     checkGroupActivation(map, units);
@@ -271,11 +272,12 @@ function simulate(seed: number): SimResult {
 
     applyStatusEvents(map, units, tickStatuses(units, 'player'), rng);
     tickResources(units, 'player');  // R5-2 资源阶段推进
+    applyTerrainRegen(units, 'player', map);  // R6-1 地形回复（玩家阶段开始）
     cleanup();
     victory = checkVictory(units);
     if (victory !== 'ongoing') break;
     turn++;
-    startPlayerPhase(units, map);
+    startPlayerPhase(units);
   }
 
   return {
