@@ -15,16 +15,20 @@ describe('R6-1 地形效果字段（显式平铺 7 字段）', () => {
     }
   });
 
-  it('行为等价过渡锚：法术线初值沿用物理线现值（R6-2 落数值时移除本锚）', () => {
-    for (const cfg of Object.values(TERRAIN_CONFIGS)) {
-      expect(cfg.mevasion).toBe(cfg.pevasion);
-      expect(cfg.mdefense).toBe(cfg.pdefense);
-    }
+  it('法术线定稿值（R6-2）：森林法闪 10（减半）/法防 0，基地法闪 20/法防 1', () => {
+    expect(TERRAIN_CONFIGS.forest.mevasion).toBe(10);
+    expect(TERRAIN_CONFIGS.forest.mdefense).toBe(0);
+    expect(TERRAIN_CONFIGS.base.mevasion).toBe(20);
+    expect(TERRAIN_CONFIGS.base.mdefense).toBe(1);
+    expect(TERRAIN_CONFIGS.plain.mevasion).toBe(0);
+    expect(TERRAIN_CONFIGS.plain.mdefense).toBe(0);
   });
 
-  it('行为等价过渡锚：MP 回复与额外射程全 0（R6-2 落数值时移除本锚）', () => {
+  it('MP 回复定稿值（R6-2）：仅基地 10；额外射程全 0（留未来高地/塔类地形）', () => {
+    expect(TERRAIN_CONFIGS.base.mpRegen).toBe(10);
+    expect(TERRAIN_CONFIGS.plain.mpRegen).toBe(0);
+    expect(TERRAIN_CONFIGS.forest.mpRegen).toBe(0);
     for (const cfg of Object.values(TERRAIN_CONFIGS)) {
-      expect(cfg.mpRegen).toBe(0);
       expect(cfg.rangeBonus).toBe(0);
     }
   });

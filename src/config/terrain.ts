@@ -33,9 +33,9 @@ export const TERRAIN_CONFIGS: Record<TerrainType, TerrainConfig> = {
     type: 'forest',
     moveCost: 2,
     pevasion: 20,
-    mevasion: 20,   // R6-1 等价过渡：沿用物理闪避值，R6-2 落 10
+    mevasion: 10,   // R6-2 定稿：物理掩蔽强于法术（减半）
     pdefense: 1,
-    mdefense: 1,    // R6-1 等价过渡：沿用物理防值，R6-2 落 0
+    mdefense: 0,    // R6-2 定稿：树不挡魔法
     hpRegenPct: 0,
     mpRegen: 0,
     rangeBonus: 0,
@@ -59,11 +59,11 @@ export const TERRAIN_CONFIGS: Record<TerrainType, TerrainConfig> = {
     type: 'base',
     moveCost: 1,
     pevasion: 20,
-    mevasion: 20,   // R6-1 等价过渡：目标值即 20
+    mevasion: 20,   // R6-2 定稿：工事双向掩蔽
     pdefense: 2,
-    mdefense: 2,    // R6-1 等价过渡：沿用物理防值，R6-2 落 1
+    mdefense: 1,    // R6-2 定稿：硬抗但低于物理
     hpRegenPct: 10,
-    mpRegen: 0,     // R6-1 等价过渡：R6-2 落 10
+    mpRegen: 10,    // R6-2 定稿：通用补给点，仅 MP 资源受益
     rangeBonus: 0,
     color: '#8b6914',
     label: '基地'

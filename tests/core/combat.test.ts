@@ -976,14 +976,14 @@ describe('R4-6 双轴命中回避', () => {
     expect(calcEvade(thief, thiefT, 'mag', 0, { spd: 1, lck: 0 })).toBe(30);
   });
 
-  it('双轴地形闪避过渡同值（R6-1）：法术线吃 mevasion 字段，4 地形暂与 pevasion 同值', () => {
+  it('双轴地形闪避定稿值（R6-2）：法术线吃 mevasion——森林物理 20/法术 10，飞行两轴均不享', () => {
     const mageT = getTemplate('mage')!;  // tec17 → 135
     const mage = createUnitState('mage', 'player', { q: 10, r: 15 }, { active: [], passive: [] });
     const forestMap = createMapState({ forests: [{ q: 11, r: 15 }] });
     const swT = getTemplate('swordsman')!;  // 回避 75
     const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
     expect(calcStrike(forestMap, mage, mageT, sw, swT, mkSkill({ damageType: 'blunt' })).hitRate).toBe(135 - 95);
-    expect(calcStrike(forestMap, mage, mageT, sw, swT, mkSkill({ damageType: 'magic' })).hitRate).toBe(135 - 95);
+    expect(calcStrike(forestMap, mage, mageT, sw, swT, mkSkill({ damageType: 'magic' })).hitRate).toBe(135 - 85);
     const pegasusT = getTemplate('pegasus')!;  // 飞行：回避 21×3+15×3 = 108，不享森林
     const pegasus = createUnitState('pegasus', 'enemy', { q: 11, r: 15 });
     expect(calcStrike(forestMap, mage, mageT, pegasus, pegasusT, mkSkill({ damageType: 'blunt' })).hitRate).toBe(135 - 108);

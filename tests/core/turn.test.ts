@@ -101,22 +101,17 @@ describe('turn', () => {
     });
 
     it('MP 回复：mpRegen 只入 MP 资源单位（怒气/专注不回，封顶上限）', () => {
-      const saved = TERRAIN_CONFIGS.base.mpRegen;
-      TERRAIN_CONFIGS.base.mpRegen = 10;
-      try {
-        const priest = createUnitState('priest', 'player', { q: 10, r: 2 });  // mp
-        const knight = createUnitState('knight', 'player', { q: 11, r: 2 }); // rage
-        priest.resources.current = 0;
-        knight.resources.current = 0;
-        applyTerrainRegen([priest, knight], 'player', baseMap);
-        expect(priest.resources.current).toBe(10);
-        expect(knight.resources.current).toBe(0);
-        priest.resources.current = priest.resources.max - 3;
-        applyTerrainRegen([priest], 'player', baseMap);
-        expect(priest.resources.current).toBe(priest.resources.max);  // 封顶
-      } finally {
-        TERRAIN_CONFIGS.base.mpRegen = saved;
-      }
+      expect(TERRAIN_CONFIGS.base.mpRegen).toBe(10);  // R6-2 定稿值
+      const priest = createUnitState('priest', 'player', { q: 10, r: 2 });  // mp
+      const knight = createUnitState('knight', 'player', { q: 11, r: 2 }); // rage
+      priest.resources.current = 0;
+      knight.resources.current = 0;
+      applyTerrainRegen([priest, knight], 'player', baseMap);
+      expect(priest.resources.current).toBe(10);
+      expect(knight.resources.current).toBe(0);
+      priest.resources.current = priest.resources.max - 3;
+      applyTerrainRegen([priest], 'player', baseMap);
+      expect(priest.resources.current).toBe(priest.resources.max);  // 封顶
     });
   });
 });
