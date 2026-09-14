@@ -9,6 +9,8 @@ export interface TraitConfig {
   firstStrikeThreshold?: number; // R4-7 先攻反击：守方声明降低先攻速度阈值（如降至 5）
   backstabMultiplier?: number; // 背刺：背面伤害乘算倍率（替代 +3 加算）
   revealRange?: number;        // 真实视野（§6 反制；随 R3-8 生效）
+  rangedHitBonus?: number;     // R7-2 鹰眼：远程命中加成（参与喂溢出，§4.3）
+  critCapBonus?: number;       // R7-2 暴击上限突破声明位（首版消费者为技能侧，特性侧留声明位）
 }
 
 /** 特性修正层（§4.7 被动 + 职业强化，TRAIT_CONFIGS 注册表）：结算管线在修正点查询攻守双方特性 */
@@ -120,8 +122,9 @@ export const TRAIT_CONFIGS: Record<string, TraitConfig> = {
   'eagle-eye': {
     id: 'eagle-eye',
     name: '鹰眼',
-    desc: '远程命中 +30%、命中溢出转暴击（结算随 R7 落地）',
-    learnable: false
+    desc: '远程命中 +30、命中溢出 1:1 转暴击修正（R7-2 落地，§4.3）',
+    learnable: false,
+    rangedHitBonus: 30
   }
 };
 

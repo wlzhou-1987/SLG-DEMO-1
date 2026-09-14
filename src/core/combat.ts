@@ -6,7 +6,7 @@ import type { SkillTemplate } from '../config/skills';
 import type { UnitTemplate } from '../config/units';
 import { getTemplate, getTemplateSkills, basicAttackSkill, isFlying } from '../config/units';
 import { directionBetween, distance } from './hex';
-import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS, EFFECT_PARAMS, RANGE_PARAMS } from '../config/combat';
+import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS, EFFECT_PARAMS, RANGE_PARAMS, WEAPON_CRIT_BONUS } from '../config/combat';
 import { TERRAIN_CONFIGS } from '../config/terrain';
 import { TRAIT_CONFIGS } from '../config/traits';
 import { resolveArmor, statValue } from './status';
@@ -64,16 +64,23 @@ export interface BattleForecast {
   firstStrike: boolean;  // R4-7 先攻反击：守方反击先行结算（§4.3）
 }
 
-/** R7-1 暴击率（§4.3）：clamp(攻技×系数 + 运差×系数, 0, 上限)——属性段，修正合计与武器加成随 R7-2 接入 */
+/** R7-1 暴击率（§4.3）：属性段 clamp(技×系数 + 运差×系数 + 修正合计, 0, 上限) + 武器加成 → clamp 0~100；
+ *  R7-2 mods：overflow = 鹰眼命中溢出（1:1 进修正合计）；capBonus = Σ critCapBonus（技能/特性声明）抬上限 */
 export function calcCritRate(
   attacker: UnitState,
   atkT: UnitTemplate,
   defender: UnitState,
-  defT: UnitTemplate
+  defT: UnitTemplate,
+  mods?: { overflow?: number; capBonus?: number }
 ): number {
   const rate = statValue(attacker, atkT, 'tec') * COMBAT_PARAMS.critPerTech
-    + (statValue(attacker, atkT, 'lck') - statValue(defender, defT, 'lck')) * COMBAT_PARAMS.critPerLck;
-  return Math.max(0, Math.min(rate, COMBAT_PARAMS.critCap, COMBAT_PARAMS.critAbsMax));
+    + (statValue(attacker, atkT, 'lck') - statValue(defender, defT, 'lck')) * COMBAT_PARAMS.critPerLck
+    + (mods?.overflow ?? 0) * COMBAT_PARAMS.critOverflowRate;
+  const cap = COMBAT_PARAMS.critCap + (mods?.capBonus ?? 0);
+  const propSeg = Math.max(0, Math.min(rate, cap));
+  // R7-2 武器暴击加成（R2 声明先行、现恒 0）：clamp 外自动全额生效，仅受绝对顶
+  const weaponBonus = atkT.weapons.reduce((s, w) => s + (WEAPON_CRIT_BONUS[w] ?? 0), 0);
+  return Math.max(0, Math.min(propSeg + weaponBonus, COMBAT_PARAMS.critAbsMax));
 }
 
 /** R7-1 期望伤害（§6/§4.3）：命中率 × (非暴伤害×(1−p) + 暴击伤害×p)，p = mustCrit ? 1 : 暴击率 */
@@ -167,14 +174,21 @@ export function calcStrike(
   const rangePenalty = over === 0
     ? 0
     : COMBAT_PARAMS.rangePenaltyBase * over + COMBAT_PARAMS.rangePenaltyStep * over * (over - 1) / 2;
+  // R7-2 鹰眼（远程）：命中加成参与喂溢出（§4.3——+30 自喂，溢出只对低回避目标产生）
+  const eagleRanged = atkTraits.includes('eagle-eye') && skill.rangeMax >= COMBAT_PARAMS.rangedMinRange;
   const rawHit =
     COMBAT_PARAMS.hitBase + atkT.tec * COMBAT_PARAMS.hitPerTech - evade +
-    partHit - rangePenalty;
+    partHit - rangePenalty +
+    (eagleRanged ? TRAIT_CONFIGS['eagle-eye'].rangedHitBonus ?? 0 : 0);
   const hitRate = Math.max(COMBAT_PARAMS.hitMin, Math.min(COMBAT_PARAMS.hitMax, rawHit));
+  // R7-2 命中溢出转暴击（1:1 进修正合计，限远程）；上限突破 = 技能/特性 critCapBonus 声明合计
+  const critOverflow = eagleRanged ? Math.max(0, rawHit - COMBAT_PARAMS.hitMax) : 0;
+  const critCapBonus = (skill.critCapBonus ?? 0)
+    + atkTraits.reduce((s, id) => s + (TRAIT_CONFIGS[id]?.critCapBonus ?? 0), 0);
 
   return {
     skillName: skill.name, damageType: skill.damageType, side, damage, hitRate, count: 1, rangePenalty,
-    critRate: calcCritRate(attacker, atkT, defender, defT),
+    critRate: calcCritRate(attacker, atkT, defender, defT, { overflow: critOverflow, capBonus: critCapBonus }),
     critDamage,
     mustCrit: skill.critOverride === true
   };

@@ -374,7 +374,8 @@ export class Game {
     const rows = targets.map((t, i) => ({
       name: this.unitName(t),
       damage: forecasts[i].damage,
-      hitRate: forecasts[i].hitRate
+      hitRate: forecasts[i].hitRate,
+      critRate: forecasts[i].critRate
     }));
     showAoeForecastPanel(skill.name, this.unitName(unit), rows,
       () => { void this.confirmAoeBattle(unit, skill, targets); },
@@ -636,10 +637,11 @@ export class Game {
       if (s.hit) {
         this.animator.startFlash(def.id, performance.now());
         const hpLoss = s.damage - s.absorbed;
-        if (hpLoss > 0) this.floatText(`-${hpLoss}`, FLOAT_COLOR.damage, def.position);
+        // R7-2 暴击标记：飘字前缀 + 战报「暴击！」
+        if (hpLoss > 0) this.floatText(s.crit ? `暴击-${hpLoss}` : `-${hpLoss}`, s.crit ? FLOAT_COLOR.crit : FLOAT_COLOR.damage, def.position);
         if (s.absorbed > 0) this.floatText(`盾${s.absorbed}`, FLOAT_COLOR.shield, def.position, 0, -14);
         logBattle(
-          `${this.unitName(atk)}·${s.skillName} → ${this.unitName(def)} 命中` +
+          `${this.unitName(atk)}·${s.skillName} → ${this.unitName(def)} ${s.crit ? '暴击！' : ''}命中` +
           (hpLoss > 0 ? ` -${hpLoss}` : '') + (s.absorbed > 0 ? `（盾吸收 ${s.absorbed}）` : '')
         );
       } else {
@@ -675,8 +677,9 @@ export class Game {
     const c = this.unitName(caster), t = this.unitName(target);
     if (result.kind === 'damage') {
       if (result.hit) {
-        this.floatText(`-${result.damage}`, FLOAT_COLOR.damage, target.position);
-        logBattle(`${c}·${skillName} → ${t} 命中 -${result.damage}`);
+        this.floatText(result.crit ? `暴击-${result.damage}` : `-${result.damage}`,
+          result.crit ? FLOAT_COLOR.crit : FLOAT_COLOR.damage, target.position);
+        logBattle(`${c}·${skillName} → ${t} ${result.crit ? '暴击！' : ''}命中 -${result.damage}`);
       } else {
         this.floatText('MISS', FLOAT_COLOR.miss, target.position);
         logBattle(`${c}·${skillName} → ${t} 落空`);
@@ -877,8 +880,8 @@ export class Game {
             for (const r of aoeResults) {
               const t = this.units.find(u => u.id === r.targetId);
               if (!t) continue;
-              this.floatText(r.hit ? `-${r.damage}` : 'MISS',
-                r.hit ? FLOAT_COLOR.damage : FLOAT_COLOR.miss, t.position);
+              this.floatText(r.hit ? (r.crit ? `暴击-${r.damage}` : `-${r.damage}`) : 'MISS',
+                r.hit ? (r.crit ? FLOAT_COLOR.crit : FLOAT_COLOR.damage) : FLOAT_COLOR.miss, t.position);
               if (caster.faction === 'player' && t.faction === 'enemy') {
                 provokeGroup(this.units, t);
               }

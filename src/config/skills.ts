@@ -54,6 +54,7 @@ export interface SkillTemplate {
   halfDefFromBack?: boolean;      // 背刺：背面攻击无视一半防御
   backPowerBonus?: number;        // 影袭：背面攻击威力提升
   critOverride?: boolean;         // 致命突袭：绝对必暴（声明先行，结算归 R7）
+  critCapBonus?: number;         // R7-2 暴击上限突破（§4.3：上限 = 50 + Σ；首版消费者 = 瞄准射击蓄力触发一击 +20）
   noCounterIfMoved?: boolean;     // 空中突袭：本回合移动后释放不受反击
   chargeTurns?: number;           // 瞄准射击：物理蓄力（复用咏唱推进结构）
   rush?: boolean;                 // 冲杀：穿越位移（直线冲过目标格落背后）
@@ -131,7 +132,7 @@ export const SKILLS: Record<string, SkillTemplate> = {
   'aim-shot': {
     id: 'aim-shot', name: '瞄准射击', target: 'enemy', damageType: 'piercing',
     rangeMin: 2, rangeMax: 2, weaponType: 'bow',
-    chargeTurns: 1, backPowerBonus: 0, learnable: false
+    chargeTurns: 1, backPowerBonus: 0, critCapBonus: 20, learnable: false
   },
   'charge-rush': {
     id: 'charge-rush', name: '冲杀', target: 'enemy', damageType: 'piercing',

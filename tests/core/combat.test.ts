@@ -11,7 +11,7 @@ import { rangeBonus, effectiveRangeMax } from '../../src/core/combat';
 import { SPELLS } from '../../src/config/spells';
 import type { SkillTemplate } from '../../src/config/skills';
 import { calcAoeForecast, resolveAoeBattle, calcStrike, calcEvade, calcCritRate, expectedDamage } from '../../src/core/combat';
-import { COMBAT_PARAMS } from '../../src/config/combat';
+import { COMBAT_PARAMS, WEAPON_CRIT_BONUS } from '../../src/config/combat';
 import { resetUnitCounter, createUnitState } from '../../src/core/unit';
 import { resolveSpell } from '../../src/core/spell';
 import { gainOnCrit } from '../../src/core/resources';
@@ -1284,5 +1284,59 @@ describe('R7-1 暴击核心结算', () => {
     const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });
     const f = calcBattleForecast(map, thief, boss, basicAttackSkill(T('thief')));
     expect(f.counter?.skillName).toBe('横扫');
+  });
+});
+
+describe('R7-2 暴击修正管线（鹰眼溢出/critCapBonus/武器加成）', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+    delete WEAPON_CRIT_BONUS.bow;
+  });
+
+  const map = createMapState();
+  const T = (id: string) => getTemplate(id)!;
+
+  it('鹰眼远程：命中 +30 喂溢出 1:1 进修正合计（mage 装 eagle-eye 火球 vs BOSS：raw 117 → 溢出 17，暴击 17+7+17=41）', () => {
+    const mage = createUnitState('mage', 'player', { q: 10, r: 15 }, { active: [], passive: ['eagle-eye'] });
+    const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });
+    const f = calcStrike(map, mage, T('mage'), boss, T('boss'), SPELLS.fireball);
+    expect(f.hitRate).toBe(100);            // 50+17×5+30−48 → clamp 100
+    expect(f.critRate).toBe(41);            // 17+(11−4)+17
+  });
+
+  it('限远程：eagle-eye 持有者 rangeMax 1 攻击无 +30 无溢出（盗贼普攻 vs BOSS 暴击 35 非 50）', () => {
+    const thief = createUnitState('thief', 'player', { q: 10, r: 15 }, { active: [], passive: ['eagle-eye'] });
+    const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });
+    const f = calcStrike(map, thief, T('thief'), boss, T('boss'), basicAttackSkill(T('thief')));
+    expect(f.critRate).toBe(35);            // 23+(16−4)，rawHit 117 的溢出不喂
+  });
+
+  it('溢出只对低回避目标产生：高回避 thief（evade 120）raw 45 < 100 → 无溢出，暴击 12', () => {
+    const mage = createUnitState('mage', 'player', { q: 10, r: 15 }, { active: [], passive: ['eagle-eye'] });
+    const thief = createUnitState('thief', 'enemy', { q: 10, r: 17 });  // dist 2
+    thief.facing = 3;  // 朝西正对法师（避免侧背部位命中补正混入）
+    const f = calcStrike(map, mage, T('mage'), thief, T('thief'), SPELLS.fireball);
+    expect(f.hitRate).toBe(45);
+    expect(f.critRate).toBe(12);            // 17+(11−16)
+  });
+
+  it('critCapBonus 上限突破：瞄准射击 +20 → cap 70（archer vs BOSS 溢出 27 → 54 不截）；普攻对照截 50', () => {
+    const archer = createUnitState('archer', 'player', { q: 10, r: 15 });
+    const boss = createUnitState('boss', 'enemy', { q: 12, r: 15 });    // dist 2
+    const aim = calcStrike(map, archer, T('archer'), boss, T('boss'), SKILLS['aim-shot']);
+    expect(aim.critRate).toBe(54);          // 19+(12−4)+27 → cap 70 内
+    const basic = calcStrike(map, archer, T('archer'), boss, T('boss'), basicAttackSkill(T('archer')));
+    expect(basic.critRate).toBe(50);        // 同值截默认上限
+  });
+
+  it('武器暴击加成在 clamp 外：属性段截 50 + bow 40 = 90；+60 → 截 100（仅受绝对顶）', () => {
+    const archer = createUnitState('archer', 'player', { q: 10, r: 15 });
+    const boss = createUnitState('boss', 'enemy', { q: 12, r: 15 });
+    WEAPON_CRIT_BONUS.bow = 40;
+    const f1 = calcStrike(map, archer, T('archer'), boss, T('boss'), basicAttackSkill(T('archer')));
+    expect(f1.critRate).toBe(90);
+    WEAPON_CRIT_BONUS.bow = 60;
+    const f2 = calcStrike(map, archer, T('archer'), boss, T('boss'), basicAttackSkill(T('archer')));
+    expect(f2.critRate).toBe(100);
   });
 });

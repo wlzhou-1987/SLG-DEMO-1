@@ -8,7 +8,8 @@ export const FLOAT_COLOR = {
   damage: '#ef4444',
   heal: '#4ade80',
   miss: '#9ca3af',
-  shield: '#ffd75e'
+  shield: '#ffd75e',
+  crit: '#ff9500'    // R7-2 暴击飘字标记（亮橙，区别于盾黄）
 } as const;
 
 export interface FloatTextView {

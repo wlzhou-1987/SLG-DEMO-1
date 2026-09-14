@@ -13,11 +13,14 @@ const ARMOR_LABELS: Record<ArmorType, string> = {
 let panelEl: HTMLDivElement | null = null;
 
 function strikeRow(label: string, s: StrikeForecast): string {
+  // R7-2 预报暴击率行（§4.5）：必暴技能显示「必定」（不掷骰）
+  const critText = s.mustCrit ? '必定' : `${s.critRate}%`;
   return (
     `<div class="strike">` +
     `<span class="who">${label}·${s.skillName}（${DAMAGE_LABELS[s.damageType]}·${SIDE_LABELS[s.side]}）</span>` +
     `<span>伤害 ${s.damage} ×${s.count}</span>` +
     `<span>命中 ${s.hitRate}%${s.rangePenalty ? `（距离 −${s.rangePenalty}）` : ''}</span>` +
+    `<span>暴击 ${critText}</span>` +
     `</div>`
   );
 }
@@ -54,7 +57,7 @@ export function showForecastPanel(
 export function showAoeForecastPanel(
   skillName: string,
   casterName: string,
-  rows: Array<{ name: string; damage: number; hitRate: number }>,
+  rows: Array<{ name: string; damage: number; hitRate: number; critRate: number }>,
   onConfirm: () => void,
   onCancel: () => void
 ): void {
@@ -62,7 +65,7 @@ export function showAoeForecastPanel(
     `<div class="strike"><span class="who">${casterName}·${skillName}（AoE · ${rows.length} 个目标）</span></div>` +
     rows.map(r =>
       `<div class="strike"><span class="who">→ ${r.name}</span>` +
-      `<span>伤害 ${r.damage}</span><span>命中 ${r.hitRate}%</span></div>`
+      `<span>伤害 ${r.damage}</span><span>命中 ${r.hitRate}%</span><span>暴击 ${r.critRate}%</span></div>`
     ).join('') +
     `<div class="strike dim">范围攻击不触发反击</div>`;
   buildPanel(`战斗预报 · ${skillName}`, body, onConfirm, onCancel);
@@ -112,7 +115,8 @@ export function showSpellForecastPanel(
           : '') +
         `</div>` +
         `<div class="strike"><span class="who">→ ${targetName}</span>` +
-        `<span>伤害 ${forecast.damage}</span><span>命中 ${forecast.hitRate}%</span></div>`;
+        `<span>伤害 ${forecast.damage}</span><span>命中 ${forecast.hitRate}%</span>` +
+        `<span>暴击 ${forecast.mustCrit ? '必定' : `${forecast.critRate}%`}</span></div>`;
       break;
     case 'heal':
       body = `<div class="strike"><span class="who">${casterName}·${spellName} → ${targetName}</span><span>回复 ${forecast.amount}（必中）</span></div>`;
