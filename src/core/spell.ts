@@ -16,7 +16,13 @@ export type SpellForecast =
   | { kind: 'heal'; amount: number }
   | { kind: 'regen'; healPerTurn: number; turns: number }
   | { kind: 'shield'; armorType: ArmorType; absorb: number; turns: number }
-  | { kind: 'curse'; damage: number; turns: number };
+  | { kind: 'dot'; total: number; damagePerTurn: number; finalTurnExtra: number; turns: number; hitRate: number; side: PartSide };
+
+/** R10-1 统一 DoT 切分（§4.3，灼烧/咒杀同构）：每回合 max(1, floor(total/turns))，余数末回合补足 */
+export function splitDot(total: number, turns: number): { perTurn: number; extra: number } {
+  const perTurn = Math.max(1, Math.floor(total / turns));
+  return { perTurn, extra: Math.max(0, total - perTurn * turns) };
+}
 
 /** 治疗段基数（R4-2）：Σ(属性×权重)+固定值——治疗不扣防御项与地形防（§4.3 治疗线） */
 function healSegment(caster: UnitState, spell: SpellTemplate): number {
@@ -55,10 +61,15 @@ export function calcSpellForecast(
       if (spell.shield) {
         return { kind: 'shield', armorType: spell.shield.armorType, absorb: spell.shield.absorb, turns: spell.durationTurns ?? 1 };
       }
+      if (spell.targetType === 'enemy') {
+        const strike = calcStrike(map, caster, getTemplate(caster.templateId)!, target, getTemplate(target.templateId)!, spell);
+        const { perTurn, extra } = splitDot(strike.damage, spell.durationTurns ?? 1);
+        return {
+          kind: 'dot', total: strike.damage, damagePerTurn: perTurn, finalTurnExtra: extra,
+          turns: spell.durationTurns ?? 1, hitRate: strike.hitRate, side: strike.side
+        };
+      }
       return { kind: 'regen', healPerTurn: healSegment(caster, spell), turns: spell.durationTurns ?? 1 };
-    }
-    case 'delayed': {
-      return { kind: 'curse', damage: spell.power, turns: spell.durationTurns ?? 1 };
     }
   }
 }
@@ -86,14 +97,13 @@ export function resolveSpell(
       let damage = forecast.damage;
       if (hit && caster.loadout.passive.includes('pyro') && (spell.id === 'fireball' || spell.id === 'meteor')) {
         damage = Math.floor(damage * EFFECT_PARAMS.pyroBoostMult);
-        // R4-7 施放时锁定：每回合 = max(1, floor(直伤/回合数))，余数末回合补足（§4.3，预报=实际）
-        const turns = EFFECT_PARAMS.pyroDotTurns;
-        const perTurn = Math.max(1, Math.floor(damage / turns));
+        // R4-7 施放时锁定：splitDot 切分（§4.3，预报=实际）
+        const { perTurn, extra } = splitDot(damage, EFFECT_PARAMS.pyroDotTurns);
         target.statuses.push({
           type: 'dot', skillName: '灼烧', appliedAtTurn: castTurn,
-          turnsLeft: turns,
+          turnsLeft: EFFECT_PARAMS.pyroDotTurns,
           damagePerTurn: perTurn,
-          finalTurnExtra: Math.max(0, damage - perTurn * turns)
+          finalTurnExtra: extra
         });
       }
       if (hit) {
@@ -123,12 +133,19 @@ export function resolveSpell(
       });
       return { ...forecast, targetHp: target.hp };
     }
-    case 'curse': {
-      target.statuses.push({
-        type: 'delayed', skillName: spell.name, turnsLeft: forecast.turns,
-        appliedAtTurn: castTurn, damage: forecast.damage
-      });
-      return { ...forecast, targetHp: target.hp };
+    case 'dot': {
+      // R10-1 咒杀 DoT：掷命中，命中挂锁定切分值；法术命中受击回怒（§4.13）
+      const hit = rng() < forecast.hitRate / 100;
+      if (hit) {
+        target.statuses.push({
+          type: 'dot', skillName: spell.name, appliedAtTurn: castTurn,
+          turnsLeft: forecast.turns,
+          damagePerTurn: forecast.damagePerTurn,
+          finalTurnExtra: forecast.finalTurnExtra
+        });
+        gainOnStruck(target);
+      }
+      return { ...forecast, hit, targetHp: target.hp };
     }
   }
 }

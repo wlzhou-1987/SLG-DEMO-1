@@ -689,8 +689,9 @@ export class Game {
       logBattle(`${c}·${skillName} → ${t} 获得再生（每回合 +${result.healPerTurn}·${result.turns} 回合）`);
     } else if (result.kind === 'shield') {
       logBattle(`${c}·${skillName} → ${t} 获得护盾（吸收 ${result.absorb}·${result.turns} 回合）`);
-    } else {
-      logBattle(`${c}·${skillName} → ${t} 被咒杀（${result.turns} 回合后 -${result.damage}）`);
+    } else if (result.kind === 'dot') {
+      if (result.hit) logBattle(`${c}·${skillName} → ${t} 中咒（每回合 -${result.damagePerTurn}，共 ${result.turns} 回合）`);
+      else logBattle(`${c}·${skillName} → ${t} 落空`);
     }
   }
 
@@ -847,7 +848,7 @@ export class Game {
       return;
     }
 
-    // 玩家阶段开始：推进玩家单位状态（咏唱触发/再生/咒杀结算），再重置行动
+    // 玩家阶段开始：推进玩家单位状态（咏唱触发/再生/DoT 结算），再重置行动
     if (this.tickPhase('player') !== 'ongoing') return;
 
     this.turn++;
@@ -912,11 +913,11 @@ export class Game {
             this.floatText(`+${e.healed}`, FLOAT_COLOR.heal, u.position);
             logBattle(`${this.unitName(u)} 再生 +${e.healed}`);
           }
-        } else if (e.kind === 'delayedFire') {
+        } else if (e.kind === 'dotTick') {
           const u = this.units.find(x => x.id === e.unitId);
           if (u) {
             this.floatText(`-${e.damage}`, FLOAT_COLOR.damage, u.position);
-            logBattle(`${this.unitName(u)} 咒杀爆发 -${e.damage}`);
+            logBattle(`${this.unitName(u)} ${e.skillName} -${e.damage}`);
           }
         }
       }

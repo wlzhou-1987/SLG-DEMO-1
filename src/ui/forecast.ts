@@ -123,8 +123,11 @@ export function showSpellForecastPanel(
     case 'shield':
       body = `<div class="strike"><span class="who">${casterName}·${spellName} → ${targetName}</span><span>护甲覆盖 ${ARMOR_LABELS[forecast.armorType]} + 吸收 ${forecast.absorb}，持续 ${forecast.turns} 回合</span></div>`;
       break;
-    case 'curse':
-      body = `<div class="strike"><span class="who">${casterName}·${spellName} → ${targetName}</span><span>${forecast.turns} 回合后受 ${forecast.damage} 伤</span></div>`;
+    case 'dot':
+      body =
+        `<div class="strike"><span class="who">${casterName}·${spellName}（${SIDE_LABELS[forecast.side]}）→ ${targetName}</span>` +
+        `<span>每回合 -${forecast.damagePerTurn}${forecast.finalTurnExtra > 0 ? `（末回合 +${forecast.finalTurnExtra}）` : ''}，持续 ${forecast.turns} 回合</span>` +
+        `<span>命中 ${forecast.hitRate}%</span></div>`;
       break;
   }
   buildPanel(`法术预报 · ${spellName}`, body, onConfirm, onCancel);

@@ -17,14 +17,6 @@ export interface ChantStatus {
   targetPos?: HexCoord;  // R3-7 AoE 法术：咏唱锁定的释放中心格（目标死移仍生效）
 }
 
-export interface DelayedStatus {
-  type: 'delayed';
-  skillName: string;
-  turnsLeft: number;
-  appliedAtTurn: number;
-  damage: number;
-}
-
 export interface RegenStatus {
   type: 'regen';
   skillName: string;
@@ -94,12 +86,12 @@ export interface ChargeStatus {
   targetId: string;
 }
 
-export type ActiveStatus = ChantStatus | DelayedStatus | RegenStatus | ShieldStatus | StealthStatus | BuffStatus | StanceStatus | ChargeStatus | DotStatus;
+export type ActiveStatus = ChantStatus | RegenStatus | ShieldStatus | StealthStatus | BuffStatus | StanceStatus | ChargeStatus | DotStatus;
 
 export type StatusEvent =
   | { kind: 'chantFire'; unitId: string; spell: SpellTemplate; targetId: string; targetPos?: HexCoord }
   | { kind: 'chargeFire'; unitId: string; skill: import('./../config/skills').SkillTemplate; targetId: string }
-  | { kind: 'delayedFire'; unitId: string; skillName: string; damage: number }
+  | { kind: 'dotTick'; unitId: string; skillName: string; damage: number }
   | { kind: 'regenTick'; unitId: string; healed: number }
   | { kind: 'statusExpired'; unitId: string; skillName: string };
 
@@ -141,7 +133,7 @@ export function tickStatuses(units: UnitState[], faction: Faction): StatusEvent[
             ? status.damagePerTurn + (status.finalTurnExtra ?? 0)  // R4-7 末回合补足余数
             : status.damagePerTurn;
           unit.hp = Math.max(0, unit.hp - dotDmg);
-          events.push({ kind: 'delayedFire', unitId: unit.id, skillName: status.skillName, damage: dotDmg });
+          events.push({ kind: 'dotTick', unitId: unit.id, skillName: status.skillName, damage: dotDmg });
           status.turnsLeft--;
           if (status.turnsLeft <= 0) removed.push(status);
           break;
@@ -150,15 +142,6 @@ export function tickStatuses(units: UnitState[], faction: Faction): StatusEvent[
           status.turnsLeft--;
           if (status.turnsLeft <= 0) {
             events.push({ kind: 'chargeFire', unitId: unit.id, skill: status.skill, targetId: status.targetId });
-            removed.push(status);
-          }
-          break;
-        }
-        case 'delayed': {
-          status.turnsLeft--;
-          if (status.turnsLeft <= 0) {
-            unit.hp = Math.max(0, unit.hp - status.damage);
-            events.push({ kind: 'delayedFire', unitId: unit.id, skillName: status.skillName, damage: status.damage });
             removed.push(status);
           }
           break;

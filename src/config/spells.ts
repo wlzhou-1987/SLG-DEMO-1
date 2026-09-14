@@ -3,11 +3,11 @@ import type { SkillTemplate } from './skills';
 
 /** 法术是技能子类（§4.12），额外携带释放方式与生效方式两个维度 */
 export interface SpellTemplate extends SkillTemplate {
-  power: number;                                  // 威力基数（治疗/吸收/咒杀伤害 = power）
+  power: number;                                  // 固定值加项（治疗基数/护盾吸收；伤害类并入统一公式固定值）
   castMode: 'instant' | 'chant';                  // 释放方式
   chantTurns?: number;                            // 咏唱回合数
-  effectMode: 'instant' | 'delayed' | 'lasting';  // 生效方式
-  durationTurns?: number;                         // 延时/持续/护盾回合数
+  effectMode: 'instant' | 'lasting';              // 生效方式（R10：delayed 退役，伤害持续走 dot）
+  durationTurns?: number;                         // 持续/护盾回合数
   targetType: 'enemy' | 'ally';                   // 增益（ally）必中
   shield?: { armorType: ArmorType; absorb: number }; // 护甲覆盖（§4.10）
 }
@@ -31,7 +31,7 @@ export const SPELLS: Record<string, SpellTemplate> = {
     id: 'curse', name: '咒杀', target: 'enemy', learnable: true,
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
     resourceType: 'mp', cost: 25,
-    power: 10, castMode: 'instant', effectMode: 'delayed', durationTurns: 3, targetType: 'enemy'
+    power: 10, castMode: 'instant', effectMode: 'lasting', durationTurns: 3, targetType: 'enemy'
   },
   heal: {
     id: 'heal', name: '治疗', target: 'ally', learnable: true,
