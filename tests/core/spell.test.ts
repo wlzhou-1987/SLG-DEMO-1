@@ -8,6 +8,12 @@ import { tickStatuses } from '../../src/core/status';
 import type { DotStatus } from '../../src/core/status';
 import { EFFECT_PARAMS } from '../../src/config/combat';
 
+/** R7-1 起命中后追加暴击掷：奇偶交替 = 必中 + 必不暴（保旧用例非暴击语义） */
+const hitNoCrit = () => {
+  let i = 0;
+  return () => (i++ % 2 === 0 ? 0 : 0.99);
+};
+
 describe('calcSpellForecast 法术预报', () => {
   beforeEach(() => resetUnitCounter());
 
@@ -135,7 +141,7 @@ describe('resolveSpell 法术结算（即时释放部分）', () => {
   it('火球：命中扣血 / 未中不扣', () => {
     const mage = createUnitState('mage', 'player', { q: 10, r: 15 }, { active: [], passive: [] });
     const swordsman = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
-    const r1 = resolveSpell(map, mage, swordsman, SPELLS.fireball, () => 0);
+    const r1 = resolveSpell(map, mage, swordsman, SPELLS.fireball, hitNoCrit());
     expect(r1.kind).toBe('damage');
     expect(swordsman.hp).toBe(32 - 19);
     const r2 = resolveSpell(map, mage, swordsman, SPELLS.fireball, () => 1.0);
@@ -170,7 +176,7 @@ describe('R3-10 法术修饰（炎爆/强化治疗/虔诚溅射）', () => {
     const mage = createUnitState('mage', 'player', { q: 10, r: 15 });  // 出厂 pyro
     const foe = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
     const hp0 = foe.hp;
-    resolveSpell(map, mage, foe, SPELLS.fireball, () => 0);
+    resolveSpell(map, mage, foe, SPELLS.fireball, hitNoCrit());
     expect(foe.hp).toBeLessThan(hp0 - 4);          // 基础 4 + 炎爆加成
     const dot = foe.statuses.find(s => s.type === 'dot');
     expect(dot).toBeDefined();
@@ -197,7 +203,7 @@ describe('R4-7 DoT 施放时锁定', () => {
     const mage = createUnitState('mage', 'player', { q: 10, r: 15 });  // 出厂 pyro
     const foe = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
     const hp0 = foe.hp;
-    resolveSpell(map, mage, foe, SPELLS.fireball, () => 0);
+    resolveSpell(map, mage, foe, SPELLS.fireball, hitNoCrit());
     const direct = hp0 - foe.hp;  // 炎爆加成后直伤 = DoT 锁定基准
     const dot = foe.statuses.find(s => s.type === 'dot') as DotStatus;
     const turns = EFFECT_PARAMS.pyroDotTurns;
@@ -211,7 +217,7 @@ describe('R4-7 DoT 施放时锁定', () => {
     const mage = createUnitState('mage', 'player', { q: 10, r: 15 });
     const foe = createUnitState('paladin', 'enemy', { q: 11, r: 15 });
     const hp0 = foe.hp;
-    resolveSpell(map, mage, foe, SPELLS.fireball, () => 0);
+    resolveSpell(map, mage, foe, SPELLS.fireball, hitNoCrit());
     const direct = hp0 - foe.hp;
     const perTurn = Math.max(1, Math.floor(direct / EFFECT_PARAMS.pyroDotTurns));
     const hpAfterCast = foe.hp;

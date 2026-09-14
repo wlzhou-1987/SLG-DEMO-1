@@ -10,7 +10,7 @@ import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS, EFFECT_PARAMS, RANGE_PA
 import { TERRAIN_CONFIGS } from '../config/terrain';
 import { TRAIT_CONFIGS } from '../config/traits';
 import { resolveArmor, statValue } from './status';
-import { gainOnHit, gainOnStruck } from './resources';
+import { gainOnHit, gainOnStruck, gainOnCrit } from './resources';
 
 export type PartSide = 'front' | 'side' | 'back';
 
@@ -49,16 +49,37 @@ export interface StrikeForecast {
   skillName: string;
   damageType: DamageType;
   side: PartSide;
-  damage: number;   // 单次命中伤害（预报值）
+  damage: number;   // 单次命中伤害（预报值，非暴击）
   hitRate: number;  // 0-100
   count: number;    // 攻击次数（追击时 2）
   rangePenalty?: number;  // R4-5 超程递增惩罚合计（预报明细显示）
+  critRate: number;      // R7-1 暴击率 0-50（公式值；mustCrit 时不参与掷骰）
+  critDamage: number;    // R7-1 暴击伤害（×2 进乘数区吃总封顶后）
+  mustCrit: boolean;     // R7-1 必暴（critOverride：不掷骰，技运均不参与）
 }
 
 export interface BattleForecast {
   attacker: StrikeForecast;
   counter: StrikeForecast | null;
   firstStrike: boolean;  // R4-7 先攻反击：守方反击先行结算（§4.3）
+}
+
+/** R7-1 暴击率（§4.3）：clamp(攻技×系数 + 运差×系数, 0, 上限)——属性段，修正合计与武器加成随 R7-2 接入 */
+export function calcCritRate(
+  attacker: UnitState,
+  atkT: UnitTemplate,
+  defender: UnitState,
+  defT: UnitTemplate
+): number {
+  const rate = statValue(attacker, atkT, 'tec') * COMBAT_PARAMS.critPerTech
+    + (statValue(attacker, atkT, 'lck') - statValue(defender, defT, 'lck')) * COMBAT_PARAMS.critPerLck;
+  return Math.max(0, Math.min(rate, COMBAT_PARAMS.critCap, COMBAT_PARAMS.critAbsMax));
+}
+
+/** R7-1 期望伤害（§6/§4.3）：命中率 × (非暴伤害×(1−p) + 暴击伤害×p)，p = mustCrit ? 1 : 暴击率 */
+export function expectedDamage(s: StrikeForecast): number {
+  const p = s.mustCrit ? 1 : s.critRate / 100;
+  return s.hitRate / 100 * (s.damage * (1 - p) + s.critDamage * p);
 }
 
 /** 单方打击预报（attacker 向 defender 发动 skill） */
@@ -122,8 +143,9 @@ export function calcStrike(
   const backstabMult = side === 'back' && atkTraits.includes('backstab')
     ? TRAIT_CONFIGS.backstab.backstabMultiplier ?? 1.5
     : 1;
-  // 全局伤害倍率总封顶（R8 评审定稿：全部乘数联乘后截断 ≤4.0）
+  // 全局伤害倍率总封顶（R8 评审定稿：全部乘数联乘后截断 ≤4.0）；R7-1 暴击 ×2 进乘数区（同受封顶）
   const mult = Math.min(resistMult * backstabMult, COMBAT_PARAMS.totalDamageCap);
+  const critMult = Math.min(resistMult * backstabMult * 2, COMBAT_PARAMS.totalDamageCap);
 
   // 防御项：背刺技能=背面无视一半防御
   const defForSkill = skill.halfDefFromBack && side === 'back'
@@ -131,6 +153,7 @@ export function calcStrike(
     : statValue(defender, defT, defAxis);
 
   const damage = Math.max(Math.floor(segBase * mult - defForSkill - terrDef), 0) + PART_BONUS[side].damage;
+  const critDamage = Math.max(Math.floor(segBase * critMult - defForSkill - terrDef), 0) + PART_BONUS[side].damage;
 
   // 沉稳：守方受到的部位命中补正减半
   const partHit = defTraits.includes('steady')
@@ -149,7 +172,12 @@ export function calcStrike(
     partHit - rangePenalty;
   const hitRate = Math.max(COMBAT_PARAMS.hitMin, Math.min(COMBAT_PARAMS.hitMax, rawHit));
 
-  return { skillName: skill.name, damageType: skill.damageType, side, damage, hitRate, count: 1, rangePenalty };
+  return {
+    skillName: skill.name, damageType: skill.damageType, side, damage, hitRate, count: 1, rangePenalty,
+    critRate: calcCritRate(attacker, atkT, defender, defT),
+    critDamage,
+    mustCrit: skill.critOverride === true
+  };
 }
 
 /** 先攻反击阈值（R4-7）：默认 10 可配，守方特性声明可降（取最低，§4.3） */
@@ -162,9 +190,12 @@ function firstStrikeThresholdFor(passives: readonly string[]): number {
   return t;
 }
 
-/** 守方反击技能：普攻恒入候选，射程覆盖攻方位置者中期望伤害最高（§4.3/§4.9） */
+/** 守方反击技能：普攻恒入候选，射程覆盖攻方位置者中期望伤害最高（§4.3/§4.9；R7-1 起期望含暴击） */
 function pickCounterSkill(
+  map: MapState,
+  defender: UnitState,
   defT: UnitTemplate,
+  attacker: UnitState,
   atkT: UnitTemplate,
   dist: number
 ): SkillTemplate | null {
@@ -172,12 +203,10 @@ function pickCounterSkill(
   let bestScore = -1;
   for (const skill of [basicAttackSkill(defT), ...getTemplateSkills(defT)]) {
     if (dist < skill.rangeMin || dist > skill.rangeMax) continue;
-    // R4-3：法术行已移出矩阵——法术按 armorResist 缺省 1 参与择优
-    const matrix = skill.damageType === 'magic'
-      ? (skill.armorResist?.[atkT.armor] ?? 1)
-      : DAMAGE_ARMOR_MATRIX[skill.damageType as Exclude<DamageType, 'magic'>][atkT.armor];
-    if (matrix > bestScore) {
-      bestScore = matrix;
+    const strike = calcStrike(map, defender, defT, attacker, atkT, skill);
+    const score = expectedDamage(strike);  // 与 AI 择优同式（§4.3：精确期望，暴伤经防御后置）
+    if (score > bestScore) {
+      bestScore = score;
       best = skill;
     }
   }
@@ -220,7 +249,7 @@ export function calcBattleForecast(
 
   // 反击：守方技能射程覆盖攻方位置；空中突袭等条件免反击（R3-10）
   let counter: StrikeForecast | null = null;
-  const counterSkill = opts?.noCounter ? null : pickCounterSkill(defT, atkT, dist);
+  const counterSkill = opts?.noCounter ? null : pickCounterSkill(map, defender, defT, attacker, atkT, dist);
   if (counterSkill) {
     // 反击方向：守方 → 攻方，以攻方朝向为基准判部位
     counter = calcStrike(map, defender, defT, attacker, atkT, counterSkill);
@@ -244,6 +273,7 @@ export function calcBattleForecast(
 export interface StrikeResult {
   byAttacker: boolean;
   hit: boolean;
+  crit: boolean;    // R7-1 暴击标记（表现层飘字/战报用）
   damage: number;
   absorbed: number;  // 护盾吸收部分（表现层区分扣血与吸收）
   side: PartSide;
@@ -276,9 +306,10 @@ export function resolveBattle(
   let defenderHp = defender.hp;
 
   const strike = (s: StrikeForecast, byAttacker: boolean): boolean => {
-    // 返回目标是否阵亡
+    // 返回目标是否阵亡；R7-1 逐击独立掷暴：先命中、命中落地才掷暴击（必暴不掷骰）
     const hit = rng() < s.hitRate / 100;
-    const damage = hit ? s.damage : 0;
+    const crit = hit && (s.mustCrit || rng() < s.critRate / 100);
+    const damage = crit ? s.critDamage : (hit ? s.damage : 0);
     const absorbed = byAttacker
       ? applyDamageToUnit(defender, defT, damage)
       : applyDamageToUnit(attacker, atkT, damage);
@@ -289,13 +320,14 @@ export function resolveBattle(
     }
     attackerHp = attacker.hp;
     defenderHp = defender.hp;
-    strikes.push({ byAttacker, hit, damage, absorbed, side: s.side, skillName: s.skillName });
+    strikes.push({ byAttacker, hit, crit, damage, absorbed, side: s.side, skillName: s.skillName });
     if (hit) {
-      // R5-2 资源积攒（§4.13）：攻击者命中入池（怒任意攻击/专与MP仅普攻）、受击方回怒
+      // R5-2 资源积攒（§4.13）：攻击者命中入池（怒任意攻击/专与MP仅普攻）、受击方回怒；R7-1 暴击额外怒气
       const striker = byAttacker ? attacker : defender;
       const struck = byAttacker ? defender : attacker;
       gainOnHit(striker, s.skillName === '普攻');
       gainOnStruck(struck);
+      if (crit) gainOnCrit(striker);
     }
     if (byAttacker) return defenderHp === 0;
     return attackerHp === 0;
@@ -328,12 +360,13 @@ export function resolveBattle(
 export interface AoeStrikeResult {
   targetId: string;
   hit: boolean;
+  crit: boolean;  // R7-1 暴击标记
   damage: number;
   absorbed: number;
   forecast: StrikeForecast;
 }
 
-/** 单目标 AoE 预报：主段 + 附加伤害段（各段独立过矩阵，同侧同命中） */
+/** 单目标 AoE 预报：主段 + 附加伤害段（各段独立过矩阵，同侧同命中；暴击伤害同构合成——R7-1） */
 function aoeStrikeForecast(
   map: MapState,
   attacker: UnitState,
@@ -344,17 +377,24 @@ function aoeStrikeForecast(
 ): StrikeForecast {
   const main = calcStrike(map, attacker, atkT, defender, defT, skill);
   if (skill.id === 'whirlwind' && attacker.loadout.passive.includes('ww-enhance')) {
-    return { ...main, damage: main.damage + Math.floor(main.damage / 2) };
+    return {
+      ...main,
+      damage: main.damage + Math.floor(main.damage / 2),
+      critDamage: main.critDamage + Math.floor(main.critDamage / 2)
+    };
   }
   if (!skill.segments || skill.segments.length === 0) return main;
   let total = main.damage;
+  let critTotal = main.critDamage;
   for (const seg of skill.segments) {
     const segSkill: SkillTemplate = {
       ...skill, damageType: seg.damageType, power: seg.power, segments: undefined
     };
-    total += calcStrike(map, attacker, atkT, defender, defT, segSkill).damage;
+    const segStrike = calcStrike(map, attacker, atkT, defender, defT, segSkill);
+    total += segStrike.damage;
+    critTotal += segStrike.critDamage;
   }
-  return { ...main, damage: total };
+  return { ...main, damage: total, critDamage: critTotal };
 }
 
 /** AoE 预报：区域内每个敌人各自预报（部位/命中独立计算） */
@@ -387,13 +427,15 @@ export function resolveAoeBattle(
     const defT = getTemplate(t.templateId)!;
     const forecast = aoeStrikeForecast(map, caster, atkT, t, defT, skill);
     const hit = rng() < forecast.hitRate / 100;
-    const damage = hit ? forecast.damage : 0;
+    const crit = hit && (forecast.mustCrit || rng() < forecast.critRate / 100);
+    const damage = crit ? forecast.critDamage : (hit ? forecast.damage : 0);
     const absorbed = applyDamageToUnit(t, defT, damage);
     if (hit) {
       gainOnHit(caster, skill.id === 'basic');  // R5-2 命中积攒
       gainOnStruck(t);
+      if (crit) gainOnCrit(caster);  // R7-1 暴击额外怒气
     }
-    results.push({ targetId: t.id, hit, damage, absorbed, forecast });
+    results.push({ targetId: t.id, hit, crit, damage, absorbed, forecast });
   }
   return results;
 }

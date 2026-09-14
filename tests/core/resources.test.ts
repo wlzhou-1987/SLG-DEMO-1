@@ -10,6 +10,12 @@ import { resolveSpell } from '../../src/core/spell';
 import { executeBehavior } from '../../src/core/effects';
 import { createMapState } from '../../src/core/map';
 
+/** R7-1 起命中后追加暴击掷：奇偶交替 = 必中 + 必不暴（保旧用例非暴击语义） */
+const hitNoCrit = () => {
+  let i = 0;
+  return () => (i++ % 2 === 0 ? 0 : 0.99);
+};
+
 describe('R5-1 资源槽与消耗结算', () => {
   beforeEach(() => {
     resetUnitCounter();
@@ -85,7 +91,7 @@ describe('R5-2 生成与恢复结算', () => {
     // 领主普攻命中剑士（贴脸互殴，反击同积攒）：领主 命中+10 与 受击+8 = 18；剑士同理 18
     const lord = createUnitState('lord', 'player', { q: 10, r: 15 });
     const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
-    resolveBattle(map, lord, sw, basicAttackSkill(getTemplate('lord')!), () => 0);
+    resolveBattle(map, lord, sw, basicAttackSkill(getTemplate('lord')!), hitNoCrit());
     expect(lord.resources.current).toBe(10 + 8);  // 命中 +10、被反击受击 +8
     expect(sw.resources.current).toBe(8 + 10);    // 受击 +8、反击命中 +10（同速无追击）
     // 弓箭（专注）普攻命中：+5（距离 2 无反击）
@@ -106,7 +112,7 @@ describe('R5-2 生成与恢复结算', () => {
     // 盗贼背刺（技能，免费）命中×2（盗贼快 7 追击）：专注不增；剑士 受击×2 +8×2 + 反击命中 +10 = 26
     const thief = createUnitState('thief', 'player', { q: 10, r: 15 });
     const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
-    resolveBattle(map, thief, sw, SKILLS['backstab-strike'], () => 0);
+    resolveBattle(map, thief, sw, SKILLS['backstab-strike'], hitNoCrit());
     expect(thief.resources.current).toBe(100);  // 技能命中专注不积攒（满亦封顶）
     expect(sw.resources.current).toBe(8 + 8 + 10);
   });

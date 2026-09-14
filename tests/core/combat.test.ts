@@ -10,12 +10,19 @@ import { DAMAGE_ARMOR_MATRIX } from '../../src/config/combat';
 import { rangeBonus, effectiveRangeMax } from '../../src/core/combat';
 import { SPELLS } from '../../src/config/spells';
 import type { SkillTemplate } from '../../src/config/skills';
-import { calcAoeForecast, resolveAoeBattle, calcStrike, calcEvade } from '../../src/core/combat';
+import { calcAoeForecast, resolveAoeBattle, calcStrike, calcEvade, calcCritRate, expectedDamage } from '../../src/core/combat';
 import { COMBAT_PARAMS } from '../../src/config/combat';
 import { resetUnitCounter, createUnitState } from '../../src/core/unit';
 import { resolveSpell } from '../../src/core/spell';
+import { gainOnCrit } from '../../src/core/resources';
 import { TRAIT_CONFIGS } from '../../src/config/traits';
 import { TERRAIN_CONFIGS } from '../../src/config/terrain';
+
+/** R7-1 起命中后追加暴击掷：奇偶交替 = 必中 + 必不暴（保旧用例非暴击语义） */
+const hitNoCrit = () => {
+  let i = 0;
+  return () => (i++ % 2 === 0 ? 0 : 0.99);
+};
 
 describe('attackSide 部位判定', () => {
   // 守方在 (5,5)，朝向 0（东）；左右紧邻 = NE/SE
@@ -177,7 +184,7 @@ describe('resolveBattle 战斗结算', () => {
     const defender = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
     const hpBefore = defender.hp;
     const f = calcBattleForecast(map, attacker, defender, lordSkill);
-    const r = resolveBattle(map, attacker, defender, lordSkill, () => 0);
+    const r = resolveBattle(map, attacker, defender, lordSkill, hitNoCrit());
     expect(r.strikes.length).toBeGreaterThan(0);
     expect(r.strikes[0].hit).toBe(true);
     expect(r.defenderHp).toBe(hpBefore - f.attacker.damage * f.attacker.count);
@@ -199,7 +206,7 @@ it('未命中不造成伤害', () => {
     const attacker = createUnitState('boss', 'enemy', { q: 10, r: 15 });
     const defender = createUnitState('swordsman', 'player', { q: 11, r: 15 });
     defender.hp = 3;
-    const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
+    const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], hitNoCrit());
     expect(r.defenderHp).toBe(0);
     expect(r.strikes.every(s => s.byAttacker)).toBe(true); // 无反击与追击
   });
@@ -228,7 +235,7 @@ it('未命中不造成伤害', () => {
     attacker.hp = 5;
     const defender = createUnitState('boss', 'enemy', { q: 11, r: 15 });
     // 牧师无攻击技能（治疗 range2），用火球手 mage？mage 技能 range2 —— 直接调函数
-    const r = resolveBattle(map, attacker, defender, lordSkill, () => 0);
+    const r = resolveBattle(map, attacker, defender, lordSkill, hitNoCrit());
     // 牧师(无甲) atk8? priest atk4：max(4-11,0)=0 伤害 0 → 打不死 BOSS
     // BOSS 反击挥砍 vs 无甲×1.0 → max(12-3,0)=9 ≥5 → 牧师亡，无后续
     expect(r.attackerHp).toBe(0);
@@ -251,9 +258,10 @@ describe('M4 战斗扩展：power 与护盾吸收', () => {
       type: 'shield', skillName: '秘银护盾', turnsLeft: 3, appliedAtTurn: 1,
       armorType: 'medium', absorbLeft: 10
     }];
-    const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
-    // 伤害 9 全被护盾吸收；领主反击 BOSS(重甲 pdef12)：floor(21×0.7−12)=2，lord 快 5 追击 ×2 → 50−4
-    expect(r.attackerHp).toBe(46);
+    const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], hitNoCrit());
+    // 伤害 9 全被护盾吸收；R7-1 反击择优期望化：领主反击改选刺击（突 vs 重甲 0.6×克制1.8=1.08）
+    // floor(21×1.08−12)=10/击，lord 快 5 追击 ×2 → 50−20
+    expect(r.attackerHp).toBe(30);
     expect(r.defenderHp).toBe(52);
     const shieldLeft = defender.statuses.find(s2 => s2.type === 'shield');
     expect((shieldLeft as { absorbLeft: number } | undefined)?.absorbLeft).toBe(1);
@@ -268,7 +276,7 @@ describe('M4 战斗扩展：power 与护盾吸收', () => {
       armorType: 'medium', absorbLeft: 3
     }];
     // BOSS 重锤 ×1 击（boss spd12 vs lord spd17 差 5 反击追击；伤害 9 > 吸收 3 → 破盾 6 入 HP
-    const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
+    const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], hitNoCrit());
     expect(defender.hp).toBe(52 - 6);
     expect(defender.statuses.some(s2 => s2.type === 'shield')).toBe(false);
     expect(r.defenderHp).toBe(46);
@@ -345,7 +353,7 @@ describe('M6-1 战斗反馈：打击结果上报吸收量', () => {
   it('无盾打击 absorbed 为 0', () => {
     const attacker = createUnitState('boss', 'enemy', { q: 10, r: 15 });
     const defender = createUnitState('lord', 'player', { q: 11, r: 15 });
-    const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
+    const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], hitNoCrit());
     expect(r.strikes[0].hit).toBe(true);
     expect(r.strikes[0].absorbed).toBe(0);
   });
@@ -357,7 +365,7 @@ describe('M6-1 战斗反馈：打击结果上报吸收量', () => {
       type: 'shield', skillName: '秘银护盾', turnsLeft: 3, appliedAtTurn: 1,
       armorType: 'medium', absorbLeft: 3
     }];
-    const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
+    const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], hitNoCrit());
     expect(r.strikes[0].damage).toBe(9);
     expect(r.strikes[0].absorbed).toBe(3);
   });
@@ -369,7 +377,7 @@ describe('M6-1 战斗反馈：打击结果上报吸收量', () => {
       type: 'shield', skillName: '秘银护盾', turnsLeft: 3, appliedAtTurn: 1,
       armorType: 'medium', absorbLeft: 99
     }];
-    const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], () => 0);
+    const r = resolveBattle(map, attacker, defender, getTemplateSkills(getTemplate('boss')!)[0], hitNoCrit());
     expect(r.strikes[0].damage).toBe(9);
     expect(r.strikes[0].absorbed).toBe(9);
   });
@@ -1015,7 +1023,7 @@ describe('R4-7 先攻反击', () => {
     const f = calcBattleForecast(map, boss, thief, basicAttackSkill(getTemplate('boss')!));
     expect(f.counter).not.toBeNull();
     expect(f.firstStrike).toBe(true);
-    const r = resolveBattle(map, boss, thief, basicAttackSkill(getTemplate('boss')!), () => 0);
+    const r = resolveBattle(map, boss, thief, basicAttackSkill(getTemplate('boss')!), hitNoCrit());
     expect(r.strikes[0].byAttacker).toBe(false);  // 先攻反击先结算
     // swordsman spd17 攻 thief spd24：diff 7 < 10
     const sw = createUnitState('swordsman', 'enemy', { q: 10, r: 15 });
@@ -1030,7 +1038,7 @@ describe('R4-7 先攻反击', () => {
     // thief 反击 boss（重甲 pdef12）0 伤、boss 攻击 thief 9 伤；thief 快 12 → 守方追击
     const boss = createUnitState('boss', 'enemy', { q: 10, r: 15 });
     const thief = createUnitState('thief', 'player', { q: 11, r: 15 });
-    const r = resolveBattle(map, boss, thief, basicAttackSkill(getTemplate('boss')!), () => 0);
+    const r = resolveBattle(map, boss, thief, basicAttackSkill(getTemplate('boss')!), hitNoCrit());
     expect(r.strikes.map(s => s.byAttacker)).toEqual([false, true, false]);
     expect(r.attackerHp).toBe(50);        // thief 突 vs 重甲两击均 0 伤
     expect(r.defenderHp).toBe(46 - 9);    // boss 钝 vs 无甲 floor(24×0.8−10)=9
@@ -1165,3 +1173,116 @@ describe('R6-1 地形效果双轴字段（§3/§4.3：物理/法术独立取值�
   });
 });
 
+
+describe('R7-1 暴击核心结算', () => {
+  beforeEach(() => resetUnitCounter());
+
+  const map = createMapState();
+  const T = (id: string) => getTemplate(id)!;
+
+  it('calcCritRate 公式：攻技 + 运差（技1/运1）', () => {
+    const thief = createUnitState('thief', 'player', { q: 10, r: 15 });
+    const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });
+    expect(calcCritRate(thief, T('thief'), boss, T('boss'))).toBe(23 + (16 - 4));  // 35
+    const mage = createUnitState('mage', 'player', { q: 10, r: 15 });
+    const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    expect(calcCritRate(mage, T('mage'), sw, T('swordsman'))).toBe(17 + (11 - 8));  // 20
+    const pal = createUnitState('paladin', 'player', { q: 10, r: 15 });
+    expect(calcCritRate(pal, T('paladin'), sw, T('swordsman'))).toBe(15 + (9 - 8));  // 16
+  });
+
+  it('calcCritRate 上下限：运差经修正管线后截 50 / 负值归 0', () => {
+    const thief = createUnitState('thief', 'player', { q: 10, r: 15 });
+    const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });
+    thief.statuses.push({ type: 'buff', skillName: '祝运', turnsLeft: 1, appliedAtTurn: 0, stat: 'lck', amount: 30, decay: 0 });
+    expect(calcCritRate(thief, T('thief'), boss, T('boss'))).toBe(COMBAT_PARAMS.critCap);  // 23+42=65 → 50
+    const foe = createUnitState('axeman_enemy', 'enemy', { q: 11, r: 15 });
+    expect(calcCritRate(foe, T('axeman_enemy'), thief, T('thief'))).toBe(0);  // 12+(6-46) < 0
+  });
+
+  it('×2 进乘数区：盗贼普攻 vs BOSS 正面 0 伤 / 暴击 8（防御后置，0 伤可被暴击翻出）', () => {
+    const thief = createUnitState('thief', 'player', { q: 10, r: 15 });
+    const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });
+    const f = calcStrike(map, thief, T('thief'), boss, T('boss'), basicAttackSkill(T('thief')));
+    expect(f.damage).toBe(0);          // floor(17×0.6−12) < 0（突刺 vs 重甲 0.6）
+    expect(f.critDamage).toBe(8);      // floor(17×1.2−12)（×2 进乘数区 = 0.6×2）
+    expect(f.critRate).toBe(35);
+    expect(f.mustCrit).toBe(false);
+  });
+
+  it('必暴 critOverride：致命突袭不掷骰、crit roll 高于率仍必暴', () => {
+    const peg = createUnitState('pegasus', 'player', { q: 10, r: 15 });
+    const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });
+    const seq = [0.0, 0.9];  // 命中 0 < 92；暴击掷 0.9 > 率但 mustCrit 短路
+    let i = 0;
+    const r = resolveBattle(map, peg, boss, SKILLS.deathblow, () => seq[i++]);
+    expect(r.strikes[0].hit).toBe(true);
+    expect(r.strikes[0].crit).toBe(true);
+    expect(r.strikes[0].damage).toBe(8);  // floor(17×1.2−12)，非暴为 floor(17×0.6−12)<0
+  });
+
+  it('逐击独立掷暴：攻/反/追击各自掷骰（攻暴、反与追击不暴）', () => {
+    const thief = createUnitState('thief', 'player', { q: 10, r: 15 });
+    const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });
+    // 反击择优选横扫（暴击 47 ≥ 盗贼 46 会秒杀截断），故反击掷不暴保三击完整序列
+    const seq = [0.0, 0.0, 0.0, 0.99, 0.0, 0.99];  // 攻(中+暴) 反(中+不暴) 追击(中+不暴)
+    let i = 0;
+    const r = resolveBattle(map, thief, boss, basicAttackSkill(T('thief')), () => seq[i++]);
+    expect(r.strikes).toHaveLength(3);              // 盗贼速 24 vs 12 → 追击
+    expect(r.strikes[0]).toMatchObject({ byAttacker: true, hit: true, crit: true });
+    expect(r.strikes[1]).toMatchObject({ byAttacker: false, hit: true, crit: false });
+    expect(r.strikes[2]).toMatchObject({ byAttacker: true, hit: true, crit: false });
+  });
+
+  it('先命中后暴击：落空无暴击（盗贼先攻反击占 strikes[0]，BOSS 攻击为 strikes[1]）', () => {
+    const boss = createUnitState('boss', 'enemy', { q: 10, r: 15 });
+    const thief = createUnitState('thief', 'player', { q: 11, r: 15 });
+    const r = resolveBattle(map, boss, thief, basicAttackSkill(T('boss')), () => 0.99);  // BOSS 命中 10% → 落空
+    expect(r.strikes[1]).toMatchObject({ byAttacker: true, hit: false, crit: false, damage: 0 });
+  });
+
+  it('暴击怒气：仅怒气系 +15（怒气系命中 10+暴击 15+受击 8；专注系暴击无额外）', () => {
+    const axeman = createUnitState('axeman', 'player', { q: 10, r: 15 });
+    const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });
+    resolveBattle(map, axeman, boss, basicAttackSkill(T('axeman')), () => 0);
+    expect(axeman.resources.current).toBe(10 + 15 + 8);  // 命中+暴击+被反击受击
+
+    const thief = createUnitState('thief', 'player', { q: 10, r: 15 });
+    thief.resources.current = 50;
+    gainOnCrit(thief);  // 暴击额外积攒仅怒气系（专注初始满格，战斗路径验不出，直接调）
+    expect(thief.resources.current).toBe(50);  // 专注系暴击无额外
+  });
+
+  it('expectedDamage：E = 命中率×(非暴×(1−p)+暴伤×p)；mustCrit p=1', () => {
+    const s = { skillName: 'x', damageType: 'slashing' as const, side: 'front' as const, damage: 10, critDamage: 20, hitRate: 50, count: 1, critRate: 20, mustCrit: false };
+    expect(expectedDamage(s)).toBeCloseTo(0.5 * (10 * 0.8 + 20 * 0.2));  // 6
+    expect(expectedDamage({ ...s, mustCrit: true })).toBeCloseTo(0.5 * 20);  // 10
+  });
+
+  it('直击法术可暴：火球暴击走 critDamage、不暴走 damage（mage 出厂 pyro ×1.25）', () => {
+    const mage = createUnitState('mage', 'player', { q: 10, r: 15 });
+    const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    const seq1 = [0.0, 0.0];
+    let i = 0;
+    const r1 = resolveSpell(map, mage, sw, SPELLS.fireball, () => seq1[i++]);
+    if (r1.kind !== 'damage') throw new Error('期望 damage 分支');
+    expect(r1.hit).toBe(true);
+    expect(r1.crit).toBe(true);
+    expect(r1.damage).toBe(53);  // floor((24×2−5)×1.25)：暴击 43 × 炎爆
+    expect(sw.hp).toBe(0);       // 32 − 53 → 阵亡归零
+    const sw2 = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    const seq2 = [0.0, 0.99];
+    let j = 0;
+    const r2 = resolveSpell(map, mage, sw2, SPELLS.fireball, () => seq2[j++]);
+    if (r2.kind !== 'damage') throw new Error('期望 damage 分支');
+    expect(r2.crit).toBe(false);
+    expect(r2.damage).toBe(23);  // floor(19×1.25)
+  });
+
+  it('反击择优按期望（含暴击）：BOSS 反击盗贼选横扫（期望 18 > 普攻 9）', () => {
+    const thief = createUnitState('thief', 'player', { q: 10, r: 15 });
+    const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });
+    const f = calcBattleForecast(map, thief, boss, basicAttackSkill(T('thief')));
+    expect(f.counter?.skillName).toBe('横扫');
+  });
+});

@@ -60,10 +60,17 @@ export function gainOnHit(unit: UnitState, isBasic: boolean): void {
   }
 }
 
-/** 受击积攒：仅怒气系 +8（暴击额外 +15 随 R7 暴击系统落地） */
+/** 受击积攒：仅怒气系 +8 */
 export function gainOnStruck(unit: UnitState): void {
   if (unit.resources.type === 'rage') {
     gainResource(unit, RESOURCE_PARAMS.ragePerHitTaken);
+  }
+}
+
+/** 暴击额外积攒（R7-1 §4.3/§4.13）：出手方暴击且主资源 = 怒气时 +15；专注/MP 系无额外资源 */
+export function gainOnCrit(unit: UnitState): void {
+  if (unit.resources.type === 'rage') {
+    gainResource(unit, RESOURCE_PARAMS.ragePerCrit);
   }
 }
 

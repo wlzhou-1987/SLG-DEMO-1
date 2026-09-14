@@ -402,7 +402,7 @@ export class Game {
       const t = targets.find(x => x.id === r.targetId);
       if (!t) continue;
       await this.playStrikes(unit, t, [{
-        byAttacker: true, hit: r.hit, damage: r.damage, absorbed: r.absorbed,
+        byAttacker: true, hit: r.hit, crit: r.crit, damage: r.damage, absorbed: r.absorbed,
         side: r.forecast.side, skillName: skill.name
       }]);
     }
@@ -518,8 +518,8 @@ export class Game {
     // 伤害类法术播放突进+受击+飘字；增益类只飘字
     if (spellResult.kind === 'damage') {
       await this.playStrikes(unit, target, [{
-        byAttacker: true, hit: spellResult.hit === true, damage: spellResult.damage,
-        absorbed: 0, side: spellResult.side, skillName: spell.name
+        byAttacker: true, hit: spellResult.hit === true, crit: spellResult.crit === true,
+        damage: spellResult.damage, absorbed: 0, side: spellResult.side, skillName: spell.name
       }]);
     } else {
       this.showSpellResult(unit, target, spell.name, hpBefore, spellResult);

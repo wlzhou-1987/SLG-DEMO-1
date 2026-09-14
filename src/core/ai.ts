@@ -6,7 +6,7 @@ import { getTemplate, basicAttackSkill, isFlying } from '../config/units';
 import { getUnitActiveSkills } from './unit';
 import { isVisibleTo } from './stealth';
 import { calcMovementRange, calcAttackRange } from './range';
-import { calcBattleForecast, effectiveRangeMax } from './combat';
+import { calcBattleForecast, effectiveRangeMax, expectedDamage } from './combat';
 import { canAfford } from './resources';
 import { distance, hexKey } from './hex';
 import type { HexCoord } from './types';
@@ -57,10 +57,10 @@ export function decideEnemyAction(
         if (!canAfford(enemy, skill)) continue;
 
         const forecast = calcBattleForecast(map, attackerAt, target, skill);
-        const expected =
-          forecast.attacker.damage * forecast.attacker.count * forecast.attacker.hitRate / 100;
+        // R7-1 期望含暴击（§6/§4.3）：E = 命中率 × (非暴伤害×(1−p) + 暴击伤害×p)
+        const expected = expectedDamage(forecast.attacker) * forecast.attacker.count;
         const counterCost = forecast.counter
-          ? forecast.counter.damage * forecast.counter.count * forecast.counter.hitRate / 100
+          ? expectedDamage(forecast.counter) * forecast.counter.count
           : 0;
         // 击杀优先：期望伤害 ≥ 目标当前 HP 时大幅加权（§6）
         const killBonus = forecast.attacker.damage >= target.hp ? 1000 : 0;

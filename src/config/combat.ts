@@ -32,7 +32,11 @@ export const COMBAT_PARAMS = {
   hitMin: 5,
   hitMax: 100,
   counterCap: 3.0,
-  totalDamageCap: 4.0
+  totalDamageCap: 4.0,
+  critPerTech: 1,        // R7-1 暴击率（§4.3）：攻方技每点 +1%
+  critPerLck: 1,         // R7-1 暴击率：运差每点 ±1%（攻方运 +、守方运 −）
+  critCap: 50,           // R7-1 暴击上限（属性段；可被 critCapBonus 突破——R7-2）
+  critAbsMax: 100        // R7-1 概率绝对顶（武器加成在 clamp 外——R7-2）
 } as const;
 
 /** R4-5 属性条件射程（§4.4 定稿：弓挂力量、法术挂魔力；阈值可配，占位值随 R4-8 数值定稿） */

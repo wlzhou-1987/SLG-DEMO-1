@@ -12,7 +12,7 @@ import type { PartSide } from './combat';
 import type { ArmorType } from './types';
 
 export type SpellForecast =
-  | { kind: 'damage'; damage: number; hitRate: number; side: PartSide; chantTurns: number }
+  | { kind: 'damage'; damage: number; hitRate: number; side: PartSide; chantTurns: number; critRate: number; critDamage: number; mustCrit: boolean }
   | { kind: 'heal'; amount: number }
   | { kind: 'regen'; healPerTurn: number; turns: number }
   | { kind: 'shield'; armorType: ArmorType; absorb: number; turns: number }
@@ -51,7 +51,10 @@ export function calcSpellForecast(
           damage: strike.damage,
           hitRate: strike.hitRate,
           side: strike.side,
-          chantTurns: spell.chantTurns ?? 0
+          chantTurns: spell.chantTurns ?? 0,
+          critRate: strike.critRate,
+          critDamage: strike.critDamage,
+          mustCrit: strike.mustCrit
         };
       }
       // R4-2：治疗统一伤害段——Σ(属性×权重)+固定值（主要挂魔力；不扣防御不乘克制）
@@ -74,7 +77,7 @@ export function calcSpellForecast(
   }
 }
 
-export type SpellResult = SpellForecast & { hit?: boolean; targetHp: number };
+export type SpellResult = SpellForecast & { hit?: boolean; crit?: boolean; targetHp: number };
 
 /**
  * 即时释放的法术结算。增益必中；伤害类掷命中。
@@ -93,12 +96,16 @@ export function resolveSpell(
 
   switch (forecast.kind) {
     case 'damage': {
+      // R7-1 直击法术可暴（§4.3：同一公式，先命中后暴击）；灼烧 DoT 锁定非暴击值（预报 = 实际）
       const hit = rng() < forecast.hitRate / 100;
-      let damage = forecast.damage;
+      const crit = hit && (forecast.mustCrit || rng() < forecast.critRate / 100);
+      let damage = crit ? forecast.critDamage : forecast.damage;
+      let dotBase = forecast.damage;
       if (hit && caster.loadout.passive.includes('pyro') && (spell.id === 'fireball' || spell.id === 'meteor')) {
         damage = Math.floor(damage * EFFECT_PARAMS.pyroBoostMult);
+        dotBase = Math.floor(dotBase * EFFECT_PARAMS.pyroBoostMult);
         // R4-7 施放时锁定：splitDot 切分（§4.3，预报=实际）
-        const { perTurn, extra } = splitDot(damage, EFFECT_PARAMS.pyroDotTurns);
+        const { perTurn, extra } = splitDot(dotBase, EFFECT_PARAMS.pyroDotTurns);
         target.statuses.push({
           type: 'dot', skillName: '灼烧', appliedAtTurn: castTurn,
           turnsLeft: EFFECT_PARAMS.pyroDotTurns,
@@ -110,7 +117,7 @@ export function resolveSpell(
         target.hp = Math.max(0, target.hp - damage);
         gainOnStruck(target);  // R5-2 法术命中受击回怒
       }
-      return { ...forecast, hit, targetHp: target.hp };
+      return { ...forecast, hit, crit, damage, targetHp: target.hp };
     }
     case 'heal': {
       const amount = caster.loadout.passive.includes('heal-boost')
@@ -153,11 +160,12 @@ export function resolveSpell(
 export interface AoeSpellResult {
   targetId: string;
   hit: boolean;
+  crit: boolean;  // R7-1 暴击标记
   damage: number;
   targetHp: number;
 }
 
-/** AoE 法术结算（§4.9：以释放中心格为圆心，区域内敌方独立掷命中；不触发反击） */
+/** AoE 法术结算（§4.9：以释放中心格为圆心，区域内敌方独立掷命中；不触发反击）；R7-1 逐目标独立掷暴 */
 export function resolveAoeSpell(
   map: MapState,
   caster: UnitState,
@@ -174,11 +182,12 @@ export function resolveAoeSpell(
   return targets.map(t => {
     const strike = calcStrike(map, caster, casterT, t, getTemplate(t.templateId)!, spell);
     const hit = rng() < strike.hitRate / 100;
-    const damage = hit ? strike.damage : 0;
+    const crit = hit && (strike.mustCrit || rng() < strike.critRate / 100);
+    const damage = hit ? (crit ? strike.critDamage : strike.damage) : 0;
     if (hit) {
       t.hp = Math.max(0, t.hp - damage);
       gainOnStruck(t);  // R5-2 受击回怒
     }
-    return { targetId: t.id, hit, damage, targetHp: t.hp };
+    return { targetId: t.id, hit, crit, damage, targetHp: t.hp };
   });
 }
