@@ -7,6 +7,10 @@ import type { SkillTemplate, WeaponAtom, ResourceType } from './skills';
 /** 兵种标签（§4.2 定稿：可扩展；含「飞行」标签即按飞行移动规则处理） */
 export type UnitTag = 'infantry' | 'cavalry' | 'flying' | 'heavy' | 'monster' | 'dragon';
 
+export const UNIT_TAGS: readonly UnitTag[] = [
+  'infantry', 'cavalry', 'flying', 'heavy', 'monster', 'dragon'
+];
+
 /** 普攻数据（§4.9：基础攻击=固有能力；伤害线/威力/射程为武器数据，R2 装备系统后由武器装备决定） */
 export interface BasicAttackData {
   damageType: DamageType;
