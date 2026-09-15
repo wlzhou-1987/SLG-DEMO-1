@@ -102,7 +102,7 @@
 
 | issue | 内容与验收 | 状态 |
 | --- | --- | --- |
-| R2-1 | 武器注册表与首版清单：src/config/weapons.ts（WeaponItem 类型 + WEAPONS 15 条：基准 8/跨线 3/必杀 3/铁盾/弑骑战锤，原子基准威力）+ tests/config/weapons.test.ts（id 唯一、原子合法、普攻段齐备性〔三字段要么全配要么全不配〕、critBonus/counters 类型、清单与 §4.14 表一致）。验收：TDD 红→绿；npm test 全绿；build 无错 | ✅ 已完成（2026-09-15，TDD 红→绿〔模块缺失收集失败→12 用例全绿〕，新增 12 测试、全量 420 全绿、build 无错；ARCHITECTURE 覆盖率检查输出为空（weapons.ts 新条目 + units.ts 补 UNIT_TAGS 常量对齐 WEAPON_ATOMS 风格）；弑骑战锤口径 = 无阵营拦截面，"敌方专用"为出厂归属语义非可用性约束——counters 对我方为死配置接受（与死被动精神一致）；commit hash 见回填） |
+| R2-1 | 武器注册表与首版清单：src/config/weapons.ts（WeaponItem 类型 + WEAPONS 15 条：基准 8/跨线 3/必杀 3/铁盾/弑骑战锤，原子基准威力）+ tests/config/weapons.test.ts（id 唯一、原子合法、普攻段齐备性〔三字段要么全配要么全不配〕、critBonus/counters 类型、清单与 §4.14 表一致）。验收：TDD 红→绿；npm test 全绿；build 无错 | ✅ 已完成（2026-09-15，28e2dd1，TDD 红→绿〔模块缺失收集失败→12 用例全绿〕，新增 12 测试、全量 420 全绿、build 无错；ARCHITECTURE 覆盖率检查输出为空（weapons.ts 新条目 + units.ts 补 UNIT_TAGS 常量对齐 WEAPON_ATOMS 风格）；弑骑战锤口径 = 无阵营拦截面，"敌方专用"为出厂归属语义非可用性约束——counters 对我方为死配置接受（与死被动精神一致）） |
 | R2-2 | 装备模型与普攻条目化：编成条目/UnitState 挂装备数组（≤2，常量可配）；模板默认装备可选字段（我方出厂表 + 敌方基准条目/BOSS 弑骑战锤），关卡敌方条目可覆盖；装备校验（条目原子 ∈ 类别）；basicAttack 模板字段退役——普攻按供普攻段条目展开合成（basicAttackSkill 迁移为按条目构造，双武器角色多条普攻、盾条目不供普攻）。验收：新增 ≥6 用例（展开/不供普攻/校验拒绝/关卡覆盖）；npm test 全绿；build 无错；sim 断言允许随实现锚定当时值并记录（重校归 R2-6，沿 R7-1 先例） | 待开始 |
 | R2-3 | 过滤与暴击迁移：技能武器过滤改读装备原子并集（pool.ts 战前过滤 + 敌方配置校验同源）；WEAPON_CRIT_BONUS 全局表退役、combat.ts 暴击加成改装备条目求和；反击/AI 择优含武器维度用例（多武器守方期望择优）。验收：迁移点 grep 无残留（WEAPON_CRIT_BONUS、模板 weapons 过滤读取）；npm test 全绿；build 无错 | 待开始 |
 | R2-4 | JobConfig 实体化：R4 缺省权重 + R5 资源类型 + R2 装备类别一次性迁移 JobConfig，删 UnitTemplate.weapons（语义转装备类别源）等过渡字段防双真源（§4.1 既定）。验收：模板字段删除 diff 证据；全量测试绿；ARCHITECTURE 同步条目 | 待开始 |
