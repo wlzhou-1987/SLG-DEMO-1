@@ -31,7 +31,9 @@ export const SPELLS: Record<string, SpellTemplate> = {
     id: 'curse', name: '咒杀', target: 'enemy', learnable: true,
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
     resourceType: 'mp', cost: 25,
-    power: 10, castMode: 'instant', effectMode: 'lasting', durationTurns: 3, targetType: 'enemy'
+    // R7-3 数值定稿：power 14——生态位 = 高魔防目标（敌法 mdef15 总伤 23 > 火球+pyro 总效 22）
+    // 与非 pyro MP 系（牧师总伤 30 vs 火球 16）；低防目标仍火球优（即时+可暴），分工成立
+    power: 14, castMode: 'instant', effectMode: 'lasting', durationTurns: 3, targetType: 'enemy'
   },
   heal: {
     id: 'heal', name: '治疗', target: 'ally', learnable: true,

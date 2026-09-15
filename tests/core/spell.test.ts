@@ -62,9 +62,9 @@ describe('calcSpellForecast 法术预报', () => {
     const enemy = createUnitState('swordsman', 'enemy', { q: 12, r: 15 });
     expect(calcSpellForecast(map, priest, lord, SPELLS.regen)).toEqual({ kind: 'regen', healPerTurn: 5, turns: 3 });
     expect(calcSpellForecast(map, priest, lord, SPELLS.mithrilShield)).toEqual({ kind: 'shield', armorType: 'medium', absorb: 10, turns: 3 });
-    // 咒杀 total = 魔 21 + power 10 − 魔防 5 = 26 → 每回合 8、末回合补 2（R10-1 统一 DoT 公式）
+    // 咒杀 total = 魔 21 + power 14 − 魔防 5 = 30 → 每回合 10、整除无补余（R10-1 公式 / R7-3 power 14）
     const f = calcSpellForecast(map, priest, enemy, SPELLS.curse);
-    expect(f).toMatchObject({ kind: 'dot', total: 26, damagePerTurn: 8, finalTurnExtra: 2, turns: 3 });
+    expect(f).toMatchObject({ kind: 'dot', total: 30, damagePerTurn: 10, finalTurnExtra: 0, turns: 3 });
     if (f.kind === 'dot') expect(f.hitRate).toBeGreaterThan(0);
   });
 });
@@ -107,7 +107,7 @@ describe('resolveSpell 法术结算（即时释放部分）', () => {
     const r = resolveSpell(map, priest, enemy, SPELLS.curse, () => 0);
     expect(r.hit).toBe(true);
     const dot = enemy.statuses.find(s => s.type === 'dot' && s.skillName === '咒杀');
-    expect(dot).toMatchObject({ damagePerTurn: 8, finalTurnExtra: 2, turnsLeft: 3 });
+    expect(dot).toMatchObject({ damagePerTurn: 10, finalTurnExtra: 0, turnsLeft: 3 });
     expect(enemy.hp).toBe(hpBefore);
 
     const enemy2 = createUnitState('swordsman', 'enemy', { q: 12, r: 15 });
@@ -120,15 +120,15 @@ describe('resolveSpell 法术结算（即时释放部分）', () => {
     const mage = createUnitState('mage', 'player', { q: 10, r: 15 });
     const enemy = createUnitState('swordsman', 'enemy', { q: 12, r: 15 });
     resolveSpell(map, mage, enemy, SPELLS.curse, () => 0);
-    // total = 24 + 10 − 5 = 29 → 9/9/11；施法后施法者获得大幅魔力 buff 不影响已锁定值
+    // total = 24 + 14 − 5 = 33 → 11/11/11（整除）；施法后施法者获得大幅魔力 buff 不影响已锁定值
     mage.statuses.push({ type: 'buff', skillName: '祝福', turnsLeft: 3, appliedAtTurn: 0, stat: 'mag', amount: 20, decay: 0 });
     const events = [
       ...tickStatuses([enemy], 'enemy'),
       ...tickStatuses([enemy], 'enemy'),
       ...tickStatuses([enemy], 'enemy')
     ];
-    expect(events.filter(e => e.kind === 'dotTick').map(e => (e as { damage: number }).damage)).toEqual([9, 9, 11]);
-    expect(enemy.hp).toBe(32 - 29);
+    expect(events.filter(e => e.kind === 'dotTick').map(e => (e as { damage: number }).damage)).toEqual([11, 11, 11]);
+    expect(enemy.hp).toBe(39 - 33);  // 剑士 hp39（R7-3）
     expect(enemy.statuses.find(s => s.type === 'dot')).toBeUndefined();
   });
 
@@ -143,7 +143,7 @@ describe('resolveSpell 法术结算（即时释放部分）', () => {
     const swordsman = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
     const r1 = resolveSpell(map, mage, swordsman, SPELLS.fireball, hitNoCrit());
     expect(r1.kind).toBe('damage');
-    expect(swordsman.hp).toBe(32 - 19);
+    expect(swordsman.hp).toBe(39 - 19);  // 剑士 hp39（R7-3）
     const r2 = resolveSpell(map, mage, swordsman, SPELLS.fireball, () => 1.0);
     if (r2.kind === 'damage') expect(r2.hit).toBe(false);
   });

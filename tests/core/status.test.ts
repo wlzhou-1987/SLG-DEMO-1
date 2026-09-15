@@ -78,12 +78,12 @@ describe('tickStatuses 阶段推进', () => {
       { type: 'dot', skillName: '咒杀', turnsLeft: 3, appliedAtTurn: 1, damagePerTurn: 9, finalTurnExtra: 2 }
     ]);
     const e1 = tickStatuses([enemy], 'enemy');
-    expect(enemy.hp).toBe(32 - 9);
+    expect(enemy.hp).toBe(39 - 9);
     expect(enemy.statuses[0].turnsLeft).toBe(2);
     tickStatuses([enemy], 'enemy');
-    expect(enemy.hp).toBe(32 - 18);
+    expect(enemy.hp).toBe(39 - 18);
     const e3 = tickStatuses([enemy], 'enemy');
-    expect(enemy.hp).toBe(32 - 29);
+    expect(enemy.hp).toBe(39 - 29);
     expect(enemy.statuses).toHaveLength(0);
     expect([...e1, ...e3].some(e => e.kind === 'dotTick')).toBe(true);
   });
@@ -93,9 +93,9 @@ describe('tickStatuses 阶段推进', () => {
       { type: 'dot', skillName: '咒杀', turnsLeft: 2, appliedAtTurn: 1, damagePerTurn: 1 }
     ]);
     tickStatuses([enemy], 'enemy');
-    expect(enemy.hp).toBe(32 - 1);
+    expect(enemy.hp).toBe(39 - 1);
     tickStatuses([enemy], 'enemy');
-    expect(enemy.hp).toBe(32 - 2);
+    expect(enemy.hp).toBe(39 - 2);
     expect(enemy.statuses).toHaveLength(0);
   });
 

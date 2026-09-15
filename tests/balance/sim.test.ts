@@ -63,8 +63,11 @@ function actPlayerUnit(map: MapState, units: UnitState[], u: UnitState, rng: () 
     distance(u.position, a.position) <= distance(u.position, b.position) ? a : b);
   const dNearest = distance(u.position, nearest.position);
 
-  // 领主（败北条件）：只在敌人逼近时后撤；终局（敌≤2）参战收尾
-  if (u.templateId === 'lord' && enemies.length > 2) {
+  // 领主（败北条件）：只在敌人逼近时后撤；终局（敌≤2）参战收尾；
+  // R7-3 口径修正：仅在有队友护卫（我方存活>1）时躲避——独苗领主后撤待机 = 80 回合
+  // 数学必平（领主不败也杀不完），真玩家独苗搏命，僵局交 rng（领主死 = 分出胜负）
+  const alliesAlive = units.filter(x => x.faction === 'player' && x.hp > 0).length;
+  if (u.templateId === 'lord' && enemies.length > 2 && alliesAlive > 1) {
     if (dNearest < 5) {
       const costs = calcMovementCosts(map, units, u.position, template.movePoints, isFlying(template));
       let bestKey = hexKey(u.position);
@@ -83,8 +86,10 @@ function actPlayerUnit(map: MapState, units: UnitState[], u: UnitState, rng: () 
     return;
   }
 
-  // 重伤撤退（基线操作）：HP < 35% 的非领主单位拉开与最近敌人的距离；终局（敌≤2）不撤退
-  if (u.templateId !== 'lord' && enemies.length > 2 && u.hp < u.maxHp * 0.35) {
+  // 重伤撤退（基线操作）：HP < 35% 的非领主单位拉开与最近敌人的距离；
+  // R7-3 口径修正：仅中前期（敌>5 且我方存活>6——尚有轮换资本）撤退；敌方≤5、我方伤亡
+  // 过半或独苗残局不再绕圈撤退（治疗续航下撤退绕圈 = 理性拒战伪影，真玩家集火搏命，僵局交 rng）
+  if (u.templateId !== 'lord' && enemies.length > 5 && alliesAlive > 6 && u.hp < u.maxHp * 0.35) {
     const costs = calcMovementCosts(map, units, u.position, template.movePoints, isFlying(template));
     let bestKey = hexKey(u.position);
     let bestD = dNearest;
@@ -184,11 +189,17 @@ function actPlayerUnit(map: MapState, units: UnitState[], u: UnitState, rng: () 
     const suicide = fs.counter !== null && fs.counter.damage >= u.hp;
     if (lastStand || !suicide) {
       payCost(u, bestAtk.skill);  // R5-1 扣费
-      if (isSpell(bestAtk.skill)) u.castSpellThisTurn = true;  // R5-2 施法标记
+      if (isSpell(bestAtk.skill)) {
+        // R7-3 口径修正：单体法术走 resolveSpell（与真实 confirmSpell 一致——无反击、pyro 加成、
+        // 咒杀挂 DoT 而非直伤；R10-1 前 sim 将咒杀当直伤 29 结算，R10 规则变更后口径失真）；
+        // castSpellThisTurn 由 resolveSpell 内部设置
+        resolveSpell(map, u, bestAtk.target, bestAtk.skill, rng);
+      } else {
+        const result = resolveBattle(map, u, bestAtk.target, bestAtk.skill, rng);
+        u.hp = result.attackerHp;
+        bestAtk.target.hp = result.defenderHp;
+      }
       u.facing = directionBetween(u.position, bestAtk.target.position);
-      const result = resolveBattle(map, u, bestAtk.target, bestAtk.skill, rng);
-      u.hp = result.attackerHp;
-      bestAtk.target.hp = result.defenderHp;
     }
   } else {
     const near = enemies.reduce((a, b) =>
@@ -290,8 +301,8 @@ function simulate(seed: number): SimResult {
   };
 }
 
-describe('平衡模拟（R4-8 定稿 / R5-3 资源经济重校）', () => {
-  it('20 局模拟：R7-1 暴击后现状锁定 20 胜 0 败 0 平（带宽待 R7-3 重校）、可复现并输出统计', () => {
+describe('平衡模拟（R4-8 定稿 / R5-3 资源经济重校 / R7-3 暴击重校）', () => {
+  it('20 局模拟：R7-3 暴击重校 14 胜 6 败 0 平（带内）、可复现并输出统计', () => {
     const results = Array.from({ length: 20 }, (_, i) => simulate(i + 1));
     const wins = results.filter(r => r.winner === 'playerWin');
     const losses = results.filter(r => r.winner === 'playerLose');
@@ -304,11 +315,11 @@ describe('平衡模拟（R4-8 定稿 / R5-3 资源经济重校）', () => {
     console.log('[明细] ' + results.map(r =>
       `#${r.seed}${r.winner === 'playerWin' ? '胜' : r.winner === 'playerLose' ? '败' : '平'}` +
       `T${r.turns}存${r.playersAlive}敌${r.enemiesAlive}${r.lastEnemy ? '(' + r.lastEnemy + ')' : ''}`).join(' '));
-    // 胜率带：R7-1 暴击引入后玩家技/运占优被单向放大 → 20 全胜（原 R4-8 门 12~15 出带）
-    // 门禁锁定现状防隐性漂移；带宽重校归 R7-3（敌方暴击面 4~15%/BOSS 威慑等，见 BACKLOG）
-    expect(wins.length).toBe(20);
-    expect(losses.length).toBe(0);
-    expect(draws.length).toBe(0);  // R5-3 收口：终局死战规则 + 数值定稿后 0 平
+    // 胜率带：R7-3 暴击重校（敌方 HP/str 补偿暴击单向放大、BOSS 威慑回升、咒杀 power 14）
+    // → 14 胜 6 败 0 平 = 70%；带宽维持 R4-8 确认的 60~75%（12~15 胜）+ 0 平；R5-3 门随 R7-3 重定
+    expect(wins.length).toBe(14);
+    expect(losses.length).toBe(6);
+    expect(draws.length).toBe(0);  // R5-3 收口 + R7-3 撤退/独苗领主口径修正后 0 平
     // 可复现性：同种子重跑结果一致
     expect(simulate(7)).toEqual(results[6]);
   });
