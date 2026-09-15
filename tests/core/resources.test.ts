@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createUnitState, resetUnitCounter } from '../../src/core/unit';
-import { getTemplate, basicAttackSkill } from '../../src/config/units';
+import { getTemplate } from '../../src/config/units';
+import { basicAttackSkills } from '../../src/config/weapons';
 import { initResources, canAfford, payCost, refundCost, tickResources } from '../../src/core/resources';
 import { SPELLS } from '../../src/config/spells';
 import { SKILLS } from '../../src/config/skills';
@@ -9,6 +10,9 @@ import { resolveBattle } from '../../src/core/combat';
 import { resolveSpell } from '../../src/core/spell';
 import { executeBehavior } from '../../src/core/effects';
 import { createMapState } from '../../src/core/map';
+
+// R2-2 迁移 helper：旧 basicAttackSkill(template) 语义 = 默认装备第一把普攻
+const basicAttackSkill = (t: { defaultEquipment: readonly string[] }) => basicAttackSkills(t.defaultEquipment)[0];
 
 /** R7-1 起命中后追加暴击掷：奇偶交替 = 必中 + 必不暴（保旧用例非暴击语义） */
 const hitNoCrit = () => {

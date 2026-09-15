@@ -8,6 +8,7 @@ export interface UnitPlacement {
   faction: Faction;
   position: HexCoord;
   loadout?: SkillLoadout;
+  equipment?: readonly string[];   // 关卡覆盖默认装备（R2-2，§4.14）
 }
 
 /** 敌组 AI 激活类型（§6）：待机=警戒/被攻击激活；主动=登场即激活；boss=驻守不移动 */

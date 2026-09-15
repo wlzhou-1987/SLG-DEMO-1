@@ -14,7 +14,8 @@ import { cancelStealth, isStealthed } from './core/stealth';
 import { executeBehavior, applyAmbushBonus, rushDestination, resolveChargeStrike } from './core/effects';
 import { refreshAuras } from './core/status';
 import type { SkillTemplate } from './config/skills';
-import { getTemplate, basicAttackSkill, isFlying } from './config/units';
+import { getTemplate, isFlying } from './config/units';
+import { basicAttackSkills } from './config/weapons';
 import { isSpell } from './config/spells';
 import type { SpellTemplate } from './config/spells';
 import { MAP_OVERRIDES, PLAYER_UNITS, ENEMY_GROUPS, DEPLOY_ZONE } from './config/map';
@@ -85,10 +86,10 @@ export class Game {
     this.map = createMapState(MAP_OVERRIDES);
     const playerRoster: RosterEntry[] = roster ?? PLAYER_UNITS;
     this.units = [
-      ...playerRoster.map(p => createUnitState(p.templateId, 'player', p.position, p.loadout)),
+      ...playerRoster.map(p => createUnitState(p.templateId, 'player', p.position, p.loadout, p.equipment)),
       ...ENEMY_GROUPS.flatMap(g =>
         g.units.map(p => {
-          const u = createUnitState(p.templateId, p.faction, p.position, p.loadout);
+          const u = createUnitState(p.templateId, p.faction, p.position, p.loadout, p.equipment);
           u.groupId = g.id;
           u.aiKind = g.aiType;
           u.activated = g.aiType !== 'dormant';
@@ -255,7 +256,7 @@ export class Game {
     const moveRange = calcMovementRange(
       this.map, this.units, unit.position, template.movePoints, isFlying(template)
     );
-    const resolvedSkills = [basicAttackSkill(template), ...getUnitActiveSkills(unit)];
+    const resolvedSkills = [...basicAttackSkills(unit.equipment), ...getUnitActiveSkills(unit)];
     const rangeMin = Math.min(...resolvedSkills.map(s => s.rangeMin));
     const rangeMax = Math.max(...resolvedSkills.map(s => s.rangeMax));
     const attackRange = calcAttackRange(moveRange, rangeMin, rangeMax);
@@ -270,10 +271,9 @@ export class Game {
     const world = axialToPixel(unit.position, HEX_SIZE);
     const screen = this.camera.worldToScreen(world);
 
-    const template = getTemplate(unit.templateId)!;
     const resolved = getUnitActiveSkills(unit);
-    // R3-2：普攻恒为攻击选项（不占技能位，§4.9）
-    const attackSkills = [basicAttackSkill(template), ...resolved.filter(s => !isSpell(s))];
+    // R3-2：普攻恒为攻击选项（不占技能位，§4.9）；R2-2：按供普攻段装备条目展开（§4.14）
+    const attackSkills = [...basicAttackSkills(unit.equipment), ...resolved.filter(s => !isSpell(s))];
     const spellSkills = resolved.filter(isSpell);
     const items: Array<{ label: string; value: string; kind?: 'normal' | 'cancel' }> = [];
     items.push({ label: '攻击', value: 'attack' });

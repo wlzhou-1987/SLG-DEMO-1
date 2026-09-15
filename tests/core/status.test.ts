@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { resolveArmor, tickStatuses, interruptChant, refreshAuras } from '../../src/core/status';
 import { calcBattleForecast } from '../../src/core/combat';
-import { basicAttackSkill } from '../../src/config/units';
+import { basicAttackSkills } from '../../src/config/weapons';
 import { SKILLS } from '../../src/config/skills';
 import type { ActiveStatus } from '../../src/core/status';
 import { createUnitState, resetUnitCounter } from '../../src/core/unit';
@@ -9,6 +9,9 @@ import { getTemplate } from '../../src/config/units';
 import { SPELLS } from '../../src/config/spells';
 import { createMapState } from '../../src/core/map';
 import { resolveSkillSubs, resolveShout } from '../../src/core/effects';
+
+// R2-2 迁移 helper：旧 basicAttackSkill(template) 语义 = 默认装备第一把普攻
+const basicAttackSkill = (t: { defaultEquipment: readonly string[] }) => basicAttackSkills(t.defaultEquipment)[0];
 
 function withStatuses(unit: ReturnType<typeof createUnitState>, statuses: ActiveStatus[]) {
   unit.statuses = statuses;

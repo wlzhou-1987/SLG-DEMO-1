@@ -215,7 +215,7 @@ describe('撤销移动（取消行动）', () => {
     expect(game.phase.mode).toBe('actionMenu');
 
     menuClick('攻击');
-    menuClick('攻击·普攻');
+    menuClick('攻击·长剑·普攻');
     expect(game.phase.mode).toBe('targetSelect');
 
     click(foe);
@@ -367,7 +367,7 @@ describe('R3-8 潜行：行为技能与取消三态（game 集成）', () => {
     click(origin);
     await waitMove();
     menuClick('攻击');
-    menuClick('攻击·普攻');
+    menuClick('攻击·长剑·普攻');
     click(foe);
     // 预报确认
     const panel = mapWrap().children.find(c => c.className === 'forecast');

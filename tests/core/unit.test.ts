@@ -48,6 +48,7 @@ describe('unit', () => {
           maxHp: 26,
           hasActed: false, statuses: [], activated: true, moveSpent: 0,
           loadout: { active: [], passive: [] },
+          equipment: [],
           resources: { type: 'rage', current: 0, max: 100 }
         },
         {
@@ -60,6 +61,7 @@ describe('unit', () => {
           maxHp: 26,
           hasActed: false, statuses: [], activated: true, moveSpent: 0,
           loadout: { active: [], passive: [] },
+          equipment: [],
           resources: { type: 'rage', current: 0, max: 100 }
         }
       ];
@@ -84,6 +86,7 @@ describe('unit', () => {
           maxHp: 26,
           hasActed: false, statuses: [], activated: true, moveSpent: 0,
           loadout: { active: [], passive: [] },
+          equipment: [],
           resources: { type: 'rage', current: 0, max: 100 }
         },
         {
@@ -96,6 +99,7 @@ describe('unit', () => {
           maxHp: 18,
           hasActed: false, statuses: [], activated: true, moveSpent: 0,
           loadout: { active: [], passive: [] },
+          equipment: [],
           resources: { type: 'rage', current: 0, max: 100 }
         }
       ];
@@ -141,5 +145,27 @@ describe('R3-3 技能挂实例与战斗内锁定', () => {
     expect(getUnitActiveSkills(mage).map(s => s.name)).toEqual(['火球', '陨石术', '咒杀']);
     const knight = createUnitState('knight', 'player', { q: 1, r: 0 });
     expect(hasUnitTrait(knight, 're-move')).toBe(true);
+  });
+});
+
+describe('R2-2 装备挂实例', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  it('默认装备 = 模板 defaultEquipment（缺省回落）', () => {
+    const lord = createUnitState('lord', 'player', { q: 0, r: 0 });
+    expect([...lord.equipment]).toEqual(['longsword', 'rapier']);
+  });
+
+  it('显式装备覆盖模板默认（关卡/编成传入）', () => {
+    const boss = createUnitState('boss', 'enemy', { q: 0, r: 0 }, undefined, ['maul']);
+    expect([...boss.equipment]).toEqual(['maul']);
+  });
+
+  it('非法装备 throw（类别外 / 超槽 / 未知 id，沿 R1-2 非法编成 throw 先例）', () => {
+    expect(() => createUnitState('lord', 'player', { q: 0, r: 0 }, undefined, ['maul'])).toThrow(/类别/);
+    expect(() => createUnitState('lord', 'player', { q: 0, r: 0 }, undefined, ['longsword', 'rapier', 'ironShield'])).toThrow(/槽/);
+    expect(() => createUnitState('lord', 'player', { q: 0, r: 0 }, undefined, ['nope'])).toThrow(/未知/);
   });
 });

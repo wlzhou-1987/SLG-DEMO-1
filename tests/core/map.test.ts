@@ -58,6 +58,7 @@ describe('map', () => {
         maxHp: 26,
         hasActed: false, statuses: [], activated: true, moveSpent: 0,
           loadout: { active: [], passive: [] },
+          equipment: [],
           resources: { type: "rage", current: 0, max: 100 }
       }];
       expect(isPassable(map, { q: 3, r: 3 }, false, units)).toBe(false);
@@ -75,6 +76,7 @@ describe('map', () => {
         maxHp: 26,
         hasActed: false, statuses: [], activated: true, moveSpent: 0,
           loadout: { active: [], passive: [] },
+          equipment: [],
           resources: { type: "rage", current: 0, max: 100 }
       }];
       expect(isPassable(map, { q: 3, r: 3 }, true, units)).toBe(true);

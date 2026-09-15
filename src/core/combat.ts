@@ -4,7 +4,8 @@ import { getTerrain } from './map';
 import type { UnitState } from './unit';
 import type { SkillTemplate } from '../config/skills';
 import type { UnitTemplate } from '../config/units';
-import { getTemplate, getTemplateSkills, basicAttackSkill, isFlying } from '../config/units';
+import { getTemplate, getTemplateSkills, isFlying } from '../config/units';
+import { basicAttackSkills } from '../config/weapons';
 import { directionBetween, distance } from './hex';
 import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS, EFFECT_PARAMS, RANGE_PARAMS, WEAPON_CRIT_BONUS } from '../config/combat';
 import { TERRAIN_CONFIGS } from '../config/terrain';
@@ -215,7 +216,7 @@ function pickCounterSkill(
 ): SkillTemplate | null {
   let best: SkillTemplate | null = null;
   let bestScore = -1;
-  for (const skill of [basicAttackSkill(defT), ...getTemplateSkills(defT)]) {
+  for (const skill of [...basicAttackSkills(defender.equipment), ...getTemplateSkills(defT)]) {
     if (dist < skill.rangeMin || dist > skill.rangeMax) continue;
     const strike = calcStrike(map, defender, defT, attacker, atkT, skill);
     const score = expectedDamage(strike);  // 与 AI 择优同式（§4.3：精确期望，暴伤经防御后置）
@@ -339,7 +340,7 @@ export function resolveBattle(
       // R5-2 资源积攒（§4.13）：攻击者命中入池（怒任意攻击/专与MP仅普攻）、受击方回怒；R7-1 暴击额外怒气
       const striker = byAttacker ? attacker : defender;
       const struck = byAttacker ? defender : attacker;
-      gainOnHit(striker, s.skillName === '普攻');
+      gainOnHit(striker, s.skillName.endsWith('·普攻'));  // R2-2 普攻名 = 「武器名·普攻」
       gainOnStruck(struck);
       if (crit) gainOnCrit(striker);
     }
@@ -445,7 +446,7 @@ export function resolveAoeBattle(
     const damage = crit ? forecast.critDamage : (hit ? forecast.damage : 0);
     const absorbed = applyDamageToUnit(t, defT, damage);
     if (hit) {
-      gainOnHit(caster, skill.id === 'basic');  // R5-2 命中积攒
+      gainOnHit(caster, skill.id.startsWith('basic:'));  // R5-2 命中积攒（R2-2 普攻 id = basic:<武器>）
       gainOnStruck(t);
       if (crit) gainOnCrit(caster);  // R7-1 暴击额外怒气
     }
@@ -455,11 +456,8 @@ export function resolveAoeBattle(
 }
 
 
-/** R4-5 属性条件射程加成（§4.4：弓挂力量、法术挂魔力；阈值可配；普攻按模板武器判弓） */
+/** R4-5 属性条件射程加成（§4.4：弓挂力量、法术挂魔力；阈值可配；R2-2 起普攻自带 weaponType 统一走 isBow 判定） */
 export function rangeBonus(t: import('../config/units').UnitTemplate, skill: SkillTemplate): number {
-  if (skill.id === 'basic') {
-    return t.weapons.includes('bow') && t.str >= RANGE_PARAMS.bowStrThreshold ? RANGE_PARAMS.bowBonus : 0;
-  }
   if (skill.damageType === 'magic') {
     return t.mag >= RANGE_PARAMS.spellMagThreshold ? RANGE_PARAMS.spellBonus : 0;
   }

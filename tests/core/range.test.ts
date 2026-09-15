@@ -35,6 +35,7 @@ describe('M6-4 calcMovementCosts（再移动剩余移动力 §4.8）', () => {
       maxHp: 26,
       hasActed: false, statuses: [], activated: true, moveSpent: 0,
           loadout: { active: [], passive: [] },
+          equipment: [],
           resources: { type: "rage", current: 0, max: 100 }
     }];
     const costs = calcMovementCosts(map, units, { q: 10, r: 15 }, 2, true);
@@ -93,6 +94,7 @@ describe('range', () => {
         maxHp: 26,
         hasActed: false, statuses: [], activated: true, moveSpent: 0,
           loadout: { active: [], passive: [] },
+          equipment: [],
           resources: { type: "rage", current: 0, max: 100 }
       }];
       const range = calcMovementRange(map, units, { q: 10, r: 15 }, 5, false);
@@ -111,6 +113,7 @@ describe('range', () => {
         maxHp: 26,
         hasActed: false, statuses: [], activated: true, moveSpent: 0,
           loadout: { active: [], passive: [] },
+          equipment: [],
           resources: { type: "rage", current: 0, max: 100 }
       }];
       const range = calcMovementRange(map, units, { q: 10, r: 15 }, 5, true);
@@ -129,6 +132,7 @@ describe('range', () => {
         maxHp: 26,
         hasActed: false, statuses: [], activated: true, moveSpent: 0,
           loadout: { active: [], passive: [] },
+          equipment: [],
           resources: { type: "rage", current: 0, max: 100 }
       }];
       const range = calcMovementRange(map, units, { q: 10, r: 15 }, 2, true);

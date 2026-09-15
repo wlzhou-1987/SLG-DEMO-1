@@ -2,6 +2,7 @@ import type { HexCoord, Faction } from './types';
 import { getTemplate, resolveSkill } from '../config/units';
 import type { SkillTemplate } from '../config/skills';
 import type { SpellTemplate } from '../config/spells';
+import { validateEquipment } from '../config/weapons';
 import type { ActiveStatus } from './status';
 import type { GroupAiType } from '../config/map';
 import { initResources } from './resources';
@@ -25,6 +26,7 @@ export interface UnitState {
   moveSpent: number;             // 本回合已消耗移动力（§4.8 再移动剩余移动力）
   statuses: ActiveStatus[];
   loadout: SkillLoadout;         // 技能装填（R3-3：编成传入或出厂默认，战斗内冻结）
+  equipment: readonly string[];  // 装备武器条目 id（R2-2：编成/关卡传入或模板默认，战斗内冻结）
   resources: ResourceState;      // 主资源槽（§4.13，R5-1）
   castSpellThisTurn?: boolean;   // R5-2 本回合已施法（0 耗亦算）——MP 歇息恢复判定，阶段开始重置
   groupId?: string;              // 敌方组归属（集结/全组激活）
@@ -42,10 +44,14 @@ export function createUnitState(
   templateId: string,
   faction: Faction,
   position: HexCoord,
-  loadout?: SkillLoadout
+  loadout?: SkillLoadout,
+  equipment?: readonly string[]
 ): UnitState {
   const template = getTemplate(templateId);
   if (!template) throw new Error(`未知单位模板: ${templateId}`);
+  const equip = equipment ?? template.defaultEquipment;
+  const equipErrors = validateEquipment(template.weapons, equip);
+  if (equipErrors.length > 0) throw new Error(`非法装备: ${equipErrors.join('；')}`);
   unitCounter++;
   const active = loadout ? [...loadout.active] : [...template.skills];
   const passive = loadout ? [...loadout.passive] : [...(template.traits ?? [])];
@@ -61,6 +67,7 @@ export function createUnitState(
     moveSpent: 0,
     statuses: [],
     loadout: Object.freeze({ active: Object.freeze(active), passive: Object.freeze(passive) }),
+    equipment: Object.freeze([...equip]),
     resources: initResources(template),
     activated: true
   };

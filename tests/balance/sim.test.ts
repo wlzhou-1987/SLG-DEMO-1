@@ -4,7 +4,8 @@ import type { MapState } from '../../src/core/map';
 import { createUnitState, resetUnitCounter, getUnitActiveSkills } from '../../src/core/unit';
 import type { UnitState } from '../../src/core/unit';
 import { MAP_OVERRIDES, PLAYER_UNITS, ENEMY_GROUPS } from '../../src/config/map';
-import { getTemplate, basicAttackSkill, isFlying } from '../../src/config/units';
+import { getTemplate, isFlying } from '../../src/config/units';
+import { basicAttackSkills } from '../../src/config/weapons';
 import type { SkillTemplate } from '../../src/config/skills';
 import { isSpell } from '../../src/config/spells';
 import type { SpellTemplate } from '../../src/config/spells';
@@ -48,9 +49,8 @@ function occupied(units: UnitState[], pos: HexCoord, self: UnitState): boolean {
 }
 
 function usableSkills(u: UnitState): SkillTemplate[] {
-  const template = getTemplate(u.templateId)!;
-  // R3-2：普攻恒为可用攻击选项（不占技能位）
-  return [basicAttackSkill(template),
+  // R3-2：普攻恒为可用攻击选项（不占技能位）；R2-2：按供普攻段装备条目展开（期望择优含武器维度）
+  return [...basicAttackSkills(u.equipment),
     ...getUnitActiveSkills(u).filter(s => !isSpell(s) || s.targetType === 'enemy')];
 }
 
@@ -301,8 +301,8 @@ function simulate(seed: number): SimResult {
   };
 }
 
-describe('平衡模拟（R4-8 定稿 / R5-3 资源经济重校 / R7-3 暴击重校）', () => {
-  it('20 局模拟：R7-3 暴击重校 14 胜 6 败 0 平（带内）、可复现并输出统计', () => {
+describe('平衡模拟（R4-8 定稿 / R5-3 资源经济重校 / R7-3 暴击重校 / R2-2 装备威力过渡锚定）', () => {
+  it('20 局模拟：R2-2 过渡锚定 9 胜 11 败 0 平（R7-1 先例：中间 issue 锚定当时值，重校归 R2-6）', () => {
     const results = Array.from({ length: 20 }, (_, i) => simulate(i + 1));
     const wins = results.filter(r => r.winner === 'playerWin');
     const losses = results.filter(r => r.winner === 'playerLose');
@@ -315,11 +315,12 @@ describe('平衡模拟（R4-8 定稿 / R5-3 资源经济重校 / R7-3 暴击重�
     console.log('[明细] ' + results.map(r =>
       `#${r.seed}${r.winner === 'playerWin' ? '胜' : r.winner === 'playerLose' ? '败' : '平'}` +
       `T${r.turns}存${r.playersAlive}敌${r.enemiesAlive}${r.lastEnemy ? '(' + r.lastEnemy + ')' : ''}`).join(' '));
-    // 胜率带：R7-3 暴击重校（敌方 HP/str 补偿暴击单向放大、BOSS 威慑回升、咒杀 power 14）
-    // → 14 胜 6 败 0 平 = 70%；带宽维持 R4-8 确认的 60~75%（12~15 胜）+ 0 平；R5-3 门随 R7-3 重定
-    expect(wins.length).toBe(14);
-    expect(losses.length).toBe(6);
-    expect(draws.length).toBe(0);  // R5-3 收口 + R7-3 撤退/独苗领主口径修正后 0 平
+    // R2-2 过渡锚定 9 胜 11 败 0 平（R7-3 基线 14/6）：双重不对称中间态——
+    // ①我方必杀型威力 −1 已生效、critBonus +10 未生效（R2-3 接管线）；②BOSS 弑骑锤 counters 骑兵×1.5 已生效（反噬防骑/骑士）；③敌方杂兵威力 +2~3
+    // R2-3 接 critBonus 后回补、R2-6 统一重校回 14/6/0 = 70%（带宽 12~15 + 0 平）
+    expect(wins.length).toBe(9);
+    expect(losses.length).toBe(11);
+    expect(draws.length).toBe(0);
     // 可复现性：同种子重跑结果一致
     expect(simulate(7)).toEqual(results[6]);
   });

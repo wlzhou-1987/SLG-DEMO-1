@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { WEAPONS, getWeapon } from '../../src/config/weapons';
+import { WEAPONS, getWeapon, validateEquipment, basicAttackSkills, WEAPON_SLOT_LIMIT } from '../../src/config/weapons';
 import { WEAPON_ATOMS } from '../../src/config/skills';
-import { UNIT_TAGS } from '../../src/config/units';
+import { UNIT_TAGS, PLAYER_TEMPLATES, ENEMY_TEMPLATES, getTemplate } from '../../src/config/units';
 
 const ALL = Object.values(WEAPONS);
 
@@ -59,7 +59,7 @@ describe('R2-1 武器注册表与首版清单（§4.14）', () => {
     expect(WEAPONS.longsword).toMatchObject({ power: 2 });
     expect(WEAPONS.spear).toMatchObject({ power: 2 });
     expect(WEAPONS.warAxe).toMatchObject({ power: 3 });
-    expect(WEAPONS.warHammer).toMatchObject({ power: 3 });
+    expect(WEAPONS.maul).toMatchObject({ power: 3 });
     expect(WEAPONS.dagger).toMatchObject({ power: 1 });
     expect(WEAPONS.longbow).toMatchObject({ power: 1, rangeMin: 2, rangeMax: 2 });
     expect(WEAPONS.staff).toMatchObject({ power: 0 });
@@ -94,5 +94,74 @@ describe('R2-1 武器注册表与首版清单（§4.14）', () => {
   it('getWeapon 按 id 解析与未知 id 返回 undefined', () => {
     expect(getWeapon('longsword')?.name).toBe('长剑');
     expect(getWeapon('nope')).toBeUndefined();
+  });
+});
+
+describe('R2-2 装备校验、普攻条目化与默认装备', () => {
+  it('装备校验：合法双槽通过（剑盾类别装长剑+铁盾；同条目双持合法）', () => {
+    expect(validateEquipment(['sword', 'shield'], ['longsword', 'ironShield'])).toEqual([]);
+    expect(validateEquipment(['dagger'], ['killingDagger', 'killingDagger'])).toEqual([]);
+  });
+
+  it('装备校验：类别外条目拒绝（盗贼类别不能装长剑）', () => {
+    const errors = validateEquipment(['dagger'], ['longsword']);
+    expect(errors.length).toBe(1);
+    expect(errors[0]).toContain('类别');
+  });
+
+  it('装备校验：超出槽位上限拒绝（3 条 > 2）', () => {
+    const errors = validateEquipment(['sword', 'shield'], ['longsword', 'rapier', 'ironShield']);
+    expect(errors.join('；')).toContain('槽');
+  });
+
+  it('装备校验：未知条目 id 拒绝', () => {
+    const errors = validateEquipment(['sword'], ['nope']);
+    expect(errors.join('；')).toContain('未知');
+  });
+
+  it('普攻条目化：双武器角色两条普攻（领主默认装备 = 长剑+刺剑）', () => {
+    const skills = basicAttackSkills(['longsword', 'rapier']);
+    expect(skills.map(s => s.name)).toEqual(['长剑·普攻', '刺剑·普攻']);
+    expect(skills[0]).toMatchObject({ damageType: 'slashing', power: 2, rangeMin: 1, rangeMax: 1, target: 'enemy' });
+    expect(skills[1]).toMatchObject({ damageType: 'piercing', power: 2 });
+  });
+
+  it('盾条目不供普攻（长剑+铁盾 → 仅 1 条普攻；双盾 → 0 条）', () => {
+    expect(basicAttackSkills(['longsword', 'ironShield']).map(s => s.name)).toEqual(['长剑·普攻']);
+    expect(basicAttackSkills(['ironShield', 'ironShield'])).toEqual([]);
+    expect(basicAttackSkills([])).toEqual([]);
+  });
+
+  it('条目 counters 与威力传入普攻技能（弑骑战锤普攻带骑兵 ×1.5）', () => {
+    const skills = basicAttackSkills(['cavalierSlayer']);
+    expect(skills[0].counters).toEqual({ cavalry: 1.5 });
+    expect(skills[0].power).toBe(3);
+  });
+
+  it('槽位上限常量 = 2（§4.14 全局可配）', () => {
+    expect(WEAPON_SLOT_LIMIT).toBe(2);
+  });
+
+  it('17 模板默认装备齐备且全部通过类别校验', () => {
+    for (const t of [...PLAYER_TEMPLATES, ...ENEMY_TEMPLATES]) {
+      expect(t.defaultEquipment, `${t.id} 未配默认装备`).toBeDefined();
+      const errors = validateEquipment(t.weapons, t.defaultEquipment!);
+      expect(errors, `${t.id}: ${errors.join('；')}`).toEqual([]);
+    }
+  });
+
+  it('出厂默认装备与 §4.14 出厂表一致（抽查）', () => {
+    expect(getTemplate('lord')!.defaultEquipment).toEqual(['longsword', 'rapier']);
+    expect(getTemplate('defender')!.defaultEquipment).toEqual(['longsword', 'ironShield']);
+    expect(getTemplate('paladin')!.defaultEquipment).toEqual(['maul', 'ironShield']);
+    expect(getTemplate('thief')!.defaultEquipment).toEqual(['dagger', 'killingDagger']);
+    expect(getTemplate('knight')!.defaultEquipment).toEqual(['spear', 'naginata']);
+    expect(getTemplate('pegasus')!.defaultEquipment).toEqual(['spear']);
+    expect(getTemplate('axeman')!.defaultEquipment).toEqual(['warAxe', 'bluntAxe']);
+    expect(getTemplate('archer')!.defaultEquipment).toEqual(['longbow', 'killingBow']);
+    expect(getTemplate('priest')!.defaultEquipment).toEqual(['staff']);
+    expect(getTemplate('mage')!.defaultEquipment).toEqual(['staff']);
+    expect(getTemplate('swordsman')!.defaultEquipment).toEqual(['longsword']);
+    expect(getTemplate('boss')!.defaultEquipment).toEqual(['cavalierSlayer']);
   });
 });

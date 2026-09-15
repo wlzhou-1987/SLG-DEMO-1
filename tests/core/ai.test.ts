@@ -29,7 +29,7 @@ describe('decideEnemyAction 占位 AI', () => {
     const enemy = createUnitState('spearman', 'enemy', { q: 10, r: 15 });
     const player = createUnitState('lord', 'player', { q: 11, r: 15 });
     const action = decideEnemyAction(map, [enemy, player], enemy);
-    expect(action.skill?.name).toBe('普攻');
+    expect(action.skill?.name).toBe('长枪·普攻');
     expect(action.target).toBe(player);
   });
 
@@ -200,7 +200,7 @@ describe('R3-3 AI 候选读实例装填', () => {
     });
     const player = createUnitState('lord', 'player', { q: 10, r: 16 });
     const action = decideEnemyAction(map, [enemy, player], enemy);
-    expect(action.skill?.name).toBe('普攻');
+    expect(action.skill?.name).toBe('法杖·普攻');
     expect(action.target).toBe(player);
   });
 });
@@ -261,7 +261,7 @@ describe('R3-8 AI 感知全忽略（潜行交互）', () => {
     const lord = createUnitState('lord', 'player', { q: 11, r: 15 });
     mageE.resources.current = 0;
     const dry = decideEnemyAction(map, [mageE, lord], mageE);
-    expect(dry.skill?.name).toBe('普攻');
+    expect(dry.skill?.name).toBe('法杖·普攻');
     mageE.resources.current = 70;
     const full = decideEnemyAction(map, [mageE, lord], mageE);
     expect(full.skill?.name).toBe('火球');

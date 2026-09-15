@@ -9,9 +9,9 @@ import {
   PLAYER_TEMPLATES,
   ENEMY_TEMPLATES,
   getTemplateSkills,
-  resolveSkill,
-  basicAttackSkill
+  resolveSkill
 } from '../../src/config/units';
+import { basicAttackSkills } from '../../src/config/weapons';
 import { TRAIT_CONFIGS } from '../../src/config/traits';
 import { SPELLS } from '../../src/config/spells';
 import { learnBlockReason } from '../../src/config/pool';
@@ -92,17 +92,15 @@ describe('R3-1 模板改造', () => {
     expect(enemyMage.resourceType).toBe('mp');
   });
 
-  it('模板 basicAttack 结构完整（伤害线 + 射程区间，弓=远程）', () => {
+  it('模板 basicAttack 字段已退役（R2-2：普攻数据源 = 武器条目普攻段，弓=远程由条目射程表达）', () => {
     for (const t of ALL_TEMPLATES) {
-      expect(t.basicAttack).toBeDefined();
-      expect(['slashing', 'piercing', 'blunt', 'magic']).toContain(t.basicAttack.damageType);
-      expect(t.basicAttack.rangeMin).toBeGreaterThanOrEqual(1);
-      expect(t.basicAttack.rangeMax).toBeGreaterThanOrEqual(t.basicAttack.rangeMin);
+      expect('basicAttack' in t).toBe(false);
+      expect(t.defaultEquipment.length).toBeGreaterThan(0);
     }
     const archer = PLAYER_TEMPLATES.find(t => t.id === 'archer')!;
-    expect(archer.basicAttack.rangeMin).toBe(2);
+    expect(basicAttackSkills(archer.defaultEquipment).every(s => s.rangeMin === 2)).toBe(true);
     const staff = PLAYER_TEMPLATES.find(t => t.id === 'mage')!;
-    expect(staff.basicAttack.damageType).toBe('blunt');
+    expect(basicAttackSkills(staff.defaultEquipment)[0].damageType).toBe('blunt');
   });
 
   it('reMove 字段已删除；再移动改为被动（骑士持有、飞马暂不持有）', () => {
@@ -129,16 +127,16 @@ describe('R3-1 模板改造', () => {
 });
 
 describe('R3-2 普攻口径：基础攻击=固有能力', () => {
-  it('basicAttackSkill 由模板普攻数据合成（弓远程、法杖近战钝伤）', () => {
+  it('普攻按装备条目合成（R2-2：弓远程、法杖近战钝伤；模板 basicAttack 字段退役）', () => {
     const archer = PLAYER_TEMPLATES.find(t => t.id === 'archer')!;
-    const b = basicAttackSkill(archer);
-    expect(b.name).toBe('普攻');
+    const b = basicAttackSkills(archer.defaultEquipment)[0];
+    expect(b.name).toBe('长弓·普攻');
     expect(b.target).toBe('enemy');
     expect(b.rangeMin).toBe(2);
     expect(b.rangeMax).toBe(2);
 
     const mage = PLAYER_TEMPLATES.find(t => t.id === 'mage')!;
-    const bm = basicAttackSkill(mage);
+    const bm = basicAttackSkills(mage.defaultEquipment)[0];
     expect(bm.damageType).toBe('blunt');
     expect(bm.rangeMin).toBe(1);
     expect(bm.rangeMax).toBe(1);
