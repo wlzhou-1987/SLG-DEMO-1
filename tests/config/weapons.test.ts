@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { WEAPONS, getWeapon, validateEquipment, basicAttackSkills, WEAPON_SLOT_LIMIT } from '../../src/config/weapons';
 import { WEAPON_ATOMS } from '../../src/config/skills';
 import { UNIT_TAGS, PLAYER_TEMPLATES, ENEMY_TEMPLATES, getTemplate } from '../../src/config/units';
+import { getJob } from '../../src/config/jobs';
 
 const ALL = Object.values(WEAPONS);
 
@@ -142,10 +143,10 @@ describe('R2-2 装备校验、普攻条目化与默认装备', () => {
     expect(WEAPON_SLOT_LIMIT).toBe(2);
   });
 
-  it('17 模板默认装备齐备且全部通过类别校验', () => {
+  it('17 模板默认装备齐备且全部通过类别校验（R2-4 类别源 = JobConfig.equipmentClass）', () => {
     for (const t of [...PLAYER_TEMPLATES, ...ENEMY_TEMPLATES]) {
       expect(t.defaultEquipment, `${t.id} 未配默认装备`).toBeDefined();
-      const errors = validateEquipment(t.weapons, t.defaultEquipment!);
+      const errors = validateEquipment(getJob(t.id)!.equipmentClass, t.defaultEquipment!);
       expect(errors, `${t.id}: ${errors.join('；')}`).toEqual([]);
     }
   });

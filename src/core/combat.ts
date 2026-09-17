@@ -6,6 +6,7 @@ import type { SkillTemplate } from '../config/skills';
 import type { UnitTemplate } from '../config/units';
 import { getTemplate, getTemplateSkills, isFlying } from '../config/units';
 import { basicAttackSkills, WEAPONS } from '../config/weapons';
+import { getJob } from '../config/jobs';
 import { directionBetween, distance } from './hex';
 import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS, EFFECT_PARAMS, RANGE_PARAMS } from '../config/combat';
 import { TERRAIN_CONFIGS } from '../config/terrain';
@@ -127,8 +128,8 @@ export function calcStrike(
   // 三线：物理扣 pdef、魔法扣 mdef；克制乘算位于 max 内（先乘后减）
   const backBonus = side === 'back' ? (skill.backPowerBonus ?? 0) : 0;
 
-  // 伤害段基数：技能组合权重（缺省物理=str*1、法术=mag*1，模板即职业过渡）+ 固定值 + 影袭背面威力
-  const weights = skill.weights ?? (isMagic ? { mag: 1 } : { str: 1 });
+  // 伤害段基数：技能组合权重（R2-4 缺省取职业 defaultWeights，按伤害线分 phys/mag）+ 固定值 + 影袭背面威力
+  const weights = skill.weights ?? getJob(atkT.id)!.defaultWeights[isMagic ? 'mag' : 'phys'];
   let segBase = (skill.power ?? 0) + backBonus;
   for (const [k, w] of Object.entries(weights) as Array<[string, number]>) {
     if (!w) continue;

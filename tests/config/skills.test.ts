@@ -2,8 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   SKILLS,
   getSkill,
-  WEAPON_ATOMS,
-  RESOURCE_TYPES
+  WEAPON_ATOMS
 } from '../../src/config/skills';
 import {
   PLAYER_TEMPLATES,
@@ -72,24 +71,6 @@ describe('R3-1 模板改造', () => {
     const resolved = getTemplateSkills(mage);
     expect(resolved.length).toBe(3);
     expect(resolved.every(s => typeof s.name === 'string')).toBe(true);
-  });
-
-  it('17 模板：weapons 非空且均为合法原子', () => {
-    expect(ALL_TEMPLATES.length).toBe(17);
-    for (const t of ALL_TEMPLATES) {
-      expect(t.weapons.length).toBeGreaterThanOrEqual(1);
-      for (const w of t.weapons) expect(WEAPON_ATOMS).toContain(w);
-    }
-  });
-
-  it('17 模板：resourceType 为三枚举之一，且与 R8 归属一致（飞马=专注、敌方法师=MP）', () => {
-    for (const t of ALL_TEMPLATES) {
-      expect(RESOURCE_TYPES).toContain(t.resourceType);
-    }
-    const pegasus = PLAYER_TEMPLATES.find(t => t.id === 'pegasus')!;
-    expect(pegasus.resourceType).toBe('focus');
-    const enemyMage = ENEMY_TEMPLATES.find(t => t.id === 'mage_enemy')!;
-    expect(enemyMage.resourceType).toBe('mp');
   });
 
   it('模板 basicAttack 字段已退役（R2-2：普攻数据源 = 武器条目普攻段，弓=远程由条目射程表达）', () => {

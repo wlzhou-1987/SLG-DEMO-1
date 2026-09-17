@@ -6,6 +6,7 @@ import type { SpellTemplate } from '../config/spells';
 import { getTemplate } from '../config/units';
 import { calcStrike } from './combat';
 import { EFFECT_PARAMS } from '../config/combat';
+import { getJob } from '../config/jobs';
 import { statValue } from './status';
 import { gainOnStruck } from './resources';
 import type { PartSide } from './combat';
@@ -28,7 +29,7 @@ export function splitDot(total: number, turns: number): { perTurn: number; extra
 function healSegment(caster: UnitState, spell: SpellTemplate): number {
   const t = getTemplate(caster.templateId)!;
   let v = spell.power ?? 0;
-  for (const [k, w] of Object.entries(spell.weights ?? { mag: 0.5 }) as Array<[string, number]>) {
+  for (const [k, w] of Object.entries(spell.weights ?? getJob(t.id)!.defaultWeights.heal) as Array<[string, number]>) {
     if (!w) continue;
     v += statValue(caster, t, k as 'str') * w;
   }

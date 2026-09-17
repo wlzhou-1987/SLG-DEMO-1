@@ -6,6 +6,7 @@ import { TRAIT_CONFIGS } from './traits';
 import type { TraitConfig } from './traits';
 import type { UnitTemplate } from './units';
 import { equipmentAtoms } from './weapons';
+import { getJob } from './jobs';
 
 /** 通用技能池条目（§4.9：三表可学条目的 union 视图，不建统一单表） */
 export type PoolEntryKind = 'skill' | 'spell' | 'trait';
@@ -53,7 +54,8 @@ export function learnBlockReason(
     const atoms = equipmentAtoms(equipment);
     if (!reqs.some(w => atoms.includes(w))) return 'weapon';
   }
-  if (e.kind !== 'trait' && e.entry.resourceType !== undefined && e.entry.resourceType !== t.resourceType) {
+  if (e.kind !== 'trait' && e.entry.resourceType !== undefined
+    && e.entry.resourceType !== getJob(t.id)!.resourceType) {
     return 'resource';
   }
   return null;

@@ -3,6 +3,7 @@ import type { UnitTemplate } from '../config/units';
 import type { SkillTemplate } from '../config/skills';
 import type { Faction } from './types';
 import { RESOURCE_PARAMS } from '../config/combat';
+import { getJob } from '../config/jobs';
 
 /** 主资源槽（§4.13）：三资源共用结构，差异在配置的生成/恢复规则 */
 export interface ResourceState {
@@ -11,9 +12,9 @@ export interface ResourceState {
   max: number;
 }
 
-/** 按模板初始化：怒气 0 空起 / 专注满 / MP = mag×5 满 */
+/** 按模板初始化：怒气 0 空起 / 专注满 / MP = mag×5 满（R2-4 资源类型源 = JobConfig） */
 export function initResources(template: UnitTemplate): ResourceState {
-  switch (template.resourceType) {
+  switch (getJob(template.id)!.resourceType) {
     case 'rage':
       return { type: 'rage', current: 0, max: RESOURCE_PARAMS.rageMax };
     case 'focus':

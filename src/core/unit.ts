@@ -3,6 +3,7 @@ import { getTemplate, resolveSkill } from '../config/units';
 import type { SkillTemplate } from '../config/skills';
 import type { SpellTemplate } from '../config/spells';
 import { validateEquipment } from '../config/weapons';
+import { getJob } from '../config/jobs';
 import type { ActiveStatus } from './status';
 import type { GroupAiType } from '../config/map';
 import { initResources } from './resources';
@@ -50,7 +51,8 @@ export function createUnitState(
   const template = getTemplate(templateId);
   if (!template) throw new Error(`未知单位模板: ${templateId}`);
   const equip = equipment ?? template.defaultEquipment;
-  const equipErrors = validateEquipment(template.weapons, equip);
+  // R2-4 装备类别源 = JobConfig（模板即职业：id 同模板，§4.1）
+  const equipErrors = validateEquipment(getJob(templateId)!.equipmentClass, equip);
   if (equipErrors.length > 0) throw new Error(`非法装备: ${equipErrors.join('；')}`);
   unitCounter++;
   const active = loadout ? [...loadout.active] : [...template.skills];

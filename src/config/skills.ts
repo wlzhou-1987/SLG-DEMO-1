@@ -15,6 +15,9 @@ export type ResourceType = 'mp' | 'rage' | 'focus';
 
 export const RESOURCE_TYPES: readonly ResourceType[] = ['mp', 'rage', 'focus'];
 
+/** 组合权重表（§4.3：键 = 属性，值 = 系数；技能/法术声明或职业缺省） */
+export type StatWeights = Partial<Record<'str' | 'mag' | 'spd' | 'tec' | 'lck', number>>;
+
 /** 技能目标三值（§4.9 F1：ally/self 必中） */
 export type SkillTarget = 'enemy' | 'self' | 'ally';
 
@@ -60,8 +63,8 @@ export interface SkillTemplate {
   rush?: boolean;                 // 冲杀：穿越位移（直线冲过目标格落背后）
   /** 附加伤害段（双伤害段结构，R3-7）：各段独立伤害线/威力过矩阵，与主段同侧同命中 */
   segments?: Array<{ damageType: DamageType; power?: number }>;
-  /** R4-2 伤害段属性权重表：加权合成基数；缺省物理={str:1}、法术={mag:1} */
-  weights?: Partial<Record<'str' | 'mag' | 'spd' | 'tec' | 'lck', number>>;
+  /** R4-2 伤害段属性权重表：加权合成基数；缺省取职业 defaultWeights（§4.1 JobConfig，R2-4） */
+  weights?: StatWeights;
   /** R4-3 法术级对护甲克制系数（法术线专用，替代矩阵 magic 行；未声明格取 1.0） */
   armorResist?: Partial<Record<'none' | 'light' | 'medium' | 'heavy', number>>;
   /** 行为主效果（行为技能）：主效果为行为段而非伤害段；damageType 为占位、不走伤害管线 */
