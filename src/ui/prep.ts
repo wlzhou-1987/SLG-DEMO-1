@@ -5,7 +5,8 @@ import { getTemplate, resolveSkill } from '../config/units';
 import { getTrait } from '../config/traits';
 import { getPool, learnBlockReason, SLOT_LIMITS } from '../config/pool';
 import type { PoolEntryKind, LearnBlockReason } from '../config/pool';
-import { equipmentAtoms } from '../config/weapons';
+import { equipmentAtoms, WEAPONS, WEAPON_SLOT_LIMIT } from '../config/weapons';
+import { getJob } from '../config/jobs';
 
 /** 通用池条目视图（R3-5 UI 渲染与测试驱动） */
 export interface PoolItemView {
@@ -14,6 +15,13 @@ export interface PoolItemView {
   kind: PoolEntryKind;
   blocked: LearnBlockReason | null;
   full: boolean;
+}
+
+/** 武器条目清单视图（R2-5：全注册表混排、类别不符置灰） */
+export interface EquipmentItemView {
+  id: string;
+  name: string;
+  blocked: boolean;   // 原子 ∉ 职业装备类别（§4.14）
 }
 
 export interface PrepScreen {
@@ -30,6 +38,10 @@ export interface PrepScreen {
   addToSlot(templateId: string, poolId: string): boolean;
   removeFromSlot(templateId: string, kind: 'active' | 'passive', index: number): void;
   poolEntries(templateId: string): PoolItemView[];
+  getEffectiveEquipment(templateId: string): readonly string[];
+  equipWeapon(templateId: string, weaponId: string): boolean;
+  unequipWeapon(templateId: string, index: number): void;
+  equipmentEntries(templateId: string): EquipmentItemView[];
 }
 
 const KIND_LABELS: Record<PoolEntryKind, string> = { skill: '技能', spell: '法术', trait: '被动' };
@@ -88,11 +100,19 @@ export function createPrepScreen(
   skillBlock.className = 'prep-block skill-block';
   root.appendChild(skillBlock);
 
-  for (const blockName of ['装备与物品（R2）', '地图配置']) {
+  // R2-5 装备区块（选中角色 → 武器槽 ×2 → 类别过滤清单；交互同构技能配置，§4.14/§7.0）
+  const equips = new Map<string, string[]>();
+  let eqListOpen = false;
+
+  const equipBlock = document.createElement('div');
+  equipBlock.className = 'prep-block equip-block';
+  root.appendChild(equipBlock);
+
+  {
     const block = document.createElement('div');
     block.className = 'prep-block disabled';
     const h = document.createElement('h3');
-    h.textContent = `${blockName} · 未开放`;
+    h.textContent = '地图配置 · 未开放';
     block.appendChild(h);
     root.appendChild(block);
   }
@@ -127,20 +147,69 @@ export function createPrepScreen(
   function selectUnit(templateId: string): void {
     selectedId = templateId;
     poolOpenFor = null;
+    eqListOpen = false;
     renderSkillBlock();
+    renderEquipBlock();
+  }
+
+  function editableEquipment(templateId: string): string[] {
+    let eq = equips.get(templateId);
+    if (!eq) {
+      const t = getTemplate(templateId);
+      eq = [...(t?.defaultEquipment ?? [])];
+      equips.set(templateId, eq);
+    }
+    return eq;
+  }
+
+  function getEffectiveEquipment(templateId: string): readonly string[] {
+    const edited = equips.get(templateId);
+    if (edited) return edited;
+    return getTemplate(templateId)?.defaultEquipment ?? [];
+  }
+
+  function equipmentEntries(templateId: string): EquipmentItemView[] {
+    const classAtoms = getJob(templateId)?.equipmentClass ?? [];
+    return Object.values(WEAPONS).map(w => ({
+      id: w.id,
+      name: w.name,
+      blocked: !classAtoms.includes(w.weaponType)
+    }));
+  }
+
+  function equipWeapon(templateId: string, weaponId: string): boolean {
+    const w = WEAPONS[weaponId];
+    if (!w || !getTemplate(templateId)) return false;
+    const classAtoms = getJob(templateId)!.equipmentClass;
+    if (!classAtoms.includes(w.weaponType)) return false;   // 类别过滤
+    const eq = editableEquipment(templateId);
+    if (eq.length >= WEAPON_SLOT_LIMIT) return false;       // 槽位上限（同条目双持合法 §4.14）
+    eq.push(weaponId);
+    eqListOpen = true;
+    renderSkillBlock();   // 头部原子与技能过滤随装备变化（§4.9 换武器 = 换可用技能）
+    renderEquipBlock();
+    return true;
+  }
+
+  function unequipWeapon(templateId: string, index: number): void {
+    const eq = editableEquipment(templateId);
+    eq.splice(index, 1);
+    renderSkillBlock();
+    renderEquipBlock();
   }
 
   function poolEntries(templateId: string): PoolItemView[] {
     const t = getTemplate(templateId);
     if (!t) return [];
     const eff = getEffectiveLoadout(templateId);
+    const effEq = getEffectiveEquipment(templateId);
     return getPool().map(e => {
       const group = e.kind === 'trait' ? 'passive' : 'active';
       return {
         id: e.id,
         name: e.name,
         kind: e.kind,
-        blocked: learnBlockReason(t, t.defaultEquipment, e),
+        blocked: learnBlockReason(t, effEq, e),
         full: eff[group].length >= SLOT_LIMITS[group]
       };
     });
@@ -150,7 +219,7 @@ export function createPrepScreen(
     const t = getTemplate(templateId);
     const entry = getPool().find(e => e.id === poolId);
     if (!t || !entry) return false;
-    if (learnBlockReason(t, t.defaultEquipment, entry) !== null) return false;
+    if (learnBlockReason(t, getEffectiveEquipment(templateId), entry) !== null) return false;
     const group = entry.kind === 'trait' ? 'passive' : 'active';
     const lo = editableLoadout(templateId);
     if (lo[group].includes(poolId)) return false;           // 重复装入拒绝
@@ -198,8 +267,36 @@ export function createPrepScreen(
       poolHtml = `<div class="pool-list">${rows || '<p class="dim">池中无可学条目</p>'}</div>`;
     }
     skillBlock.innerHTML =
-      `<h3>技能配置 · ${t.name}（${equipmentAtoms(t.defaultEquipment).map(w => WEAPON_LABELS[w] ?? w).join('/')}）</h3>` +
+      `<h3>技能配置 · ${t.name}（${equipmentAtoms(getEffectiveEquipment(selectedId)).map(w => WEAPON_LABELS[w] ?? w).join('/')}）</h3>` +
       slotGroup('active') + slotGroup('passive') + poolHtml;
+  }
+
+  function renderEquipBlock(): void {
+    if (!selectedId || !checkboxes.get(selectedId)?.checked) {
+      eqListOpen = false;
+      equipBlock.innerHTML = '<h3>装备</h3><p class="dim">点击出场名单中的角色名进行配置</p>';
+      return;
+    }
+    const t = getTemplate(selectedId)!;
+    const eq = getEffectiveEquipment(selectedId);
+    const items = eq.map((id, i) => {
+      const w = WEAPONS[id];
+      return `<li>${w?.name ?? id} <button class="slot-remove" data-eq-remove="${i}">×</button></li>`;
+    }).join('');
+    const addBtn = eq.length < WEAPON_SLOT_LIMIT
+      ? `<li class="slot-add" data-eq-add>＋ 添加</li>` : '';
+    let listHtml = '';
+    if (eqListOpen) {
+      const rows = equipmentEntries(selectedId).map(v => {
+        const tags = v.blocked ? ' <small>[类别不符]</small>' : '';
+        const disabled = v.blocked ? ' blocked' : '';
+        return `<div class="pool-item${disabled}" data-eq-id="${v.id}">${v.name}${tags}</div>`;
+      }).join('');
+      listHtml = `<div class="pool-list">${rows}</div>`;
+    }
+    equipBlock.innerHTML =
+      `<h3>装备 · ${t.name}（${eq.length}/${WEAPON_SLOT_LIMIT}）</h3>` +
+      `<div class="slot-group"><ul>${items}${addBtn}</ul></div>` + listHtml;
   }
 
   // 事件委托（真实浏览器交互；测试桩走接口方法）
@@ -225,16 +322,34 @@ export function createPrepScreen(
     const pick = target.closest('[data-pool-id]');
     if (pick) addToSlot(selectedId, (pick as HTMLElement).dataset.poolId!);
   });
+  equipBlock.addEventListener('click', e => {
+    if (!selectedId) return;
+    const target = e.target as HTMLElement;
+    const remove = target.closest('[data-eq-remove]');
+    if (remove) {
+      unequipWeapon(selectedId, parseInt((remove as HTMLElement).dataset.eqRemove!));
+      return;
+    }
+    if (target.closest('[data-eq-add]')) {
+      eqListOpen = true;
+      renderEquipBlock();
+      return;
+    }
+    const pick = target.closest('[data-eq-id]');
+    if (pick) equipWeapon(selectedId, (pick as HTMLElement).dataset.eqId!);
+  });
 
   function getRoster(): RosterEntry[] {
     return [...checkboxes.entries()]
       .filter(([, box]) => box.checked)
       .map(([templateId]) => {
         const edited = loadouts.get(templateId);
+        const editedEq = equips.get(templateId);
         return {
           templateId,
           position: { ...positions.get(templateId)! },
-          loadout: edited ? { active: [...edited.active], passive: [...edited.passive] } : undefined
+          loadout: edited ? { active: [...edited.active], passive: [...edited.passive] } : undefined,
+          equipment: editedEq ? [...editedEq] : undefined
         };
       });
   }
@@ -258,6 +373,7 @@ export function createPrepScreen(
     startButton.disabled = !check.ok;
     errorList.innerHTML = check.ok ? '' : check.errors.map(e => `<li>${e}</li>`).join('');
     renderSkillBlock();
+    renderEquipBlock();
   }
 
   function clickStart(): void {
@@ -268,6 +384,7 @@ export function createPrepScreen(
   refresh();
   return {
     root, startButton, errorList, getRoster, setChecked, setBoardRoster, refresh, clickStart,
-    selectUnit, getEffectiveLoadout, addToSlot, removeFromSlot, poolEntries
+    selectUnit, getEffectiveLoadout, addToSlot, removeFromSlot, poolEntries,
+    getEffectiveEquipment, equipWeapon, unequipWeapon, equipmentEntries
   };
 }

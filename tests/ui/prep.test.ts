@@ -216,3 +216,81 @@ describe('R3-5 技能配置区块', () => {
     expect(block!.innerHTML).toContain('主动技能');
   });
 });
+
+describe('R2-5 战前装备区块（选人 → 槽 ×2 → 类别过滤清单 → 开战注入编成）', () => {
+  let started: RosterEntry[] | null;
+
+  beforeEach(() => {
+    started = null;
+  });
+
+  function make() {
+    return createPrepScreen(roster => {
+      started = roster;
+    });
+  }
+
+  it('选中角色默认显示出厂装备；未编辑开战不显式传装备', () => {
+    const prep = make();
+    prep.selectUnit('lord');
+    expect([...prep.getEffectiveEquipment('lord')]).toEqual(['longsword', 'rapier']);
+    const kids = (prep.root as unknown as { children: FakeElement[] }).children;
+    const block = kids.find(c => c.className === 'prep-block equip-block');
+    expect(block).toBeDefined();
+    expect(block!.innerHTML).toContain('长剑');
+    expect(block!.innerHTML).toContain('刺剑');
+    prep.clickStart();
+    const lord = (started as RosterEntry[]).find(e => e.templateId === 'lord');
+    expect(lord?.equipment).toBeUndefined();
+  });
+
+  it('类别过滤置灰：法师不可装必杀弓、可同条目双持法杖（双持合法 §4.14）', () => {
+    const prep = make();
+    prep.selectUnit('mage');
+    const entries = prep.equipmentEntries('mage');
+    expect(entries.find(e => e.id === 'staff')?.blocked).toBe(false);
+    expect(entries.find(e => e.id === 'killingBow')?.blocked).toBe(true);
+    expect(prep.equipWeapon('mage', 'killingBow')).toBe(false);
+    prep.unequipWeapon('mage', 0);                      // 清空单槽 → 再双持
+    expect(prep.equipWeapon('mage', 'staff')).toBe(true);
+    expect(prep.equipWeapon('mage', 'staff')).toBe(true);
+    expect([...prep.getEffectiveEquipment('mage')]).toEqual(['staff', 'staff']);
+  });
+
+  it('槽位上限 2：防战默认满槽拒绝再装；卸下后可再装（允许清空，校验仅上限无保底）', () => {
+    const prep = make();
+    prep.selectUnit('defender');
+    expect(prep.equipWeapon('defender', 'rapier')).toBe(false);   // [longsword, ironShield] 已满
+    prep.unequipWeapon('defender', 0);
+    expect(prep.equipWeapon('defender', 'rapier')).toBe(true);
+    expect([...prep.getEffectiveEquipment('defender')]).toEqual(['ironShield', 'rapier']);
+    prep.unequipWeapon('defender', 0);
+    prep.unequipWeapon('defender', 0);
+    expect([...prep.getEffectiveEquipment('defender')]).toEqual([]);
+  });
+
+  it('装备编辑随编成传入开战（编辑者传、未编辑者 undefined）', () => {
+    const prep = make();
+    prep.selectUnit('thief');
+    prep.unequipWeapon('thief', 1);                     // 卸必杀匕首
+    expect(prep.equipWeapon('thief', 'dagger')).toBe(true);   // 双持基准匕首
+    prep.clickStart();
+    const thief = (started as RosterEntry[]).find(e => e.templateId === 'thief');
+    expect(thief?.equipment).toEqual(['dagger', 'dagger']);
+    const mage = (started as RosterEntry[]).find(e => e.templateId === 'mage');
+    expect(mage?.equipment).toBeUndefined();
+  });
+
+  it('技能过滤与头部原子展示随编辑装备变化（换武器 = 换可用技能 §4.9）', () => {
+    const prep = make();
+    prep.selectUnit('defender');
+    const kids = (prep.root as unknown as { children: FakeElement[] }).children;
+    const skillBlock = kids.find(c => c.className === 'prep-block skill-block')!;
+    expect(skillBlock.innerHTML).toContain('（剑/盾）');           // 出厂长剑+铁盾原子
+    prep.unequipWeapon('defender', 0);                              // 卸长剑 → [ironShield]
+    expect(prep.equipWeapon('defender', 'ironShield')).toBe(true);  // 双持盾 → 原子仅盾
+    expect(skillBlock.innerHTML).toContain('（盾）');
+    const entries = prep.poolEntries('defender');
+    expect(entries.find(e => e.id === 'sweep')?.blocked).toBe('weapon');  // 过滤源 = 编辑装备
+  });
+});

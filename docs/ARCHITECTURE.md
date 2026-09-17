@@ -77,8 +77,8 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | 文件 | 职责（关键导出） | 设计章节 | 测试 |
 | --- | --- | --- | --- |
 | src/ui/topbar.ts | updateTopbar：顶栏回合/阶段/兵力与结束回合按钮 | §7.1 | — |
-| src/ui/prep.ts | createPrepScreen：战前准备面板（右侧）——出场名单勾选 + 技能配置区块（R3-5：选中角色 → 主动 0~5/被动 0~6 槽、通用池混排双过滤置灰——R2-3 武器过滤与头部武器展示读默认装备原子并集、出厂默认、编辑后随编成传 loadout）+ 装备/地图占位区块 + 实时校验 + 开战按钮；站位记忆画布调整结果（getRoster/setChecked/setBoardRoster/selectUnit/addToSlot/removeFromSlot/poolEntries/refresh/clickStart） | §7.0/§4.9/§4.14 | tests/ui/prep.test.ts |
-| src/ui/sidepanel.ts | showUnitInfo/clearUnitInfo、showTerrainInfo/clearTerrainInfo：右侧单位属性（含特性/状态）与地形面板（R6-1 效果字段条件显示） | §7.3/§3 | — |
+| src/ui/prep.ts | createPrepScreen：战前准备面板（右侧）——出场名单勾选 + 技能配置区块（R3-5：选中角色 → 主动 0~5/被动 0~6 槽、通用池混排双过滤置灰、出厂默认、编辑后随编成传 loadout；R2-3/5 武器过滤与头部原子读**编辑装备**）+ **装备区块（R2-5：选人 → 武器槽 ×2、类别过滤条目清单置灰、出厂默认预填、同条目双持合法、可清空至 0——校验仅上限无保底、编辑后随编成传 equipment）** + 地图占位区块 + 实时校验 + 开战按钮；站位记忆画布调整结果（getRoster/setChecked/setBoardRoster/selectUnit/addToSlot/removeFromSlot/poolEntries/getEffectiveEquipment/equipWeapon/unequipWeapon/equipmentEntries/refresh/clickStart） | §7.0/§4.9/§4.14 | tests/ui/prep.test.ts |
+| src/ui/sidepanel.ts | showUnitInfo/clearUnitInfo、showTerrainInfo/clearTerrainInfo：右侧单位属性（含**装备条目行**〔R2-5〕/特性/状态/主资源读 JobConfig）与地形面板（R6-1 效果字段条件显示） | §7.3/§3/§4.14 | — |
 | src/ui/action-menu.ts | showActionMenu/hideActionMenu：画布内浮动行动菜单（R5-1 disabled 灰显项不触发回调） | §7.2/§4.13 | tests/ui/action-menu.test.ts |
 | src/ui/forecast.ts | showForecastPanel/showSpellForecastPanel/showAoeForecastPanel：战斗/法术/AoE 多目标预报面板（确认/取消；**R7-2 打击行含暴击率/必暴显「必定」**） | §4.5/§4.12/§4.9 | tests/ui/forecast.test.ts |
 | src/ui/battle-log.ts | logBattle：战斗日志（最新在顶，30 条裁剪） | §7.4 | — |
