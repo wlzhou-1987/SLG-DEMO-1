@@ -5,6 +5,7 @@ import { getTemplate, resolveSkill } from '../config/units';
 import { getTrait } from '../config/traits';
 import { getPool, learnBlockReason, SLOT_LIMITS } from '../config/pool';
 import type { PoolEntryKind, LearnBlockReason } from '../config/pool';
+import { equipmentAtoms } from '../config/weapons';
 
 /** 通用池条目视图（R3-5 UI 渲染与测试驱动） */
 export interface PoolItemView {
@@ -139,7 +140,7 @@ export function createPrepScreen(
         id: e.id,
         name: e.name,
         kind: e.kind,
-        blocked: learnBlockReason(t, e),
+        blocked: learnBlockReason(t, t.defaultEquipment, e),
         full: eff[group].length >= SLOT_LIMITS[group]
       };
     });
@@ -149,7 +150,7 @@ export function createPrepScreen(
     const t = getTemplate(templateId);
     const entry = getPool().find(e => e.id === poolId);
     if (!t || !entry) return false;
-    if (learnBlockReason(t, entry) !== null) return false;
+    if (learnBlockReason(t, t.defaultEquipment, entry) !== null) return false;
     const group = entry.kind === 'trait' ? 'passive' : 'active';
     const lo = editableLoadout(templateId);
     if (lo[group].includes(poolId)) return false;           // 重复装入拒绝
@@ -197,7 +198,7 @@ export function createPrepScreen(
       poolHtml = `<div class="pool-list">${rows || '<p class="dim">池中无可学条目</p>'}</div>`;
     }
     skillBlock.innerHTML =
-      `<h3>技能配置 · ${t.name}（${t.weapons.map(w => WEAPON_LABELS[w] ?? w).join('/')}）</h3>` +
+      `<h3>技能配置 · ${t.name}（${equipmentAtoms(t.defaultEquipment).map(w => WEAPON_LABELS[w] ?? w).join('/')}）</h3>` +
       slotGroup('active') + slotGroup('passive') + poolHtml;
   }
 

@@ -150,7 +150,7 @@ describe('R3-6 敌方关卡级配置', () => {
         const t = getTemplate(p.templateId);
         expect(t).toBeDefined();
         if (p.loadout) {
-          expect(validateLoadoutForTemplate(t!, p.loadout)).toEqual([]);
+          expect(validateLoadoutForTemplate(t!, p.loadout, p.equipment)).toEqual([]);
         }
       }
     }

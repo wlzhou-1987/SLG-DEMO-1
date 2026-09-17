@@ -45,6 +45,13 @@ export function getWeapon(id: string): WeaponItem | undefined {
   return WEAPONS[id];
 }
 
+/** 装备原子并集（§4.14 技能武器过滤数据源：可学性读此并集，不读模板类别） */
+export function equipmentAtoms(equipment: readonly string[]): WeaponAtom[] {
+  return [...new Set(
+    equipment.map(id => WEAPONS[id]?.weaponType).filter((w): w is WeaponAtom => w !== undefined)
+  )];
+}
+
 /**
  * 装备校验（§4.14）：条目存在、原子 ∈ 职业装备类别、数量 ≤ 槽位上限；
  * 同条目双持合法（critBonus 求和为有意设计）。返回错误消息数组，空 = 合法。

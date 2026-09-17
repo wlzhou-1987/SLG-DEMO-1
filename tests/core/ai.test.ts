@@ -205,6 +205,25 @@ describe('R3-3 AI 候选读实例装填', () => {
   });
 });
 
+describe('R2-3 AI 择优武器维度（双武器按护甲线择优，§4.14）', () => {
+  beforeEach(() => {
+    resetUnitCounter();
+  });
+
+  const map = createMapState();
+
+  it('无甲目标选战斧（斩1.2）、重甲目标反转选钝斧（钝1.4）', () => {
+    const axe = createUnitState('axeman_enemy', 'enemy', { q: 10, r: 15 }, undefined, ['warAxe', 'bluntAxe']);
+    const mage = createUnitState('mage', 'player', { q: 11, r: 15 });   // 无甲
+    const a1 = decideEnemyAction(map, [axe, mage], axe);
+    expect(a1.skill?.name).toBe('战斧·普攻');   // 24×1.2−8=20 > 钝 11
+    const axe2 = createUnitState('axeman_enemy', 'enemy', { q: 10, r: 15 }, undefined, ['warAxe', 'bluntAxe']);
+    const pal = createUnitState('paladin', 'player', { q: 11, r: 15 });  // 重甲
+    const a2 = decideEnemyAction(map, [axe2, pal], axe2);
+    expect(a2.skill?.name).toBe('钝斧·普攻');   // 24×1.4−26=7 > 斩 0
+  });
+});
+
 describe('R3-8 AI 感知全忽略（潜行交互）', () => {
   beforeEach(() => {
     resetUnitCounter();

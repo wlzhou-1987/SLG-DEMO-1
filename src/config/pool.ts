@@ -5,6 +5,7 @@ import type { SpellTemplate } from './spells';
 import { TRAIT_CONFIGS } from './traits';
 import type { TraitConfig } from './traits';
 import type { UnitTemplate } from './units';
+import { equipmentAtoms } from './weapons';
 
 /** 通用技能池条目（§4.9：三表可学条目的 union 视图，不建统一单表） */
 export type PoolEntryKind = 'skill' | 'spell' | 'trait';
@@ -37,15 +38,20 @@ export function getPool(): PoolEntry[] {
 }
 
 /**
- * 双过滤（§4.9 可学性）：
- * - 武器过滤（声明即过滤，主动/被动均适用）：所需 ∈ 角色武器集；未声明豁免；法术默认不声明即免
+ * 双过滤（§4.9 可学性；R2-3 武器数据源迁装备）：
+ * - 武器过滤（声明即过滤，主动/被动均适用）：所需 ∈ 角色装备条目原子并集（§4.14）；未声明豁免；法术默认不声明即免
  * - 资源过滤（仅主动）：声明 resourceType 的技能只能配给主资源对应职业；未声明豁免；被动无消耗天然豁免
  * 死配置（未声明但装备后无效）接受、不校验拦截
  */
-export function learnBlockReason(t: UnitTemplate, e: PoolEntry): LearnBlockReason | null {
+export function learnBlockReason(
+  t: UnitTemplate,
+  equipment: readonly string[],
+  e: PoolEntry
+): LearnBlockReason | null {
   if (e.entry.weaponType !== undefined) {
     const reqs = Array.isArray(e.entry.weaponType) ? e.entry.weaponType : [e.entry.weaponType];
-    if (!reqs.some(w => t.weapons.includes(w))) return 'weapon';
+    const atoms = equipmentAtoms(equipment);
+    if (!reqs.some(w => atoms.includes(w))) return 'weapon';
   }
   if (e.kind !== 'trait' && e.entry.resourceType !== undefined && e.entry.resourceType !== t.resourceType) {
     return 'resource';
@@ -53,8 +59,8 @@ export function learnBlockReason(t: UnitTemplate, e: PoolEntry): LearnBlockReaso
   return null;
 }
 
-export function canLearn(t: UnitTemplate, e: PoolEntry): boolean {
-  return learnBlockReason(t, e) === null;
+export function canLearn(t: UnitTemplate, equipment: readonly string[], e: PoolEntry): boolean {
+  return learnBlockReason(t, equipment, e) === null;
 }
 
 /** id → 三表全量条目（含非 learnable 出厂条目；敌方配置校验用） */
@@ -68,10 +74,12 @@ export function findRegisteredEntry(id: string): PoolEntry | undefined {
   return undefined;
 }
 
-/** 装填对模板的合法性校验（R3-6 敌方关卡配置复用）：未注册 id、分组错误、双约束 */
+/** 装填对模板的合法性校验（R3-6 敌方关卡配置复用；R2-3 武器判据 = 装备原子并集，装备缺省回落模板默认）：
+ *  未注册 id、分组错误、双约束 */
 export function validateLoadoutForTemplate(
   t: UnitTemplate,
-  loadout: { active: readonly string[]; passive: readonly string[] }
+  loadout: { active: readonly string[]; passive: readonly string[] },
+  equipment: readonly string[] = t.defaultEquipment
 ): string[] {
   const errors: string[] = [];
   const check = (ids: readonly string[], group: 'active' | 'passive') => {
@@ -86,7 +94,7 @@ export function validateLoadoutForTemplate(
         errors.push(`分组错误: ${entry.name} 应装${expected === 'active' ? '主动' : '被动'}槽`);
         continue;
       }
-      const reason = learnBlockReason(t, entry);
+      const reason = learnBlockReason(t, equipment, entry);
       if (reason === 'weapon') errors.push(`武器不符: ${entry.name}（${t.name}）`);
       if (reason === 'resource') errors.push(`资源不符: ${entry.name}（${t.name}）`);
     }

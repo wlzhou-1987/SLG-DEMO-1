@@ -230,7 +230,7 @@ describe('R5-1 资源消耗声明', () => {
     const lord = ALL_TEMPLATES.find(t => t.id === 'lord')!;
     const mage = ALL_TEMPLATES.find(t => t.id === 'mage')!;
     const fireballEntry = { id: 'fireball', name: '火球', kind: 'spell' as const, entry: SPELLS.fireball };
-    expect(learnBlockReason(lord, fireballEntry)).toBe('resource');
-    expect(learnBlockReason(mage, fireballEntry)).toBeNull();
+    expect(learnBlockReason(lord, lord.defaultEquipment, fireballEntry)).toBe('resource');
+    expect(learnBlockReason(mage, mage.defaultEquipment, fireballEntry)).toBeNull();
   });
 });

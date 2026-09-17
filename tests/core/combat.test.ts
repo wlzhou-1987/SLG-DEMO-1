@@ -12,7 +12,7 @@ import { rangeBonus, effectiveRangeMax } from '../../src/core/combat';
 import { SPELLS } from '../../src/config/spells';
 import type { SkillTemplate } from '../../src/config/skills';
 import { calcAoeForecast, resolveAoeBattle, calcStrike, calcEvade, calcCritRate, expectedDamage } from '../../src/core/combat';
-import { COMBAT_PARAMS, WEAPON_CRIT_BONUS } from '../../src/config/combat';
+import { COMBAT_PARAMS } from '../../src/config/combat';
 import { resetUnitCounter, createUnitState } from '../../src/core/unit';
 import { resolveSpell } from '../../src/core/spell';
 import { gainOnCrit } from '../../src/core/resources';
@@ -1192,7 +1192,7 @@ describe('R7-1 暴击核心结算', () => {
   it('calcCritRate 公式：攻技 + 运差（技1/运1）', () => {
     const thief = createUnitState('thief', 'player', { q: 10, r: 15 });
     const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });
-    expect(calcCritRate(thief, T('thief'), boss, T('boss'))).toBe(23 + (16 - 4));  // 35
+    expect(calcCritRate(thief, T('thief'), boss, T('boss'))).toBe(23 + (16 - 4) + 10);  // 45：+10 = 必杀匕首（R2-3 装备求和）
     const mage = createUnitState('mage', 'player', { q: 10, r: 15 });
     const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
     expect(calcCritRate(mage, T('mage'), sw, T('swordsman'))).toBe(17 + (11 - 8));  // 20
@@ -1204,7 +1204,7 @@ describe('R7-1 暴击核心结算', () => {
     const thief = createUnitState('thief', 'player', { q: 10, r: 15 });
     const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });
     thief.statuses.push({ type: 'buff', skillName: '祝运', turnsLeft: 1, appliedAtTurn: 0, stat: 'lck', amount: 30, decay: 0 });
-    expect(calcCritRate(thief, T('thief'), boss, T('boss'))).toBe(COMBAT_PARAMS.critCap);  // 23+42=65 → 50
+    expect(calcCritRate(thief, T('thief'), boss, T('boss'))).toBe(60);  // 23+42=65 → 属性段截 50，+10 装备加成在 clamp 外（R2-3）
     const foe = createUnitState('axeman_enemy', 'enemy', { q: 11, r: 15 });
     expect(calcCritRate(foe, T('axeman_enemy'), thief, T('thief'))).toBe(0);  // 12+(6-46) < 0
   });
@@ -1215,7 +1215,7 @@ describe('R7-1 暴击核心结算', () => {
     const f = calcStrike(map, thief, T('thief'), boss, T('boss'), basicAttackSkill(T('thief')));
     expect(f.damage).toBe(0);          // floor(18×0.6−12) < 0（匕首 power1 突 vs 重甲 0.6）
     expect(f.critDamage).toBe(9);      // floor(18×1.2−12)（×2 进乘数区 = 0.6×2）
-    expect(f.critRate).toBe(35);
+    expect(f.critRate).toBe(45);       // 23+12+10（必杀匕首，R2-3 装备求和）
     expect(f.mustCrit).toBe(false);
   });
 
@@ -1299,7 +1299,6 @@ describe('R7-1 暴击核心结算', () => {
 describe('R7-2 暴击修正管线（鹰眼溢出/critCapBonus/武器加成）', () => {
   beforeEach(() => {
     resetUnitCounter();
-    delete WEAPON_CRIT_BONUS.bow;
   });
 
   const map = createMapState();
@@ -1313,11 +1312,11 @@ describe('R7-2 暴击修正管线（鹰眼溢出/critCapBonus/武器加成）', 
     expect(f.critRate).toBe(41);            // 17+(11−4)+17
   });
 
-  it('限远程：eagle-eye 持有者 rangeMax 1 攻击无 +30 无溢出（盗贼普攻 vs BOSS 暴击 35 非 50）', () => {
+  it('限远程：eagle-eye 持有者 rangeMax 1 攻击无 +30 无溢出（盗贼普攻 vs BOSS 暴击 45 非 60）', () => {
     const thief = createUnitState('thief', 'player', { q: 10, r: 15 }, { active: [], passive: ['eagle-eye'] });
     const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });
     const f = calcStrike(map, thief, T('thief'), boss, T('boss'), basicAttackSkill(T('thief')));
-    expect(f.critRate).toBe(35);            // 23+(16−4)，rawHit 117 的溢出不喂
+    expect(f.critRate).toBe(45);            // 23+(16−4)+10（必杀匕首），rawHit 117 的溢出不喂
   });
 
   it('溢出只对低回避目标产生：高回避 thief（evade 120）raw 45 < 100 → 无溢出，暴击 12', () => {
@@ -1333,19 +1332,52 @@ describe('R7-2 暴击修正管线（鹰眼溢出/critCapBonus/武器加成）', 
     const archer = createUnitState('archer', 'player', { q: 10, r: 15 });
     const boss = createUnitState('boss', 'enemy', { q: 12, r: 15 });    // dist 2
     const aim = calcStrike(map, archer, T('archer'), boss, T('boss'), SKILLS['aim-shot']);
-    expect(aim.critRate).toBe(54);          // 19+(12−4)+27 → cap 70 内
+    expect(aim.critRate).toBe(64);          // 19+(12−4)+27 → cap 70 内，+10 必杀弓（R2-3）
     const basic = calcStrike(map, archer, T('archer'), boss, T('boss'), basicAttackSkill(T('archer')));
-    expect(basic.critRate).toBe(50);        // 同值截默认上限
+    expect(basic.critRate).toBe(60);        // 同值截默认上限 50，+10 必杀弓在 clamp 外
   });
 
-  it('武器暴击加成在 clamp 外：属性段截 50 + bow 40 = 90；+60 → 截 100（仅受绝对顶）', () => {
-    const archer = createUnitState('archer', 'player', { q: 10, r: 15 });
-    const boss = createUnitState('boss', 'enemy', { q: 12, r: 15 });
-    WEAPON_CRIT_BONUS.bow = 40;
+  it('R2-3 武器暴击加成 = 装备条目求和、clamp 外生效：属性段截 50 + 必杀弓 10 = 60；双持必杀 +20 = 70', () => {
+    const archer = createUnitState('archer', 'player', { q: 10, r: 15 });  // 默认 [longbow, killingBow] → +10
+    const doubleK = createUnitState('archer', 'player', { q: 10, r: 15 }, undefined, ['killingBow', 'killingBow']);
+    const boss = createUnitState('boss', 'enemy', { q: 12, r: 15 });       // dist 2，鹰眼溢出 27 → 属性段 54
     const f1 = calcStrike(map, archer, T('archer'), boss, T('boss'), basicAttackSkill(T('archer')));
-    expect(f1.critRate).toBe(90);
-    WEAPON_CRIT_BONUS.bow = 60;
-    const f2 = calcStrike(map, archer, T('archer'), boss, T('boss'), basicAttackSkill(T('archer')));
-    expect(f2.critRate).toBe(100);
+    expect(f1.critRate).toBe(60);          // min(54,50) + 10
+    const f2 = calcStrike(map, doubleK, T('archer'), boss, T('boss'), basicAttackSkills(['killingBow'])[0]);
+    expect(f2.critRate).toBe(70);          // min(54,50) + 20（同条目双持合法，§4.14）
+  });
+
+  it('R2-3 装备暴击作用域 = 持有者全部攻击：盗贼普攻与技能同享必杀匕首 +10', () => {
+    const thief = createUnitState('thief', 'player', { q: 10, r: 15 }, { active: ['backstab-strike'], passive: [] });
+    const boss = createUnitState('boss', 'enemy', { q: 11, r: 15 });
+    const basic = calcStrike(map, thief, T('thief'), boss, T('boss'), basicAttackSkill(T('thief')));
+    const skill = calcStrike(map, thief, T('thief'), boss, T('boss'), SKILLS['backstab-strike']);
+    expect(basic.critRate).toBe(45);
+    expect(skill.critRate).toBe(45);
+  });
+});
+
+describe('R2-3 反击择优武器维度（多武器守方期望择优，§4.14）', () => {
+  beforeEach(() => resetUnitCounter());
+
+  const map = createMapState();
+  const T = (id: string) => getTemplate(id)!;
+
+  it('伤害线维度：斧兵反击无甲选战斧（斩1.2）、反击重甲反转选钝斧（钝1.4）', () => {
+    const axe = createUnitState('axeman', 'player', { q: 10, r: 15 });  // [warAxe 斩3, bluntAxe 钝3]
+    const mage = createUnitState('mage_enemy', 'enemy', { q: 11, r: 15 });  // 无甲
+    const f1 = calcBattleForecast(map, mage, axe, basicAttackSkill(T('mage_enemy')));
+    expect(f1.counter?.skillName).toBe('战斧·普攻');   // 29×1.2−7=27 > 钝 16、旋风斩 24
+    const axe2 = createUnitState('axeman', 'player', { q: 10, r: 15 });
+    const heavy = createUnitState('axeman_enemy', 'enemy', { q: 11, r: 15 });  // 重甲
+    const f2 = calcBattleForecast(map, heavy, axe2, basicAttackSkill(T('axeman_enemy')));
+    expect(f2.counter?.skillName).toBe('钝斧·普攻');   // 29×1.4−11=29 > 斩 9、旋风斩 7
+  });
+
+  it('威力维度：盗贼双匕首反击选基准匕首（威力 1 > 必杀 −1，暴击加成两侧同享不改变排序）', () => {
+    const thief = createUnitState('thief', 'player', { q: 10, r: 15 });
+    const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });  // 轻甲
+    const f = calcBattleForecast(map, sw, thief, basicAttackSkill(T('swordsman')));
+    expect(f.counter?.skillName).toBe('匕首·普攻');    // 18×1.2−11=10 > 必杀 8、背刺/影袭 9
   });
 });

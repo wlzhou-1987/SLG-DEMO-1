@@ -5,9 +5,9 @@ import type { UnitState } from './unit';
 import type { SkillTemplate } from '../config/skills';
 import type { UnitTemplate } from '../config/units';
 import { getTemplate, getTemplateSkills, isFlying } from '../config/units';
-import { basicAttackSkills } from '../config/weapons';
+import { basicAttackSkills, WEAPONS } from '../config/weapons';
 import { directionBetween, distance } from './hex';
-import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS, EFFECT_PARAMS, RANGE_PARAMS, WEAPON_CRIT_BONUS } from '../config/combat';
+import { DAMAGE_ARMOR_MATRIX, PART_BONUS, COMBAT_PARAMS, EFFECT_PARAMS, RANGE_PARAMS } from '../config/combat';
 import { TERRAIN_CONFIGS } from '../config/terrain';
 import { TRAIT_CONFIGS } from '../config/traits';
 import { resolveArmor, statValue } from './status';
@@ -79,8 +79,9 @@ export function calcCritRate(
     + (mods?.overflow ?? 0) * COMBAT_PARAMS.critOverflowRate;
   const cap = COMBAT_PARAMS.critCap + (mods?.capBonus ?? 0);
   const propSeg = Math.max(0, Math.min(rate, cap));
-  // R7-2 武器暴击加成（R2 声明先行、现恒 0）：clamp 外自动全额生效，仅受绝对顶
-  const weaponBonus = atkT.weapons.reduce((s, w) => s + (WEAPON_CRIT_BONUS[w] ?? 0), 0);
+  // R2-3 武器暴击加成 = 装备条目求和（§4.14；原全局表 WEAPON_CRIT_BONUS 退役）：
+  // clamp 外自动全额生效，仅受绝对顶；作用域 = 持有者全部攻击
+  const weaponBonus = attacker.equipment.reduce((s, id) => s + (WEAPONS[id]?.critBonus ?? 0), 0);
   return Math.max(0, Math.min(propSeg + weaponBonus, COMBAT_PARAMS.critAbsMax));
 }
 

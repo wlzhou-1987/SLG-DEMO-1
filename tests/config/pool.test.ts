@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getPool, canLearn, learnBlockReason } from '../../src/config/pool';
+import { getPool, canLearn, learnBlockReason, validateLoadoutForTemplate } from '../../src/config/pool';
 import type { PoolEntry } from '../../src/config/pool';
 import { SKILLS } from '../../src/config/skills';
 import type { SkillTemplate } from '../../src/config/skills';
@@ -33,6 +33,19 @@ describe('R3-4 getPool：三表 learnable 条目 union', () => {
   });
 });
 
+const entryOf = (id: string): PoolEntry => {
+  const e = getPool().find(p => p.id === id);
+  if (!e) throw new Error(`池中不存在: ${id}`);
+  return e;
+};
+const literalSkill = (s: Partial<SkillTemplate>): PoolEntry => ({
+  id: 'test', name: '测试', kind: 'skill',
+  entry: {
+    id: 'test', name: '测试', target: 'enemy', damageType: 'slashing',
+    rangeMin: 1, rangeMax: 1, learnable: true, ...s
+  } as SkillTemplate
+});
+
 describe('R3-4 canLearn：双过滤', () => {
   const lord = getTemplate('lord')!;        // 剑·怒气
   const defender = getTemplate('defender')!; // 剑盾·怒气
@@ -40,50 +53,37 @@ describe('R3-4 canLearn：双过滤', () => {
   const axeman = getTemplate('axeman')!;    // 斧·怒气
   const mage = getTemplate('mage')!;        // 法杖·MP
 
-  const entryOf = (id: string): PoolEntry => {
-    const e = getPool().find(p => p.id === id);
-    if (!e) throw new Error(`池中不存在: ${id}`);
-    return e;
-  };
-  const literalSkill = (s: Partial<SkillTemplate>): PoolEntry => ({
-    id: 'test', name: '测试', kind: 'skill',
-    entry: {
-      id: 'test', name: '测试', target: 'enemy', damageType: 'slashing',
-      rangeMin: 1, rangeMax: 1, learnable: true, ...s
-    } as SkillTemplate
-  });
-
   it('武器过滤·单值：盾突需要盾——防战可学、盗贼不可', () => {
     // 盾突不在池中，用同 weaponType 字面量验证规则；池内真实条目走 snipe/sweep
     const shieldSkill = literalSkill({ weaponType: 'shield' });
-    expect(canLearn(defender, shieldSkill)).toBe(true);
-    expect(learnBlockReason(thief, shieldSkill)).toBe('weapon');
+    expect(canLearn(defender, defender.defaultEquipment, shieldSkill)).toBe(true);
+    expect(learnBlockReason(thief, thief.defaultEquipment, shieldSkill)).toBe('weapon');
   });
 
   it('武器过滤·one-of：横扫（锤/斧）——斧兵可学、领主不可', () => {
     const sweep = entryOf('sweep');
-    expect(canLearn(axeman, sweep)).toBe(true);
-    expect(learnBlockReason(lord, sweep)).toBe('weapon');
+    expect(canLearn(axeman, axeman.defaultEquipment, sweep)).toBe(true);
+    expect(learnBlockReason(lord, lord.defaultEquipment, sweep)).toBe('weapon');
   });
 
   it('武器过滤·弓：狙击——弓箭可学、骑士（枪）不可', () => {
     const snipe = entryOf('snipe');
     const archer = getTemplate('archer')!;
     const knight = getTemplate('knight')!;
-    expect(canLearn(archer, snipe)).toBe(true);
-    expect(learnBlockReason(knight, snipe)).toBe('weapon');
+    expect(canLearn(archer, archer.defaultEquipment, snipe)).toBe(true);
+    expect(learnBlockReason(knight, knight.defaultEquipment, snipe)).toBe('weapon');
   });
 
   it('资源过滤·仅主动：声明 resourceType 的主动技能受主资源约束', () => {
     const fireMp = literalSkill({ resourceType: 'mp' });
-    expect(canLearn(mage, fireMp)).toBe(true);
-    expect(learnBlockReason(lord, fireMp)).toBe('resource');
+    expect(canLearn(mage, mage.defaultEquipment, fireMp)).toBe(true);
+    expect(learnBlockReason(lord, lord.defaultEquipment, fireMp)).toBe('resource');
   });
 
   it('资源过滤·未声明豁免：无 resourceType 的主动技能任何职业可学', () => {
     const noRes = literalSkill({});
     for (const t of [lord, thief, mage, getTemplate('boss')!]) {
-      expect(canLearn(t, noRes)).toBe(true);
+      expect(canLearn(t, t.defaultEquipment, noRes)).toBe(true);
     }
   });
 
@@ -94,15 +94,15 @@ describe('R3-4 canLearn：双过滤', () => {
       entry: { id: 'test-trait', name: '测试被动', desc: '', learnable: true }
     };
     for (const t of [lord, thief, mage]) {
-      expect(canLearn(t, traitEntry)).toBe(true);
+      expect(canLearn(t, t.defaultEquipment, traitEntry)).toBe(true);
     }
   });
 
   it('R5-1 法术声明 mp 归属：非 MP 职业不可学（R3-4「法系互学」旧口径随 §4.13 作废）', () => {
     const fireball = entryOf('fireball');
-    expect(canLearn(lord, fireball)).toBe(false);
-    expect(canLearn(axeman, fireball)).toBe(false);
-    expect(canLearn(mage, fireball)).toBe(true);
+    expect(canLearn(lord, lord.defaultEquipment, fireball)).toBe(false);
+    expect(canLearn(axeman, axeman.defaultEquipment, fireball)).toBe(false);
+    expect(canLearn(mage, mage.defaultEquipment, fireball)).toBe(true);
   });
 
   it('法术按技能差异化声明武器时受过滤（声明即过滤对法术同样生效）', () => {
@@ -115,7 +115,29 @@ describe('R3-4 canLearn：双过滤', () => {
         weaponType: 'staff'
       } as never
     };
-    expect(canLearn(mage, staffOnlySpell)).toBe(true);
-    expect(learnBlockReason(lord, staffOnlySpell)).toBe('weapon');
+    expect(canLearn(mage, mage.defaultEquipment, staffOnlySpell)).toBe(true);
+    expect(learnBlockReason(lord, lord.defaultEquipment, staffOnlySpell)).toBe('weapon');
+  });
+});
+
+describe('R2-3 武器过滤改读装备原子并集', () => {
+  const defender = getTemplate('defender')!;  // 类别 [sword, shield]，默认装备 [longsword, ironShield]
+
+  it('装备驱动：卸盾后盾技被过滤（默认双槽可学）', () => {
+    const shieldSkill = literalSkill({ weaponType: 'shield' });
+    expect(learnBlockReason(defender, defender.defaultEquipment, shieldSkill)).toBeNull();
+    expect(learnBlockReason(defender, ['longsword'], shieldSkill)).toBe('weapon');
+  });
+
+  it('同原子跨线不扩并集：长剑+刺剑均为剑，横扫（锤/斧）仍不可学', () => {
+    const lord = getTemplate('lord')!;
+    const sweep = entryOf('sweep');
+    expect(learnBlockReason(lord, lord.defaultEquipment, sweep)).toBe('weapon');
+  });
+
+  it('敌方关卡装备覆盖同源校验：validateLoadoutForTemplate 按覆盖装备判武器', () => {
+    expect(validateLoadoutForTemplate(defender, { active: ['shieldThrust'], passive: [] })).toEqual([]);
+    expect(validateLoadoutForTemplate(defender, { active: ['shieldThrust'], passive: [] }, ['longsword']))
+      .toEqual([expect.stringContaining('武器不符')]);
   });
 });

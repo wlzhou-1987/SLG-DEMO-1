@@ -1,5 +1,4 @@
 import type { DamageType, ArmorType } from '../core/types';
-import type { WeaponAtom } from './skills';
 
 /** 物理矩阵（§4.2 定稿梯度，R4-3：列序 无甲/轻甲/中甲/重甲；法术行已移出——魔法走法术级对护甲系数 armorResist）
  * 原则：武器=应对卡——斩泛用平缓、突随护甲递减、钝随护甲递增；行和均衡、列和单调递减 */
@@ -41,10 +40,6 @@ export const COMBAT_PARAMS = {
   critOverflowRate: 1,   // R7-2 鹰眼溢出转暴击换算率（1:1；1:2 留作平衡期回调旋钮）
   rangedMinRange: 2      // R7-2 远程判定阈值（rangeMax ≥ 此值 = 远程；鹰眼 +30/溢出只对远程生效）
 } as const;
-
-/** R7-2 武器暴击率加成表（R2 声明先行）：clamp 外自动全额生效、仅受 100 绝对顶；
- *  作用域 = 持有者全部攻击（普攻 + 该武器线技能 + 法术，FE 口径）。数值随 R2 数值期定，过渡期恒 0 */
-export const WEAPON_CRIT_BONUS: Partial<Record<WeaponAtom, number>> = {};
 
 /** R4-5 属性条件射程（§4.4 定稿：弓挂力量、法术挂魔力；阈值可配，占位值随 R4-8 数值定稿） */
 export const RANGE_PARAMS = {

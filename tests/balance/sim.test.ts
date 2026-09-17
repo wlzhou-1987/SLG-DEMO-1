@@ -301,8 +301,8 @@ function simulate(seed: number): SimResult {
   };
 }
 
-describe('平衡模拟（R4-8 定稿 / R5-3 资源经济重校 / R7-3 暴击重校 / R2-2 装备威力过渡锚定）', () => {
-  it('20 局模拟：R2-2 过渡锚定 9 胜 11 败 0 平（R7-1 先例：中间 issue 锚定当时值，重校归 R2-6）', () => {
+describe('平衡模拟（R4-8 定稿 / R5-3 资源经济重校 / R7-3 暴击重校 / R2-3 装备暴击接管锚定）', () => {
+  it('20 局模拟：R2-3 过渡锚定 13 胜 7 败 0 平（R7-1 先例：中间 issue 锚定当时值，重校归 R2-6）', () => {
     const results = Array.from({ length: 20 }, (_, i) => simulate(i + 1));
     const wins = results.filter(r => r.winner === 'playerWin');
     const losses = results.filter(r => r.winner === 'playerLose');
@@ -315,11 +315,10 @@ describe('平衡模拟（R4-8 定稿 / R5-3 资源经济重校 / R7-3 暴击重�
     console.log('[明细] ' + results.map(r =>
       `#${r.seed}${r.winner === 'playerWin' ? '胜' : r.winner === 'playerLose' ? '败' : '平'}` +
       `T${r.turns}存${r.playersAlive}敌${r.enemiesAlive}${r.lastEnemy ? '(' + r.lastEnemy + ')' : ''}`).join(' '));
-    // R2-2 过渡锚定 9 胜 11 败 0 平（R7-3 基线 14/6）：双重不对称中间态——
-    // ①我方必杀型威力 −1 已生效、critBonus +10 未生效（R2-3 接管线）；②BOSS 弑骑锤 counters 骑兵×1.5 已生效（反噬防骑/骑士）；③敌方杂兵威力 +2~3
-    // R2-3 接 critBonus 后回补、R2-6 统一重校回 14/6/0 = 70%（带宽 12~15 + 0 平）
-    expect(wins.length).toBe(9);
-    expect(losses.length).toBe(11);
+    // R2-3 过渡锚定 13 胜 7 败 0 平（R2-2 中间态 9/11 → 装备 critBonus 接管线〔盗贼/弓箭必杀型 +10〕后回补）：
+    // 剩余偏差源 = 敌方杂兵威力普涨 +2~3、BOSS 弑骑锤 counters 骑兵×1.5（反噬防骑/骑士）——R2-6 统一重校收 14/6/0 = 70%（带宽 12~15 + 0 平，现值已带内）
+    expect(wins.length).toBe(13);
+    expect(losses.length).toBe(7);
     expect(draws.length).toBe(0);
     // 可复现性：同种子重跑结果一致
     expect(simulate(7)).toEqual(results[6]);
