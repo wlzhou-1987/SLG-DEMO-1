@@ -45,7 +45,7 @@
 - 渲染层（`src/render/`）：Canvas 绘制与交互，可引用逻辑层，不反向依赖
 - 配置层（`src/config/`）：所有游戏数据为 TS 配置对象，数值不硬编码到逻辑中
 - UI 层（`src/ui/`）：HTML DOM 元素（顶栏、面板），不依赖前端框架
-- 桌面壳（`electron/`）：Electron 仅用于打包独立 exe 分发（`main.cjs` 主进程 + 根目录 `electron-builder.json`），不含任何游戏逻辑；游戏代码与浏览器版完全一致
+- 桌面壳（`electron/`）：Electron 仅用于打包独立可执行分发（Windows x64 portable exe + macOS dmg x64/arm64；`main.cjs` 主进程 + 根目录 `electron-builder.json`），不含任何游戏逻辑；游戏代码与浏览器版完全一致
 - 新增一级目录前同步更新本文和 README
 
 ## 4. 数据驱动原则
