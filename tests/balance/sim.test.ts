@@ -301,8 +301,8 @@ function simulate(seed: number): SimResult {
   };
 }
 
-describe('平衡模拟（R4-8 定稿 / R5-3 资源经济重校 / R7-3 暴击重校 / R2-3 装备暴击接管锚定）', () => {
-  it('20 局模拟：R2-3 过渡锚定 13 胜 7 败 0 平（R7-1 先例：中间 issue 锚定当时值，重校归 R2-6）', () => {
+describe('平衡模拟（R4-8 定稿 / R5-3 资源经济重校 / R7-3 暴击重校 / R2-6 装备落地收口定稿）', () => {
+  it('20 局模拟：R2-6 定稿 13 胜 7 败 0 平（65%，12~15 带内）', () => {
     const results = Array.from({ length: 20 }, (_, i) => simulate(i + 1));
     const wins = results.filter(r => r.winner === 'playerWin');
     const losses = results.filter(r => r.winner === 'playerLose');
@@ -315,8 +315,13 @@ describe('平衡模拟（R4-8 定稿 / R5-3 资源经济重校 / R7-3 暴击重�
     console.log('[明细] ' + results.map(r =>
       `#${r.seed}${r.winner === 'playerWin' ? '胜' : r.winner === 'playerLose' ? '败' : '平'}` +
       `T${r.turns}存${r.playersAlive}敌${r.enemiesAlive}${r.lastEnemy ? '(' + r.lastEnemy + ')' : ''}`).join(' '));
-    // R2-3 过渡锚定 13 胜 7 败 0 平（R2-2 中间态 9/11 → 装备 critBonus 接管线〔盗贼/弓箭必杀型 +10〕后回补）：
-    // 剩余偏差源 = 敌方杂兵威力普涨 +2~3、BOSS 弑骑锤 counters 骑兵×1.5（反噬防骑/骑士）——R2-6 统一重校收 14/6/0 = 70%（带宽 12~15 + 0 平，现值已带内）
+    // R2-6 收口定稿（2026-09-17）：零数值改动锚定 13 胜 7 败 0 平 = 65%（12~15 带内，距 R7-3 的 70% 锚 1 局）。
+    // 重校试算证据（四候选均跳过 14/6/0，最小粒度杠杆越锚 +2~5 局，继续细调 = 对 20 种子过拟合）：
+    //   杂兵 str 全员 −1 → 18/2/0（出带）；杂兵 HP 全员 −2 → 15/5/0；HP 全员 −1 → 15/5/0；斧/锤 str −1 → 16/4/0（出带）
+    // 插桩验证（R7-3 教训）已兑现：多武器单位按护甲线择优（骑士 薙刀 136/长枪 107、领主 长剑 13/刺剑 5、
+    // 斧兵 战斧 52/钝斧 11、BOSS 对无甲脆皮选横扫斩线 46 次/对重甲骑兵选弑骑锤 14 次）；必杀型武器 0 次攻击
+    // 选用 = 设计正确行为（critBonus 装备求和作用域 = 全部攻击，基准武器吃满 +10 且威力高 2，必杀条目价值
+    // = 暴击供体）；证据明细见 BACKLOG R2-6 完成记录
     expect(wins.length).toBe(13);
     expect(losses.length).toBe(7);
     expect(draws.length).toBe(0);
