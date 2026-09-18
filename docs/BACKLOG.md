@@ -299,3 +299,14 @@
 | issue | 内容与验收标准 | 状态 / 完成记录 |
 | --- | --- | --- |
 | R10-1 | 咒杀 DoT 迁移（配置+逻辑+测试）：effectMode `delayed`→`lasting`（伤害语义走 DotStatus）、统一 DoT 公式施放时锁定、delayed 枚举与代码退役、`delayedFire`→`dotTick` 更名、咒杀相关测试改写。验收：`delayed` 相关代码零残留（grep 验证）；新增/改写 ≥4 测试（逐回合结算/保底与末回合补余/锁定值不随后续状态变化）；npm test 全绿；build 无错；文档同步（GAME-DESIGN §4.12 已回写、ARCHITECTURE 随代码） | ✅ 已完成（2026-09-14，commit 3ca554a：**咒杀 = DoT**——effectMode 改 `lasting`+targetType enemy 分支：calcStrike 全公式 total → `splitDot` 统一切分（max(1, floor(total/turns))+末回合补余，导出复用——pyro 灼烧同走此函数删内联复制）→ 掷命中（原 delayed 不掷命中，现走完整命中管线+法术命中受击回怒 §4.13）挂 DotStatus 锁定值；**delayed 退役**——effectMode 枚举删值、DelayedStatus/tick 分支删除、`delayedFire`→`dotTick` 事件更名（game.ts 战报「咒杀爆发」改 `${skillName} -x` 泛化）；UI：sidepanel 状态行 dot 用 skillName（原硬编码「灼烧」）、法术预报 case dot（每回合伤+末回合补余+命中率）、不可达兜底行删除；测试：spell.test 改写 2 增 3（预报切分 26=8+8+10〔牧师魔21〕/命中挂状态与落空不挂/施法后加魔力 buff 不改锁定值 29=9+9+11/splitDot 三态）+ status.test 改写 2（逐回合 9/9/11 末回合补余+dotTick 事件/保底 tick 只按锁定值跳）。grep `delayed` 零残留（唯一命中=枚举退役注释）；全量 **392 绿** + build 无错 + **sim 14 胜 6 败 0 平带内不变**（~~sim 不施放咒杀，无牵连~~〔勘误 2026-09-15 R7-3 插桩：sim 法师实际施咒杀 105 次且走 resolveBattle 被当直伤结算——sim 与真实口径偏差已随 R7-3 修正〕）；ARCHITECTURE spell/status 两条目同步。**R10 全部完成**） |
+
+### R11 战前界面修正（状态：✅ 已完成 2026-09-17〔R11-1/R11-2 均 ✅〕）
+- 来源：bug（拖动残影）+ 用户提议（技能展示详细功能描述）
+- 一句话：修复战前画布拖动残影，并为技能/法术条目补详细功能描述展示
+- 设计结论：残影根因 = PrepBoard.render() 绘制前不清屏（Game.render 有背景填充而战前画布没有），地图小于画布时平移后旧帧像素残留于视口空白区；修复 = render() 首笔整幅背景填充 #0d0f13 与战斗内同源。技能描述 = SkillTemplate 增 desc?: string（法术继承、特性已有同名先例），SKILLS 20 条 + SPELLS 6 条全量补文案，战前配置界面槽位与池条目均渲染描述（PoolItemView 携 desc）；全条目非空由配置测试保证。展示范围限战前配置界面；战斗内 sidepanel 已有伤害线/射程信息、行动菜单空间有限，均不扩展
+- 待议：无
+
+| issue | 内容与验收标准 | 状态 / 完成记录 |
+| --- | --- | --- |
+| R11-1 | 战前画布拖动残影修复（PrepBoard.render() 绘制前整幅背景清屏）。验收：新增 ≥1 回归测试（render 首笔 = fillRect 整幅）；npm test 全绿；build 无错；浏览器拖动后视口空白区无旧帧残留 | ✅ 已完成（2026-09-18，commit 68bdec2，TDD 红→绿：记录型 ctx 桩断言构造与手动 render 首笔均为 fillRect(0,0,w,h)〔修复前首笔为 beginPath〕；src/render/prep-board.ts 持有 ctx 引用 + render() 背景填充 #0d0f13 与 Game.render 同源；全量 451 绿、build 无错；浏览器像素实证（vite 5173 + browser-use）：拖动 500px 后右缘两采样点均为纯背景 [13,15,19]，左缘地图色 [74,153,93] 正常、控制台无错误——旧帧残留消除） |
+| R11-2 | 技能详细功能描述（SkillTemplate.desc + 全条目文案 + 战前槽位/池展示）。验收：新增 ≥2 测试（配置完整性 + UI 渲染）；npm test 全绿；build 无错；浏览器可见描述文本 | ✅ 已完成（2026-09-18，commit 9e873c3，skills.ts desc?: string + SKILLS 20 条、spells.ts 6 条文案〔嗜血=自伤 10% 攻+3 防-2 瞬发、瞄准射击=蓄力威力+3 无距离惩罚、冲杀=直线落背后等按已核实机制撰写〕；prep.ts descOf/PoolItemView.desc、槽位 slot-desc 与池条目 pool-item-desc 渲染、style.css 两样式；配置测试断言 SKILLS/SPELLS 全条目 desc 非空、UI 测试断言槽位与池 innerHTML 含描述；全量 451 绿、build 无错；浏览器 DOM 实证：领主槽位刺击描述可见、池 12 条目全部带描述行〔技能+法术〕；GAME-DESIGN §7.0、ARCHITECTURE skills/spells/prep 三条目同步） |
