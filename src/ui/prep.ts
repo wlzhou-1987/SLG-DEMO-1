@@ -12,6 +12,7 @@ import { getJob } from '../config/jobs';
 export interface PoolItemView {
   id: string;
   name: string;
+  desc: string;
   kind: PoolEntryKind;
   blocked: LearnBlockReason | null;
   full: boolean;
@@ -208,6 +209,7 @@ export function createPrepScreen(
       return {
         id: e.id,
         name: e.name,
+        desc: e.entry.desc ?? '',
         kind: e.kind,
         blocked: learnBlockReason(t, effEq, e),
         full: eff[group].length >= SLOT_LIMITS[group]
@@ -246,11 +248,12 @@ export function createPrepScreen(
     const t = getTemplate(selectedId)!;
     const eff = getEffectiveLoadout(selectedId);
     const nameOf = (id: string): string => resolveSkill(id)?.name ?? getTrait(id)?.name ?? id;
+    const descOf = (id: string): string => resolveSkill(id)?.desc ?? getTrait(id)?.desc ?? '';
     const slotGroup = (kind: 'active' | 'passive'): string => {
       const ids = [...eff[kind]];
       const limit = SLOT_LIMITS[kind];
       const items = ids.map((id, i) =>
-        `<li>${nameOf(id)} <button class="slot-remove" data-remove="${kind}:${i}">×</button></li>`).join('');
+        `<li><span class="slot-name">${nameOf(id)}</span><small class="slot-desc">${descOf(id)}</small> <button class="slot-remove" data-remove="${kind}:${i}">×</button></li>`).join('');
       const addBtn = ids.length < limit
         ? `<li class="slot-add" data-add="${kind}">＋ 添加</li>` : '';
       return `<div class="slot-group"><h4>${kind === 'active' ? '主动技能' : '被动技能'}（${ids.length}/${limit}）</h4><ul>${items}${addBtn}</ul></div>`;
@@ -262,7 +265,8 @@ export function createPrepScreen(
         if (v.blocked) tags.push(BLOCK_LABELS[v.blocked]);
         if (v.full) tags.push('已满');
         const disabled = v.blocked !== null || v.full ? ' blocked' : '';
-        return `<div class="pool-item${disabled}" data-pool-id="${v.id}">${v.name} <small>[${tags.join('·')}]</small></div>`;
+        const descLine = v.desc ? `<div class="pool-item-desc">${v.desc}</div>` : '';
+        return `<div class="pool-item${disabled}" data-pool-id="${v.id}">${v.name} <small>[${tags.join('·')}]</small>${descLine}</div>`;
       }).join('');
       poolHtml = `<div class="pool-list">${rows || '<p class="dim">池中无可学条目</p>'}</div>`;
     }

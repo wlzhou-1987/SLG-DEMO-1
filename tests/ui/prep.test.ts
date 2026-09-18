@@ -215,6 +215,19 @@ describe('R3-5 技能配置区块', () => {
     expect(block!.innerHTML).toContain('刺击');
     expect(block!.innerHTML).toContain('主动技能');
   });
+
+  it('技能描述：池条目视图携带描述，槽位与池清单渲染描述文本', () => {
+    const prep = make();
+    prep.selectUnit('lord');
+    const sweepDesc = prep.poolEntries('lord').find(e => e.id === 'sweep')!.desc;
+    expect(sweepDesc.length).toBeGreaterThan(0);
+    const kids = (prep.root as unknown as { children: FakeElement[] }).children;
+    const block = kids.find(c => c.className === 'prep-block skill-block')!;
+    expect(block.innerHTML).toContain('克制重装 ×1.8、骑兵 ×1.5');  // 出厂槽位（刺击）显示描述
+    prep.selectUnit('mage');
+    prep.addToSlot('mage', 'heal');                // 装入后池保持展开
+    expect(block.innerHTML).toContain('回复量随魔力提升');          // 池条目（治疗）显示描述
+  });
 });
 
 describe('R2-5 战前装备区块（选人 → 槽 ×2 → 类别过滤清单 → 开战注入编成）', () => {

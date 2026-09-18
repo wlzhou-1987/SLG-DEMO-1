@@ -165,6 +165,8 @@ html, body {
 .skill-block .slot-group li, .equip-block .slot-group li { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #dfe6f0; margin: 2px 0; }
 .skill-block .slot-remove, .equip-block .slot-remove { background: none; border: none; color: #8a93a5; cursor: pointer; padding: 0 4px; }
 .skill-block .slot-add, .equip-block .slot-add { color: #7fa9d8; cursor: pointer; }
+.skill-block .slot-desc { flex: 1; color: #8a93a5; }
+.skill-block .pool-item-desc { color: #8a93a5; font-size: 12px; margin: 1px 0 3px; }
 .skill-block .pool-list, .equip-block .pool-list { border-top: 1px solid #39414f; margin-top: 8px; padding-top: 6px; max-height: 200px; overflow-y: auto; }
 .skill-block .pool-item, .equip-block .pool-item { font-size: 13px; color: #dfe6f0; padding: 2px 0; cursor: pointer; }
 .skill-block .pool-item small, .equip-block .pool-item small { color: #8a93a5; }

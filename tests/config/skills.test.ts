@@ -55,6 +55,15 @@ describe('R3-1 三注册表与类型重构：SKILLS 注册表', () => {
       for (const w of reqs) expect(WEAPON_ATOMS).toContain(w);
     }
   });
+
+  it('全技能与法术条目携带非空功能描述（战前 UI 展示）', () => {
+    for (const s of Object.values(SKILLS)) {
+      expect(s.desc, `技能 ${s.id} 缺 desc`).toBeTruthy();
+    }
+    for (const s of Object.values(SPELLS)) {
+      expect(s.desc, `法术 ${s.id} 缺 desc`).toBeTruthy();
+    }
+  });
 });
 
 describe('R3-1 模板改造', () => {

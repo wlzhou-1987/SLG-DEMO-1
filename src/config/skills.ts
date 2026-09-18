@@ -40,6 +40,7 @@ export interface EffectArea {
 export interface SkillTemplate {
   id: string;
   name: string;
+  desc?: string;                   // 详细功能描述（战前配置 UI 展示；法术继承）
   target: SkillTarget;
   damageType: DamageType;
   rangeMin: number;
@@ -79,22 +80,26 @@ export interface SkillTemplate {
 export const SKILLS: Record<string, SkillTemplate> = {
   stealth: {
     id: 'stealth', name: '潜行', target: 'self', damageType: 'piercing',
+    desc: '进入潜行：对敌方不可见；移动、攻击或使用技能后解除。消耗专注 30',
     rangeMin: 0, rangeMax: 0, resourceType: 'focus', cost: 30,
     behavior: { kind: 'stealth' }, learnable: true
   },
   defenseStance: {
     id: 'defenseStance', name: '防御姿态', target: 'self', damageType: 'blunt',
+    desc: '进入防御姿态：防御提升，移动后解除',
     rangeMin: 0, rangeMax: 0, weaponType: 'shield',
     behavior: { kind: 'stance' }, learnable: false
   },
   blessing: {
     id: 'blessing', name: '祝福', target: 'self', damageType: 'blunt',
+    desc: '魔防 +3，持续 5 回合、每回合衰减 1',
     rangeMin: 0, rangeMax: 0,
     behavior: { kind: 'buff', stat: 'mdef', amount: 3, decay: 1, turns: 5 },
     learnable: false
   },
   warCry: {
     id: 'warCry', name: '战斗怒吼', target: 'ally', damageType: 'blunt',
+    desc: '自身与周围 1 格友军攻击 +2，持续 2 回合；自身怒气 +2',
     rangeMin: 0, rangeMax: 0, area: { shape: 'disc', radius: 1 },
     behavior: { kind: 'shout' },
     subs: [{ kind: 'resource', timing: 'immediate', resourceType: 'rage', amount: 2 }],
@@ -102,31 +107,37 @@ export const SKILLS: Record<string, SkillTemplate> = {
   },
   stab: {
     id: 'stab', name: '刺击', target: 'enemy', damageType: 'piercing',
+    desc: '对相邻敌人造成穿刺伤害；克制重装 ×1.8、骑兵 ×1.5。消耗怒气 40',
     rangeMin: 1, rangeMax: 1, weaponType: 'sword', resourceType: 'rage', cost: 40,
     counters: { heavy: 1.8, cavalry: 1.5 }, learnable: false
   },
   'backstab-strike': {
     id: 'backstab-strike', name: '背刺', target: 'enemy', damageType: 'piercing',
+    desc: '对相邻敌人造成穿刺伤害；从背面攻击时无视目标一半防御',
     rangeMin: 1, rangeMax: 1, weaponType: 'dagger',
     halfDefFromBack: true, learnable: false
   },
   'shadow-strike': {
     id: 'shadow-strike', name: '影袭', target: 'enemy', damageType: 'piercing',
+    desc: '对相邻敌人造成穿刺伤害；从背面攻击时威力 +4',
     rangeMin: 1, rangeMax: 1, weaponType: 'dagger',
     backPowerBonus: 4, learnable: false
   },
   deathblow: {
     id: 'deathblow', name: '致命突袭', target: 'enemy', damageType: 'piercing',
+    desc: '对相邻敌人造成穿刺伤害；必定暴击',
     rangeMin: 1, rangeMax: 1, weaponType: 'spear',
     critOverride: true, learnable: false
   },
   'sky-strike': {
     id: 'sky-strike', name: '空中突袭', target: 'enemy', damageType: 'piercing',
+    desc: '对相邻敌人造成穿刺伤害；必定暴击；本回合移动过后释放不受反击',
     rangeMin: 1, rangeMax: 1, weaponType: 'spear',
     critOverride: true, noCounterIfMoved: true, learnable: false
   },
   bloodlust: {
     id: 'bloodlust', name: '嗜血', target: 'self', damageType: 'slashing',
+    desc: '瞬发（不结束行动）：自伤最大 HP 的 10%，攻击 +3、物防 -2 持续 3 回合，并获怒气 +2',
     rangeMin: 0, rangeMax: 0, weaponType: 'axe', instant: true,
     behavior: { kind: 'bloodlust', atkUp: 3, defDown: 2, selfPct: 0.1, rage: 2 },
     subs: [{ kind: 'resource', timing: 'immediate', resourceType: 'rage', amount: 2 }],
@@ -134,47 +145,57 @@ export const SKILLS: Record<string, SkillTemplate> = {
   },
   'aim-shot': {
     id: 'aim-shot', name: '瞄准射击', target: 'enemy', damageType: 'piercing',
+    desc: '对 2 格敌人蓄力 1 回合后射击：威力 +3、无视距离惩罚、暴击上限 +20%',
     rangeMin: 2, rangeMax: 2, weaponType: 'bow',
     chargeTurns: 1, backPowerBonus: 0, critCapBonus: 20, learnable: false
   },
   'charge-rush': {
     id: 'charge-rush', name: '冲杀', target: 'enemy', damageType: 'piercing',
+    desc: '直线冲过 1~2 格外的目标、落到其背后并发动穿刺攻击；需直线通路且背后格可落',
     rangeMin: 1, rangeMax: 2, weaponType: 'spear',
     rush: true, learnable: false
   },
   'axe-butt': {
     id: 'axe-butt', name: '斧柄打击', target: 'enemy', damageType: 'blunt',
+    desc: '对相邻敌人造成钝击伤害',
     rangeMin: 1, rangeMax: 1, weaponType: 'axe', learnable: true
   },
   shieldThrust: {
     id: 'shieldThrust', name: '盾突', target: 'enemy', damageType: 'blunt',
+    desc: '对相邻敌人造成钝击伤害',
     rangeMin: 1, rangeMax: 1, weaponType: 'shield', learnable: false
   },
   warHammer: {
     id: 'warHammer', name: '重锤', target: 'enemy', damageType: 'blunt',
+    desc: '对相邻敌人造成钝击伤害',
     rangeMin: 1, rangeMax: 1, weaponType: 'hammer', learnable: true
   },
   shieldStrike: {
     id: 'shieldStrike', name: '盾击', target: 'enemy', damageType: 'blunt',
+    desc: '对相邻敌人造成钝击伤害',
     rangeMin: 1, rangeMax: 1, weaponType: 'shield', learnable: false
   },
   snipe: {
     id: 'snipe', name: '狙击', target: 'enemy', damageType: 'piercing',
+    desc: '对 2 格敌人造成穿刺伤害；克制飞行 ×1.5',
     rangeMin: 2, rangeMax: 2, weaponType: 'bow',
     counters: { flying: 1.5 }, learnable: true
   },
   whirlwind: {
     id: 'whirlwind', name: '旋风斩', target: 'enemy', damageType: 'slashing',
+    desc: '斩击自身周围 1 格内的所有敌人。消耗怒气 50',
     rangeMin: 1, rangeMax: 1, weaponType: 'axe', resourceType: 'rage', cost: 50,
     area: { shape: 'disc', radius: 1 }, learnable: false
   },
   holyShieldStrike: {
     id: 'holyShieldStrike', name: '神圣盾击', target: 'enemy', damageType: 'blunt',
+    desc: '钝击正面扇形 1 格内的所有敌人',
     rangeMin: 1, rangeMax: 1, weaponType: 'shield',
     area: { shape: 'sector', radius: 1 }, learnable: false
   },
   sweep: {
     id: 'sweep', name: '横扫', target: 'enemy', damageType: 'slashing',
+    desc: '对相邻敌人造成斩击伤害',
     rangeMin: 1, rangeMax: 1, weaponType: ['hammer', 'axe'], learnable: true
   }
 };

@@ -15,12 +15,14 @@ export interface SpellTemplate extends SkillTemplate {
 export const SPELLS: Record<string, SpellTemplate> = {
   fireball: {
     id: 'fireball', name: '火球', target: 'enemy', learnable: true,
+    desc: '对 1~2 格敌人造成法术伤害。消耗 MP 15',
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
     resourceType: 'mp', cost: 15,
     power: 0, castMode: 'instant', effectMode: 'instant', targetType: 'enemy'
   },
   meteor: {
     id: 'meteor', name: '陨石术', target: 'enemy', learnable: true,
+    desc: '咏唱 2 回合后轰击 1~2 格目标及其周围 1 格，法术伤害、对重装 ×1.5。消耗 MP 35',
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
     resourceType: 'mp', cost: 35,
     power: 6, castMode: 'chant', chantTurns: 2, effectMode: 'instant', targetType: 'enemy',
@@ -29,6 +31,7 @@ export const SPELLS: Record<string, SpellTemplate> = {
   },
   curse: {
     id: 'curse', name: '咒杀', target: 'enemy', learnable: true,
+    desc: '对 1~2 格敌人造成法术伤害，并使其 3 回合内每回合持续掉血。消耗 MP 25',
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
     resourceType: 'mp', cost: 25,
     // R7-3 数值定稿：power 14——生态位 = 高魔防目标（敌法 mdef15 总伤 23 > 火球+pyro 总效 22）
@@ -37,18 +40,21 @@ export const SPELLS: Record<string, SpellTemplate> = {
   },
   heal: {
     id: 'heal', name: '治疗', target: 'ally', learnable: true,
+    desc: '治疗 1~2 格友方，回复量随魔力提升。消耗 MP 12',
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
     resourceType: 'mp', cost: 12,
     weights: { mag: 0.5 }, power: 0, castMode: 'instant', effectMode: 'instant', targetType: 'ally'
   },
   regen: {
     id: 'regen', name: '再生术', target: 'ally', learnable: true,
+    desc: '使 1~2 格友方在 3 回合内每回合回复生命。消耗 MP 20',
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
     resourceType: 'mp', cost: 20,
     weights: { mag: 0.25 }, power: 0, castMode: 'instant', effectMode: 'lasting', durationTurns: 3, targetType: 'ally'
   },
   mithrilShield: {
     id: 'mithrilShield', name: '秘银护盾', target: 'ally', learnable: true,
+    desc: '为 1~2 格友方附加护盾，3 回合内吸收 10 点伤害。消耗 MP 20',
     damageType: 'magic', rangeMin: 1, rangeMax: 2,
     resourceType: 'mp', cost: 20,
     power: 0, castMode: 'instant', effectMode: 'lasting', durationTurns: 3,
