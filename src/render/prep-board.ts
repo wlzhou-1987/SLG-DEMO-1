@@ -19,6 +19,7 @@ export interface PrepBoardCallbacks {
 export class PrepBoard {
   private camera = new Camera();
   private renderer: HexRenderer;
+  private ctx: CanvasRenderingContext2D;
   private input: InputHandler;
   private selected: HexCoord | null = null;
 
@@ -27,7 +28,8 @@ export class PrepBoard {
     private map: MapState,
     private cb: PrepBoardCallbacks
   ) {
-    this.renderer = new HexRenderer(canvas.getContext('2d')!);
+    this.ctx = canvas.getContext('2d')!;
+    this.renderer = new HexRenderer(this.ctx);
     this.input = new InputHandler(canvas, {
       onClick: (x, y) => { this.handleClick(x, y); this.render(); },
       onDrag: (dx, dy) => { this.camera.pan(dx, dy); this.render(); },
@@ -54,6 +56,9 @@ export class PrepBoard {
   render(): void {
     const w = this.canvas.width;
     const h = this.canvas.height;
+    // 整幅背景填充先于任何绘制（与 Game.render 一致），否则拖动画布时旧帧残影
+    this.ctx.fillStyle = '#0d0f13';
+    this.ctx.fillRect(0, 0, w, h);
     this.renderer.drawTerrain(this.map, this.camera, w, h);
     this.renderer.drawGrid(this.map, this.camera, w, h);
     this.renderer.drawRangeOverlay(this.zoneKeys(), this.camera, '#4ade80', w, h);

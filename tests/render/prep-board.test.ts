@@ -106,3 +106,34 @@ describe('PrepBoard 战前站位调整（R1-4）', () => {
     expect(t.invalidAt).toBeNull();
   });
 });
+
+describe('PrepBoard 渲染清屏（拖动残影修复）', () => {
+  it('render 每帧先以背景填充整幅画布再绘制', () => {
+    const calls: Array<{ prop: string; args: unknown[] }> = [];
+    const ctx = new Proxy(function () {}, {
+      get(_t, prop) {
+        if (prop === Symbol.toPrimitive) return () => 0;
+        return (...args: unknown[]): void => { calls.push({ prop: String(prop), args }); };
+      },
+      set: () => true
+    });
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: (): unknown => ctx,
+      addEventListener: (): void => {},
+      removeEventListener: (): void => {},
+      parentElement: { clientWidth: CANVAS_W, clientHeight: CANVAS_H }
+    } as unknown as HTMLCanvasElement;
+    const board = new PrepBoard(canvas, createMapState(MAP_OVERRIDES) as MapState, {
+      getRoster: () => [],
+      onChange: () => {},
+      onInvalid: () => {}
+    });
+    // 构造与手动 render 的第一笔都必须是整幅背景填充（与 Game.render 一致）
+    expect(calls[0]).toEqual({ prop: 'fillRect', args: [0, 0, CANVAS_W, CANVAS_H] });
+    const before = calls.length;
+    board.render();
+    expect(calls[before]).toEqual({ prop: 'fillRect', args: [0, 0, CANVAS_W, CANVAS_H] });
+  });
+});
