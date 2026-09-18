@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>DEMO_1 · R9 视觉细化设计原型 v0.1</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; background: #16181d; color: #e8e8e8; padding-bottom: 40px; }
+  header { text-align: center; padding: 14px; color: #ffd75e; font-size: 16px; }
+  header .sub { color: #9aa4b2; font-size: 12px; margin-top: 6px; }
+  section { width: 1120px; margin: 18px auto 0; background: #12151b; border: 1px solid #333; border-radius: 6px; padding: 12px 16px; }
+  section h2 { font-size: 14px; color: #ffd75e; margin-bottom: 4px; }
+  section p.note { font-size: 12px; color: #9aa4b2; margin-bottom: 8px; }
+  canvas { display: block; background: #0d0f13; border-radius: 4px; }
+</style>
+</head>
+<body>
+<header>
+  R9 视觉细化设计原型 v0.1
+  <div class="sub">已定稿框架：底座=阵营色环+深盘心+浅剪影 · 移动=逐格沿路径插值 · 配色=含地形整体降饱和做底。本页待定：①地形图案与配色 ②17 模板剪影 ③朝向三角 ④HP条/状态排布</div>
+</header>
+
+<section>
+  <h2>① 地形配色与图案（上排=现状色块，下排=提案：降饱和 + 矢量图案）</h2>
+  <p class="note">提案值：平原 #4a7c4e→#4a6350 / 森林 #2d5a3d→#2f4736 / 山 #6b6b6b→#6a675f / 基地 #8b6914→#7d6a3d；图案色为地形色同系加亮/压暗，网格线 #1c2128</p>
+  <canvas id="terrain" width="1080" height="430"></canvas>
+</section>
+
+<section>
+  <h2>② 单位剪影全集（3 倍预览 · 上=我方 10，下=敌方 7）</h2>
+  <p class="note">形状集 14 个：敌我斧兵/弓手/法师共用同形剪影，阵营由色环区分；BOSS=红环+金环双圈 + 巨斧角盔独占形</p>
+  <canvas id="units" width="1080" height="600"></canvas>
+</section>
+
+<section>
+  <h2>③ 实际尺寸可读性检验（游戏原比例 hexSize=24，剪影高约 24px）</h2>
+  <p class="note">若此比例下各兵种仍可辨，则提案成立；混排两组对抗站位示例</p>
+  <canvas id="actual" width="1080" height="260"></canvas>
+</section>
+
+<section>
+  <h2>④ 朝向三角两案 + HP 条 / 状态标记排布</h2>
+  <p class="note">A案=三角嵌盘缘内侧指向朝向；B案=盘外小箭头（延续现状线段位置感）。HP 条贴盘下缘、状态文字在盘上方（沿用现状黄字），另示潜行半透明 / 已行动变暗语义</p>
+  <canvas id="misc" width="1080" height="330"></canvas>
+</section>
+
+<script>
+'use strict';
+
+// ---------- 通用几何 ----------
+function hexCorners(cx, cy, s) {
+  const pts = [];
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI / 6 + i * Math.PI / 3;
+    pts.push([cx + s * Math.cos(a), cy + s * Math.sin(a)]);
+  }
+  return pts;
+}
+function axialToPixel(q, r, s) { return [s * Math.sqrt(3) * (q + r / 2), s * 1.5 * r]; }
+function poly(ctx, pts) {
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+  ctx.closePath(); ctx.fill();
+}
+function circ(ctx, x, y, r) { ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
+function ell(ctx, x, y, rx, ry) { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); }
+function seg(ctx, x1, y1, x2, y2, w) {
+  ctx.lineWidth = w; ctx.lineCap = 'butt';
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+}
+function drawHexPath(ctx, cx, cy, s) {
+  const c = hexCorners(cx, cy, s);
+  ctx.beginPath(); ctx.moveTo(c[0][0], c[0][1]);
+  for (let i = 1; i < 6; i++) ctx.lineTo(c[i][0], c[i][1]);
+  ctx.closePath();
+}
+function hexTile(ctx, cx, cy, s, color) { drawHexPath(ctx, cx, cy, s); ctx.fillStyle = color; ctx.fill(); }
+
+// ---------- 配色提案 ----------
+const C = {
+  bg: '#0d0f13',
+  cur: { plain: '#4a7c4e', forest: '#2d5a3d', mountain: '#6b6b6b', base: '#8b6914' },
+  plain: '#4a6350', forest: '#2f4736', mountain: '#6a675f', base: '#7d6a3d',
+  grid: '#1c2128',
+  ringPlayer: '#4a90d9', ringEnemy: '#d94a4a', ringBoss: '#ffb347',
+  disk: '#20262f', sil: '#e8eef4',
+};
+
+// ---------- 地形图案（提案；一地形一函数，图案为渲染模块常量） ----------
+function patternPlain(ctx, cx, cy, s) {
+  // 草簇：3 处短须
+  ctx.strokeStyle = '#5b7a63'; ctx.lineWidth = s * 0.06; ctx.lineCap = 'round';
+  const tufts = [[-0.30, -0.12], [0.24, 0.22], [0.10, -0.30]];
+  for (const [tx, ty] of tufts) {
+    const bx = cx + tx * s, by = cy + ty * s, h = s * 0.20;
+    ctx.beginPath();
+    ctx.moveTo(bx - h * 0.5, by); ctx.lineTo(bx - h * 0.45, by - h * 0.8);
+    ctx.moveTo(bx, by); ctx.lineTo(bx, by - h);
+    ctx.moveTo(bx + h * 0.5, by); ctx.lineTo(bx + h * 0.45, by - h * 0.8);
+    ctx.stroke();
+  }
+}
+function patternForest(ctx, cx, cy, s) {
+  // 两棵树：干（压暗）+ 圆冠（加亮）
+  const trees = [[-0.20, 0.16, 1.0], [0.22, -0.10, 0.82]];
+  for (const [tx, ty, sc] of trees) {
+    const x = cx + tx * s, y = cy + ty * s, r = s * 0.30 * sc;
+    ctx.fillStyle = '#223528';
+    ctx.fillRect(x - r * 0.12, y - r * 0.2, r * 0.24, r * 0.9);
+    ctx.fillStyle = '#40634c';
+    circ(ctx, x, y - r * 0.55, r);
+    circ(ctx, x - r * 0.55, y - r * 0.25, r * 0.62);
+    circ(ctx, x + r * 0.55, y - r * 0.25, r * 0.62);
+  }
+}
+function patternMountain(ctx, cx, cy, s) {
+  // 双峰折线：暗面 + 亮面 + 小雪线
+  const x = cx, y = cy + s * 0.18;
+  ctx.fillStyle = '#57544d';
+  poly(ctx, [[x - s * 0.62, y], [x - s * 0.06, y - s * 0.72], [x + s * 0.34, y]]);
+  ctx.fillStyle = '#8a857a';
+  poly(ctx, [[x - s * 0.06, y - s * 0.72], [x + s * 0.34, y], [x + s * 0.66, y]]);
+  ctx.fillStyle = '#b9b4a6';
+  poly(ctx, [[x - s * 0.06, y - s * 0.72], [x + s * 0.06, y - s * 0.55], [x - s * 0.14, y - s * 0.48], [x - s * 0.10, y - s * 0.62]]);
+}
+function patternBase(ctx, cx, cy, s) {
+  // 堡垒正面：垛口墙 + 拱门（基地仅 BOSS 一格，图案画满）
+  const w = s * 1.05, h = s * 0.72, x = cx - w / 2, y = cy - h * 0.30;
+  ctx.fillStyle = '#9c8858';
+  poly(ctx, [
+    [x, y + h], [x, y + s * 0.14],
+    [x + w * 0.12, y + s * 0.14], [x + w * 0.12, y], [x + w * 0.24, y], [x + w * 0.24, y + s * 0.14],
+    [x + w * 0.38, y + s * 0.14], [x + w * 0.38, y], [x + w * 0.50, y], [x + w * 0.50, y + s * 0.14],
+    [x + w * 0.62, y + s * 0.14], [x + w * 0.62, y], [x + w * 0.74, y], [x + w * 0.74, y + s * 0.14],
+    [x + w * 0.76, y + s * 0.14], [x + w, y + s * 0.14], [x + w, y + h],
+  ]);
+  ctx.fillStyle = '#3a3122';
+  ctx.beginPath();
+  ctx.moveTo(cx - s * 0.18, y + h);
+  ctx.lineTo(cx - s * 0.18, y + h * 0.45);
+  ctx.arc(cx, y + h * 0.45, s * 0.18, Math.PI, 0);
+  ctx.lineTo(cx + s * 0.18, y + h);
+  ctx.closePath(); ctx.fill();
+}
+const PATTERNS = { plain: patternPlain, forest: patternForest, mountain: patternMountain, base: patternBase };
+
+// ---------- 剪影基件（侧视、面朝右；u=剪影整体高度尺度，原点在剪影中心） ----------
+function sTorso(ctx, u) { poly(ctx, [[-0.13 * u, -0.20 * u], [0.15 * u, -0.20 * u], [0.10 * u, 0.10 * u], [-0.09 * u, 0.10 * u]]); }
+function sHead(ctx, u, hx = 0.05, hy = -0.31, r = 0.10) { circ(ctx, hx * u, hy * u, r * u); }
+function sLegs(ctx, u) {
+  poly(ctx, [[-0.11 * u, 0.10 * u], [-0.01 * u, 0.10 * u], [-0.03 * u, 0.42 * u], [-0.13 * u, 0.42 * u]]);
+  poly(ctx, [[0.03 * u, 0.10 * u], [0.12 * u, 0.10 * u], [0.14 * u, 0.42 * u], [0.05 * u, 0.42 * u]]);
+}
+function sBlade(ctx, u, bx, by, tx, ty, w = 0.055) {
+  const dx = tx - bx, dy = ty - by, L = Math.hypot(dx, dy), nx = -dy / L, ny = dx / L;
+  poly(ctx, [
+    [bx * u + nx * w * u, by * u + ny * w * u], [tx * u + nx * w * 0.55 * u, ty * u + ny * w * 0.55 * u],
+    [tx * u - nx * w * 0.55 * u, ty * u - ny * w * 0.55 * u], [bx * u - nx * w * u, by * u - ny * w * u],
+  ]);
+}
+function sHorse(ctx, u) {
+  ell(ctx, 0, 0.06 * u, 0.30 * u, 0.145 * u);
+  poly(ctx, [[0.20 * u, 0.02 * u], [0.40 * u, -0.18 * u], [0.50 * u, -0.12 * u], [0.42 * u, 0.02 * u], [0.28 * u, 0.08 * u]]);
+  poly(ctx, [[0.38 * u, -0.20 * u], [0.42 * u, -0.27 * u], [0.45 * u, -0.18 * u]]);
+  poly(ctx, [[0.14 * u, 0.14 * u], [0.22 * u, 0.14 * u], [0.23 * u, 0.44 * u], [0.16 * u, 0.44 * u]]);
+  poly(ctx, [[0.06 * u, 0.14 * u], [0.13 * u, 0.14 * u], [0.12 * u, 0.44 * u], [0.05 * u, 0.44 * u]]);
+  poly(ctx, [[-0.24 * u, 0.12 * u], [-0.16 * u, 0.12 * u], [-0.15 * u, 0.44 * u], [-0.23 * u, 0.44 * u]]);
+  poly(ctx, [[-0.15 * u, 0.12 * u], [-0.08 * u, 0.12 * u], [-0.06 * u, 0.44 * u], [-0.14 * u, 0.44 * u]]);
+  poly(ctx, [[-0.29 * u, -0.02 * u], [-0.42 * u, 0.12 * u], [-0.33 * u, 0.16 * u], [-0.26 * u, 0.05 * u]]);
+}
+function sRider(ctx, u, arm) {
+  poly(ctx, [[-0.14 * u, -0.16 * u], [0.12 * u, -0.16 * u], [0.08 * u, 0.06 * u], [-0.10 * u, 0.06 * u]]);
+  circ(ctx, 0.02 * u, -0.26 * u, 0.085 * u);
+  if (arm) seg(ctx, 0.06 * u, -0.12 * u, arm[0] * u, arm[1] * u, 0.07 * u);
+}
+
+// ---------- 14 剪影形状 ----------
+const SHAPES = {
+  // 领主：举剑 + 冠 + 披风
+  lord(ctx, u) {
+    poly(ctx, [[-0.13 * u, -0.19 * u], [-0.30 * u, -0.02 * u], [-0.22 * u, 0.30 * u], [-0.10 * u, 0.10 * u]]);
+    sTorso(ctx, u); sLegs(ctx, u); sHead(ctx, u);
+    poly(ctx, [[-0.02 * u, -0.40 * u], [0.01 * u, -0.48 * u], [0.04 * u, -0.40 * u], [0.07 * u, -0.50 * u], [0.10 * u, -0.40 * u], [0.12 * u, -0.44 * u], [0.12 * u, -0.37 * u], [-0.02 * u, -0.36 * u]]);
+    seg(ctx, 0.10 * u, -0.10 * u, 0.24 * u, -0.22 * u, 0.08 * u);
+    sBlade(ctx, u, 0.24, -0.22, 0.40, -0.56);
+    seg(ctx, 0.20 * u, -0.28 * u, 0.31 * u, -0.19 * u, 0.05 * u);
+  },
+  // 防战：鸢盾 + 短剑
+  defender(ctx, u) {
+    sTorso(ctx, u); sLegs(ctx, u); sHead(ctx, u, -0.02);
+    poly(ctx, [[0.16 * u, -0.24 * u], [0.34 * u, -0.17 * u], [0.32 * u, 0.04 * u], [0.23 * u, 0.24 * u], [0.14 * u, 0.02 * u]]);
+    seg(ctx, -0.10 * u, -0.02 * u, 0.10 * u, 0.14 * u, 0.07 * u);
+    sBlade(ctx, u, 0.10, 0.14, 0.26, 0.32);
+  },
+  // 防骑：骑乘 + 鸢盾
+  paladin(ctx, u) {
+    sHorse(ctx, u);
+    sRider(ctx, u * 0.92);
+    poly(ctx, [[0.10 * u, -0.30 * u], [0.28 * u, -0.24 * u], [0.26 * u, -0.04 * u], [0.18 * u, 0.10 * u], [0.09 * u, -0.08 * u]]);
+  },
+  // 盗贼：兜帽 + 双匕首
+  thief(ctx, u) {
+    sTorso(ctx, u); sLegs(ctx, u);
+    poly(ctx, [[-0.04 * u, -0.40 * u], [0.10 * u, -0.30 * u], [0.08 * u, -0.22 * u], [-0.06 * u, -0.22 * u]]);
+    poly(ctx, [[-0.05 * u, -0.22 * u], [0.09 * u, -0.22 * u], [0.07 * u, -0.14 * u], [-0.04 * u, -0.14 * u]]);
+    seg(ctx, 0.10 * u, -0.12 * u, 0.30 * u, -0.22 * u, 0.06 * u);
+    sBlade(ctx, u, 0.30, -0.22, 0.44, -0.28, 0.035);
+    seg(ctx, 0.08 * u, 0.02 * u, 0.28 * u, 0.10 * u, 0.06 * u);
+    sBlade(ctx, u, 0.28, 0.10, 0.42, 0.16, 0.035);
+  },
+  // 骑士：骑乘 + 平端长枪
+  knight(ctx, u) {
+    sHorse(ctx, u);
+    sRider(ctx, u * 0.92, [0.34, -0.10]);
+    seg(ctx, -0.06 * u, -0.10 * u, 0.56 * u, 0.02 * u, 0.045 * u);
+    poly(ctx, [[0.56 * u, 0.02 * u], [0.66 * u, -0.015 * u], [0.66 * u, 0.055 * u]]);
+  },
+  // 飞马：双翼 + 马体（不载人）
+  pegasus(ctx, u) {
+    poly(ctx, [[-0.08 * u, -0.02 * u], [-0.50 * u, -0.40 * u], [-0.32 * u, -0.06 * u], [-0.10 * u, 0.06 * u]]);
+    poly(ctx, [[-0.02 * u, -0.08 * u], [-0.34 * u, -0.48 * u], [-0.14 * u, -0.12 * u], [-0.02 * u, -0.02 * u]]);
+    sHorse(ctx, u);
+  },
+  // 斧兵：双手举斧
+  axeman(ctx, u) {
+    sTorso(ctx, u); sLegs(ctx, u); sHead(ctx, u);
+    seg(ctx, 0.12 * u, 0.10 * u, 0.30 * u, -0.44 * u, 0.05 * u);
+    poly(ctx, [[0.26 * u, -0.46 * u], [0.50 * u, -0.36 * u], [0.44 * u, -0.16 * u], [0.24 * u, -0.26 * u]]);
+    seg(ctx, 0.10 * u, -0.12 * u, 0.24 * u, -0.30 * u, 0.07 * u);
+  },
+  // 弓箭手：持弓搭箭
+  archer(ctx, u) {
+    sTorso(ctx, u); sLegs(ctx, u); sHead(ctx, u);
+    ctx.lineWidth = 0.05 * u;
+    ctx.beginPath(); ctx.arc(0.26 * u, -0.04 * u, 0.26 * u, -Math.PI * 0.42, Math.PI * 0.42); ctx.stroke();
+    const bw = 0.26 * u * Math.sin(Math.PI * 0.42);
+    seg(ctx, 0.26 * u, -0.04 * u - bw, 0.26 * u, -0.04 * u + bw, 0.025 * u);
+    seg(ctx, 0.02 * u, -0.04 * u, 0.34 * u, -0.04 * u, 0.035 * u);
+    poly(ctx, [[0.34 * u, -0.04 * u], [0.41 * u, -0.07 * u], [0.41 * u, -0.01 * u]]);
+    seg(ctx, 0.10 * u, -0.14 * u, 0.24 * u, -0.06 * u, 0.07 * u);
+  },
+  // 牧师：长袍 + 顶圆法杖
+  priest(ctx, u) {
+    poly(ctx, [[-0.13 * u, -0.20 * u], [0.15 * u, -0.20 * u], [0.22 * u, 0.44 * u], [-0.18 * u, 0.44 * u]]);
+    sHead(ctx, u);
+    seg(ctx, 0.28 * u, 0.30 * u, 0.20 * u, -0.46 * u, 0.045 * u);
+    circ(ctx, 0.20 * u, -0.52 * u, 0.06 * u);
+    seg(ctx, 0.10 * u, -0.14 * u, 0.24 * u, -0.36 * u, 0.07 * u);
+  },
+  // 法师：尖帽 + 长袍 + 法珠杖
+  mage(ctx, u) {
+    poly(ctx, [[-0.13 * u, -0.22 * u], [0.15 * u, -0.22 * u], [0.22 * u, 0.44 * u], [-0.18 * u, 0.44 * u]]);
+    poly(ctx, [[-0.16 * u, -0.24 * u], [0.18 * u, -0.24 * u], [0.12 * u, -0.28 * u], [-0.10 * u, -0.28 * u]]);
+    poly(ctx, [[-0.06 * u, -0.28 * u], [0.06 * u, -0.54 * u], [0.10 * u, -0.28 * u]]);
+    seg(ctx, 0.28 * u, 0.30 * u, 0.22 * u, -0.34 * u, 0.045 * u);
+    circ(ctx, 0.22 * u, -0.42 * u, 0.08 * u);
+    seg(ctx, 0.10 * u, -0.16 * u, 0.24 * u, -0.26 * u, 0.07 * u);
+  },
+  // 剑士：斜下持剑
+  swordsman(ctx, u) {
+    sTorso(ctx, u); sLegs(ctx, u); sHead(ctx, u);
+    seg(ctx, 0.10 * u, -0.10 * u, 0.20 * u, -0.02 * u, 0.07 * u);
+    sBlade(ctx, u, 0.20, -0.02, 0.40, 0.26);
+    seg(ctx, 0.16 * u, 0.06 * u, 0.28 * u, -0.06 * u, 0.045 * u);
+  },
+  // 枪兵：前竖长枪
+  spearman(ctx, u) {
+    sTorso(ctx, u); sLegs(ctx, u); sHead(ctx, u);
+    seg(ctx, 0.26 * u, 0.36 * u, 0.18 * u, -0.40 * u, 0.045 * u);
+    poly(ctx, [[0.18 * u, -0.40 * u], [0.22 * u, -0.56 * u], [0.26 * u, -0.38 * u]]);
+    seg(ctx, 0.10 * u, -0.14 * u, 0.24 * u, -0.28 * u, 0.07 * u);
+  },
+  // 锤兵：举战锤
+  hammerman(ctx, u) {
+    sTorso(ctx, u); sLegs(ctx, u); sHead(ctx, u);
+    seg(ctx, 0.12 * u, 0.10 * u, 0.26 * u, -0.34 * u, 0.05 * u);
+    poly(ctx, [[0.12 * u, -0.34 * u], [0.40 * u, -0.34 * u], [0.40 * u, -0.52 * u], [0.12 * u, -0.52 * u]]);
+    seg(ctx, 0.10 * u, -0.12 * u, 0.22 * u, -0.30 * u, 0.07 * u);
+  },
+  // BOSS：角盔巨躯 + 巨斧
+  boss(ctx, u) {
+    poly(ctx, [[-0.16 * u, -0.19 * u], [-0.34 * u, -0.04 * u], [-0.25 * u, 0.34 * u], [-0.12 * u, 0.12 * u]]);
+    poly(ctx, [[-0.15 * u, -0.24 * u], [0.18 * u, -0.24 * u], [0.12 * u, 0.14 * u], [-0.11 * u, 0.14 * u]]);
+    poly(ctx, [[-0.13 * u, 0.14 * u], [-0.01 * u, 0.14 * u], [-0.03 * u, 0.46 * u], [-0.15 * u, 0.46 * u]]);
+    poly(ctx, [[0.04 * u, 0.14 * u], [0.14 * u, 0.14 * u], [0.16 * u, 0.46 * u], [0.06 * u, 0.46 * u]]);
+    circ(ctx, 0.04 * u, -0.34 * u, 0.105 * u);
+    poly(ctx, [[-0.05 * u, -0.40 * u], [-0.14 * u, -0.56 * u], [-0.02 * u, -0.44 * u]]);
+    poly(ctx, [[0.12 * u, -0.42 * u], [0.22 * u, -0.58 * u], [0.18 * u, -0.40 * u]]);
+    seg(ctx, 0.14 * u, 0.12 * u, 0.36 * u, -0.50 * u, 0.055 * u);
+    poly(ctx, [[0.31 * u, -0.53 * u], [0.60 * u, -0.40 * u], [0.53 * u, -0.16 * u], [0.29 * u, -0.30 * u]]);
+    seg(ctx, 0.12 * u, -0.14 * u, 0.30 * u, -0.36 * u, 0.08 * u);
+  },
+};
+
+// 模板 → 形状映射（17 模板；敌我斧/弓/法共用）
+const TEMPLATE_SHAPES = {
+  lord: 'lord', defender: 'defender', paladin: 'paladin', thief: 'thief', knight: 'knight',
+  pegasus: 'pegasus', axeman: 'axeman', archer: 'archer', priest: 'priest', mage: 'mage',
+  swordsman: 'swordsman', spearman: 'spearman', axeman_enemy: 'axeman', hammerman: 'hammerman',
+  archer_enemy: 'archer', mage_enemy: 'mage', boss: 'boss',
+};
+
+// ---------- 圆盘 token ----------
+function token(ctx, x, y, R, ring, shape, opt = {}) {
+  const alpha = opt.alpha ?? 1;
+  ctx.save(); ctx.translate(x, y); ctx.globalAlpha = alpha;
+  if (opt.ring2) {
+    ctx.beginPath(); ctx.arc(0, 0, R * 1.14, 0, Math.PI * 2);
+    ctx.lineWidth = R * 0.13; ctx.strokeStyle = opt.ring2; ctx.stroke();
+  }
+  ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fillStyle = C.disk; ctx.fill();
+  ctx.beginPath(); ctx.arc(0, 0, R * 0.93, 0, Math.PI * 2);
+  ctx.lineWidth = R * 0.17; ctx.strokeStyle = ring; ctx.stroke();
+  const inner = R * 0.82;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(0, 0, inner, 0, Math.PI * 2); ctx.clip();
+  ctx.fillStyle = C.sil; ctx.strokeStyle = C.sil;
+  SHAPES[shape](ctx, inner * 1.5);
+  ctx.restore();
+  ctx.restore();
+}
+
+// ---------- Section 1 地形 ----------
+(function () {
+  const cv = document.getElementById('terrain');
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, cv.width, cv.height);
+  const S = 30;
+  const kinds = ['plain', 'forest', 'mountain', 'base'];
+  const layout = [
+    ['plain', 'plain', 'forest', 'plain', 'mountain', 'plain', 'plain', 'base', 'plain'],
+    ['plain', 'forest', 'forest', 'plain', 'mountain', 'mountain', 'plain', 'plain', 'plain'],
+    ['plain', 'plain', 'plain', 'forest', 'plain', 'plain', 'plain', 'forest', 'plain'],
+  ];
+  function row(y0, current) {
+    for (let r = 0; r < 3; r++) {
+      for (let q = 0; q < 9; q++) {
+        const [x, y] = axialToPixel(q, r, S);
+        const px = 90 + x, py = y0 + y;
+        const kind = layout[r][q];
+        hexTile(ctx, px, py, S - 0.5, current ? C.cur[kind] : C[kind]);
+        if (!current) PATTERNS[kind](ctx, px, py, S);
+        drawHexPath(ctx, px, py, S - 0.5); ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.stroke();
+      }
+    }
+  }
+  ctx.fillStyle = '#9aa4b2'; ctx.font = '13px sans-serif';
+  ctx.fillText('现状（纯色块）', 90, 40);
+  row(60, true);
+  ctx.fillText('提案（降饱和 + 图案）', 90, 250);
+  row(270, false);
+  // 色卡
+  const chips = kinds.map(k => [k, C.cur[k], C[k]]);
+  let cx = 90;
+  ctx.font = '12px sans-serif';
+  for (const [k, cur, prop] of chips) {
+    ctx.fillStyle = cur; ctx.fillRect(cx, 396, 26, 18);
+    ctx.fillStyle = prop; ctx.fillRect(cx + 30, 396, 26, 18);
+    ctx.fillStyle = '#cfd6e0';
+    ctx.fillText({ plain: '平原', forest: '森林', mountain: '山', base: '基地' }[k], cx, 426);
+    cx += 80;
+  }
+  ctx.fillStyle = '#9aa4b2';
+  ctx.fillText('左=现状色 / 右=提案色', cx + 10, 408);
+})();
+
+// ---------- Section 2 单位剪影 3x ----------
+(function () {
+  const cv = document.getElementById('units');
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, cv.width, cv.height);
+  const players = ['lord', 'defender', 'paladin', 'thief', 'knight', 'pegasus', 'axeman', 'archer', 'priest', 'mage'];
+  const enemies = [['swordsman', '剑士'], ['spearman', '枪兵'], ['axeman_enemy', '斧兵(敌)'], ['hammerman', '锤兵'], ['archer_enemy', '弓手(敌)'], ['mage_enemy', '敌法师'], ['boss', 'BOSS']];
+  const names = { lord: '领主', defender: '防战', paladin: '防骑', thief: '盗贼', knight: '骑士', pegasus: '飞马', axeman: '斧兵', archer: '弓箭', priest: '牧师', mage: '法师', swordsman: '剑士', spearman: '枪兵', axeman_enemy: '斧兵', hammerman: '锤兵', archer_enemy: '弓手', mage_enemy: '敌法师', boss: 'BOSS' };
+  const R = 52;
+  ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+  players.forEach((id, i) => {
+    const x = 60 + i * 106, y = 110;
+    token(ctx, x, y, R, C.ringPlayer, TEMPLATE_SHAPES[id]);
+    ctx.fillStyle = '#cfd6e0'; ctx.fillText(names[id], x, y + R + 20);
+    ctx.fillStyle = '#6b7686'; ctx.fillText(id, x, y + R + 36);
+  });
+  enemies.forEach(([id, label], i) => {
+    const x = 110 + i * 146, y = 330;
+    const boss = id === 'boss';
+    token(ctx, x, y, R, C.ringEnemy, TEMPLATE_SHAPES[id], boss ? { ring2: C.ringBoss } : {});
+    ctx.fillStyle = '#cfd6e0'; ctx.fillText(label, x, y + R + 20);
+    ctx.fillStyle = '#6b7686'; ctx.fillText(id, x, y + R + 36);
+  });
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#9aa4b2'; ctx.font = '13px sans-serif';
+  ctx.fillText('共用形：axeman= axeman_enemy / archer = archer_enemy / mage = mage_enemy（阵营仅由色环区分）', 60, 470);
+  ctx.fillText('底座：深盘心 #20262f + 阵营色环（宽 R*0.17）；剪影统一浅色 #e8eef4', 60, 492);
+  ctx.fillText('BOSS：红环外再加金环双圈 + 角盔巨斧独占形', 60, 514);
+})();
+
+// ---------- Section 3 实际尺寸 ----------
+(function () {
+  const cv = document.getElementById('actual');
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, cv.width, cv.height);
+  const S = 24;
+  const layout = [
+    ['plain', 'plain', 'forest', 'plain', 'mountain', 'plain', 'plain', 'base', 'plain', 'forest', 'plain', 'plain'],
+    ['plain', 'forest', 'plain', 'plain', 'mountain', 'mountain', 'plain', 'plain', 'plain', 'plain', 'forest', 'plain'],
+    ['plain', 'plain', 'plain', 'forest', 'plain', 'plain', 'plain', 'forest', 'plain', 'plain', 'plain', 'plain'],
+    ['plain', 'plain', 'forest', 'plain', 'plain', 'plain', 'plain', 'plain', 'forest', 'plain', 'plain', 'plain'],
+  ];
+  for (let r = 0; r < 4; r++) {
+    for (let q = 0; q < 12; q++) {
+      const [x, y] = axialToPixel(q, r, S);
+      const px = 120 + x, py = 50 + y;
+      const kind = layout[r][q];
+      hexTile(ctx, px, py, S - 0.5, C[kind]);
+      PATTERNS[kind](ctx, px, py, S);
+      drawHexPath(ctx, px, py, S - 0.5); ctx.strokeStyle = C.grid; ctx.lineWidth = 1; ctx.stroke();
+    }
+  }
+  // 我方一行
+  const mine = ['lord', 'defender', 'paladin', 'thief', 'knight', 'pegasus', 'axeman', 'archer', 'priest', 'mage'];
+  mine.forEach((id, i) => {
+    const [x, y] = axialToPixel(i + 1, 1, S);
+    token(ctx, 120 + x, 50 + y - 9, 18, C.ringPlayer, TEMPLATE_SHAPES[id]);
+  });
+  // 敌方一行
+  const foes = ['swordsman', 'spearman', 'axeman_enemy', 'hammerman', 'archer_enemy', 'mage_enemy', 'boss'];
+  foes.forEach((id, i) => {
+    const [x, y] = axialToPixel(i + 2, 2.4, S);
+    token(ctx, 120 + x, 50 + y - 4, 18, C.ringEnemy, TEMPLATE_SHAPES[id], id === 'boss' ? { ring2: C.ringBoss } : {});
+  });
+  ctx.fillStyle = '#9aa4b2'; ctx.font = '12px sans-serif';
+  ctx.fillText('HP 条（贴盘下缘）与状态文字在实际尺寸下的示例 →', 700, 210);
+  token(ctx, 760, 200, 18, C.ringPlayer, 'knight');
+  ctx.fillStyle = '#333'; ctx.fillRect(760 - 13, 200 + 22, 26, 4);
+  ctx.fillStyle = '#fbbf24'; ctx.fillRect(760 - 13, 200 + 22, 26 * 0.55, 4);
+  ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('盾2 隐', 760, 200 - 25);
+  ctx.textAlign = 'left';
+})();
+
+// ---------- Section 4 朝向三角 / HP / 状态 ----------
+(function () {
+  const cv = document.getElementById('misc');
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, cv.width, cv.height);
+  const S = 40;
+  function triAt(x, y, R, angleDeg, mode) {
+    const a = angleDeg * Math.PI / 180;
+    const s = Math.sin(a), c = Math.cos(a);
+    const rot = (px, py) => [x + px * c - py * s, y + px * s + py * c];
+    ctx.fillStyle = '#ffffff'; ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1.5;
+    if (mode === 'A') {
+      const apex = rot(R * 1.00, 0), b1 = rot(R * 0.70, -R * 0.24), b2 = rot(R * 0.70, R * 0.24);
+      poly(ctx, [apex, b1, b2]); ctx.stroke();
+    } else {
+      const apex = rot(R * 1.42, 0), b1 = rot(R * 1.06, -R * 0.20), b2 = rot(R * 1.06, R * 0.20);
+      poly(ctx, [apex, b1, b2]); ctx.stroke();
+    }
+  }
+  const angles = [0, 60, 120, 180, 240, 300];
+  ctx.font = '13px sans-serif'; ctx.fillStyle = '#9aa4b2';
+  ctx.fillText('A案：三角嵌盘缘内侧（指向朝向）', 60, 30);
+  ctx.fillText('B案：盘外小箭头', 60, 170);
+  ctx.fillText('语义示例（沿用现状）：潜行 0.45 半透明 · 已行动 0.5 变暗 · HP 三档色', 560, 30);
+  angles.forEach((a, i) => {
+    const x = 110 + i * 80, y = 90;
+    hexTile(ctx, x, y, S - 0.5, C.plain);
+    drawHexPath(ctx, x, y, S - 0.5); ctx.strokeStyle = C.grid; ctx.stroke();
+    token(ctx, x, y, 30, C.ringPlayer, 'lord');
+    triAt(x, y, 30, a, 'A');
+  });
+  angles.forEach((a, i) => {
+    const x = 110 + i * 80, y = 232;
+    hexTile(ctx, x, y, S - 0.5, C.plain);
+    drawHexPath(ctx, x, y, S - 0.5); ctx.strokeStyle = C.grid; ctx.stroke();
+    token(ctx, x, y, 30, C.ringPlayer, 'lord');
+    triAt(x, y, 30, a, 'B');
+  });
+  // 语义示例
+  const ex = [
+    ['正常', 1, 1.0, '#4ade80'],
+    ['潜行', 0.45, 1.0, '#4ade80'],
+    ['已行动', 0.5, 0.5, '#fbbf24'],
+    ['残血', 1, 0.18, '#ef4444'],
+  ];
+  ex.forEach(([label, alpha, ratio, hpColor], i) => {
+    const x = 610 + i * 120, y = 120;
+    hexTile(ctx, x, y, S - 0.5, C.forest);
+    drawHexPath(ctx, x, y, S - 0.5); ctx.strokeStyle = C.grid; ctx.stroke();
+    token(ctx, x, y, 30, C.ringEnemy, 'thief', { alpha });
+    ctx.fillStyle = '#333'; ctx.fillRect(x - 24, y + 36, 48, 5);
+    ctx.fillStyle = hpColor; ctx.fillRect(x - 24, y + 36, 48 * ratio, 5);
+    ctx.fillStyle = '#ffd75e'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(label === '潜行' ? '隐' : label === '残血' ? '咒2' : '', x, y - 40);
+    ctx.fillStyle = '#cfd6e0'; ctx.font = '12px sans-serif';
+    ctx.fillText(label, x, y + 60);
+    ctx.textAlign = 'left';
+  });
+})();
+</script>
+</body>
+</html>
