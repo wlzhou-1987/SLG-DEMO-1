@@ -96,6 +96,42 @@ export function calcMovementRange(
   return result;
 }
 
+/** 路径重建（R9-2 移动动效）：从代价表反向回溯 origin→dest 途经格序列（含起终点），不可达返回 null */
+export function rebuildPath(
+  map: MapState,
+  units: UnitState[],
+  origin: HexCoord,
+  dest: HexCoord,
+  movePoints: number,
+  flying: boolean
+): HexCoord[] | null {
+  const cost = calcMovementCosts(map, units, origin, movePoints, flying);
+  const originKey = hexKey(origin);
+  if (!cost.has(hexKey(dest))) return null;
+
+  const mover = units.find(u => hexKey(u.position) === originKey);
+  const path: HexCoord[] = [{ ...dest }];
+  let cur = dest;
+  while (hexKey(cur) !== originKey) {
+    const curCost = cost.get(hexKey(cur))!;
+    let stepped = false;
+    for (let dir = 0; dir < 6 && !stepped; dir++) {
+      const prev = neighbor(cur, dir as Facing);
+      const prevKey = hexKey(prev);
+      const prevCost = cost.get(prevKey);
+      if (prevCost === undefined) continue;
+      // 封锁格仅可作终点：可作中途 prev 的格必须可继续扩展（prev=起点除外）
+      if (prevKey !== originKey && mover && isBlockaded(units, prev, mover.faction)) continue;
+      if (prevCost + getMoveCost(map, cur, flying) !== curCost) continue;
+      path.unshift(prev);
+      cur = prev;
+      stepped = true;
+    }
+    if (!stepped) return null;
+  }
+  return path;
+}
+
 export function calcAttackRange(
   movementRange: Set<string>,
   rangeMin: number,

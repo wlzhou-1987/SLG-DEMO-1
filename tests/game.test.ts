@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { Game } from '../src/game';
 import { Camera } from '../src/render/camera';
 import { HEX_SIZE } from '../src/render/hex-renderer';
-import { MOVE_MS } from '../src/render/animator';
+import { STEP_MOVE_MS } from '../src/render/animator';
 import { axialToPixel } from '../src/core/hex';
 import type { HexCoord } from '../src/core/types';
 import type { UnitState } from '../src/core/unit';
@@ -160,7 +160,7 @@ function menuClick(label: string): void {
   const menu = mapWrap().children.find(c => c.className === 'action-menu');
   if (!menu) throw new Error('行动菜单未弹出');
   const item = menu.children.find(c => c.textContent === label);
-  if (!item) throw new Error(`菜单项不存在: ${label}`);
+  if (!item) throw new Error(`菜单项不存在: ${label}（现有: ${menu.children.map(c => c.textContent).join('|')}）`);
   item.fire('click');
 }
 
@@ -172,7 +172,8 @@ function forecastCancel(): void {
 }
 
 const waitMove = (): Promise<void> =>
-  new Promise(r => globalThis.setTimeout(r, MOVE_MS + 80));
+  // 段数上界 = 最大移动力 7（平原每格 1），另留 80ms 余量
+  new Promise(r => globalThis.setTimeout(r, STEP_MOVE_MS * 8 + 80));
 
 beforeEach(() => {
   elements.clear();
@@ -372,6 +373,18 @@ describe('R3-8 潜行：行为技能与取消三态（game 集成）', () => {
     // 预报确认
     const panel = mapWrap().children.find(c => c.className === 'forecast');
     if (panel) panel.querySelector('.btn-confirm')!.fire('click');
+    // 排空攻击动画链（普攻+反击+可能的追击）：以收尾朝向确认菜单弹出为完成信号，避免残留异步污染后续用例
+    await new Promise<void>(resolve => {
+      const started = Date.now();
+      const timer = globalThis.setInterval(() => {
+        const menu = mapWrap().children.find(c => c.className === 'action-menu');
+        const done = menu?.children.some(c => c.textContent.includes('确认朝向'));
+        if (done || Date.now() - started > 2000) {
+          globalThis.clearInterval(timer);
+          resolve();
+        }
+      }, 25);
+    });
     expect(lord.statuses.some(s => s.type === 'stealth')).toBe(false);
   });
 

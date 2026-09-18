@@ -4,7 +4,7 @@ import type { UnitState } from './core/unit';
 import { createUnitState, getUnitAt, getUnitActiveSkills, hasUnitTrait } from './core/unit';
 import { axialToPixel, pixelToAxial, isValidHex, distance, hexKey, directionBetween, neighbor } from './core/hex';
 import type { HexCoord, Facing } from './core/types';
-import { calcMovementRange, calcAttackRange, calcMovementCosts } from './core/range';
+import { calcMovementRange, calcAttackRange, calcMovementCosts, rebuildPath } from './core/range';
 import { calcBattleForecast, resolveBattle, calcAoeForecast, resolveAoeBattle, effectiveRangeMax } from './core/combat';
 import type { BattleForecast, StrikeResult } from './core/combat';
 import { calcSpellForecast, resolveSpell, resolveAoeSpell } from './core/spell';
@@ -24,7 +24,7 @@ import type { RosterEntry } from './core/deployment';
 import { Camera } from './render/camera';
 import { HexRenderer, HEX_SIZE, FACTION_COLORS } from './render/hex-renderer';
 import { EffectSystem, FLOAT_COLOR } from './render/effects';
-import { Animator, MOVE_MS, LUNGE_MS, FLASH_MS, STRIKE_GAP_MS } from './render/animator';
+import { Animator, LUNGE_MS, FLASH_MS, STRIKE_GAP_MS } from './render/animator';
 import { InputHandler } from './render/input';
 import { updateTopbar } from './ui/topbar';
 import { showUnitInfo, clearUnitInfo, showTerrainInfo, clearTerrainInfo } from './ui/sidepanel';
@@ -615,13 +615,18 @@ export class Game {
     requestAnimationFrame(step);
   }
 
-  /** 移动滑行：逻辑坐标已瞬时更新，渲染插值回起点（阻塞至动画完成） */
+  /** 移动滑行：逻辑坐标已瞬时更新，渲染沿途经格逐格插值（阻塞至动画完成） */
   private async playMove(unit: UnitState, from: HexCoord, to: HexCoord): Promise<void> {
-    const fromW = axialToPixel(from, HEX_SIZE);
-    const toW = axialToPixel(to, HEX_SIZE);
-    this.animator.startMove(unit.id, fromW.x, fromW.y, toW.x, toW.y, performance.now());
+    const template = getTemplate(unit.templateId);
+    // 快照：视移动者仍在出发点（占位/封锁按移动前局面判定）
+    const snapshot = this.units.map(u => (u === unit ? { ...u, position: from } : u));
+    const path = template
+      ? rebuildPath(this.map, snapshot, from, to, template.movePoints, isFlying(template))
+      : null;
+    const pts = (path ?? [from, to]).map(h => axialToPixel(h, HEX_SIZE));
+    const totalMs = this.animator.startMove(unit.id, pts, performance.now());
     this.kickAnimLoop();
-    await this.sleep(MOVE_MS);
+    await this.sleep(totalMs);
   }
 
   /** 战斗交换序列动画（§4.3）：逐击突进→受击闪烁+飘字（阻塞至序列完成） */
@@ -636,6 +641,7 @@ export class Game {
       await this.sleep(LUNGE_MS);
       if (s.hit) {
         this.animator.startFlash(def.id, performance.now());
+        this.animator.startShake(def.id, performance.now());
         const hpLoss = s.damage - s.absorbed;
         // R7-2 暴击标记：飘字前缀 + 战报「暴击！」
         if (hpLoss > 0) this.floatText(s.crit ? `暴击-${hpLoss}` : `-${hpLoss}`, s.crit ? FLOAT_COLOR.crit : FLOAT_COLOR.damage, def.position);

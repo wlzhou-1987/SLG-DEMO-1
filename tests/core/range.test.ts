@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createUnitState } from '../../src/core/unit';
-import { calcMovementRange, calcAttackRange, calcMovementCosts } from '../../src/core/range';
+import { calcMovementRange, calcAttackRange, calcMovementCosts, rebuildPath } from '../../src/core/range';
 import { createMapState } from '../../src/core/map';
+import { distance } from '../../src/core/hex';
 import type { UnitState } from '../../src/core/unit';
 
 describe('M6-4 calcMovementCosts（再移动剩余移动力 §4.8）', () => {
@@ -199,5 +200,51 @@ describe('R3-9 封锁（强化防御姿态：敌方不可经过身边、仅可�
     const mover = createUnitState('swordsman', 'enemy', { q: 5, r: 6 });
     const range = calcMovementRange(map, [blocker, mover], mover.position, 5, false);
     expect(range.has('5,3')).toBe(true); // 可绕行（无封锁）
+  });
+});
+
+describe('R9-2 rebuildPath（移动动效路径重建）', () => {
+  it('全平原直线：返回起终点途经序列', () => {
+    const map = createMapState();
+    const path = rebuildPath(map, [], { q: 10, r: 15 }, { q: 13, r: 15 }, 5, false);
+    expect(path).not.toBeNull();
+    expect(path!.map(c => `${c.q},${c.r}`).join(';')).toBe('10,15;11,15;12,15;13,15');
+  });
+
+  it('绕开山脉：路径不含山格且每步相邻', () => {
+    const map = createMapState({ mountains: [{ q: 11, r: 15 }] });
+    const path = rebuildPath(map, [], { q: 10, r: 15 }, { q: 12, r: 15 }, 5, false)!;
+    expect(path).not.toBeNull();
+    const keys = path.map(c => `${c.q},${c.r}`);
+    expect(keys[0]).toBe('10,15');
+    expect(keys[keys.length - 1]).toBe('12,15');
+    expect(keys).not.toContain('11,15');
+    for (let i = 1; i < path.length; i++) {
+      expect(distance(path[i - 1], path[i])).toBe(1);
+    }
+  });
+
+  it('途经避开被占格（非飞行）', () => {
+    const map = createMapState();
+    const units = [createUnitState('swordsman', 'player', { q: 11, r: 15 })];
+    const path = rebuildPath(map, units, { q: 10, r: 15 }, { q: 12, r: 15 }, 5, false)!;
+    expect(path).not.toBeNull();
+    expect(path.map(c => `${c.q},${c.r}`)).not.toContain('11,15');
+  });
+
+  it('不可达返回 null', () => {
+    const map = createMapState();
+    expect(rebuildPath(map, [], { q: 10, r: 15 }, { q: 12, r: 15 }, 1, false)).toBeNull();
+  });
+
+  it('移动者已在终点：须按出发点快照重建（终点被自身占位时不可达）', () => {
+    const map = createMapState();
+    const mover = createUnitState('swordsman', 'player', { q: 12, r: 15 });
+    // 不快照（逻辑位置已在终点）：终点被自己占，非飞行不可进入 → null
+    expect(rebuildPath(map, [mover], { q: 10, r: 15 }, { q: 12, r: 15 }, 5, false)).toBeNull();
+    // game.ts 快照语义：视移动者仍在出发点 → 直线重建成功
+    const snapshot = [{ ...mover, position: { q: 10, r: 15 } }];
+    const path = rebuildPath(map, snapshot, { q: 10, r: 15 }, { q: 12, r: 15 }, 5, false)!;
+    expect(path.map(c => `${c.q},${c.r}`).join(';')).toBe('10,15;11,15;12,15');
   });
 });

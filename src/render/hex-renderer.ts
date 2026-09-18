@@ -85,6 +85,8 @@ export class HexRenderer {
         if (mv) { wx += mv.dx; wy += mv.dy; }
         const lg = animator.lungeDelta(unit.id, now);
         if (lg) { wx += lg.dx; wy += lg.dy; }
+        const sh = animator.shakeDelta(unit.id, now);
+        if (sh) { wx += sh.dx; wy += sh.dy; }
       }
       const screen = camera.worldToScreen({ x: wx, y: wy });
 

@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { Animator } from '../../src/render/animator';
+import { Animator, SHAKE_AMP } from '../../src/render/animator';
 
 describe('M6-2 动画器：移动滑行', () => {
   it('起始偏移 = 终点指向出发点，结束后清除', () => {
     const a = new Animator();
-    a.startMove('u1', 100, 200, 160, 220, 0, 240);
+    a.startMove('u1', [{ x: 100, y: 200 }, { x: 160, y: 220 }], 0, 240);
     // 单位逻辑位置已是终点 (160,220)：视觉应停在出发点 → 偏移 = 起点 - 终点
     const d0 = a.moveDelta('u1', 0);
     expect(d0).toEqual({ dx: -60, dy: -20 });
@@ -15,7 +15,7 @@ describe('M6-2 动画器：移动滑行', () => {
 
   it('中点偏移按缓动插值', () => {
     const a = new Animator();
-    a.startMove('u1', 0, 0, 100, 0, 0, 240);
+    a.startMove('u1', [{ x: 0, y: 0 }, { x: 100, y: 0 }], 0, 240);
     const d = a.moveDelta('u1', 120)!;
     expect(d.dx).toBeLessThan(0);
     expect(d.dx).toBeGreaterThan(-100);
@@ -23,10 +23,52 @@ describe('M6-2 动画器：移动滑行', () => {
 
   it('不同单位互不干扰', () => {
     const a = new Animator();
-    a.startMove('u1', 0, 0, 100, 0, 0, 240);
-    a.startMove('u2', 0, 0, 200, 0, 0, 240);
+    a.startMove('u1', [{ x: 0, y: 0 }, { x: 100, y: 0 }], 0, 240);
+    a.startMove('u2', [{ x: 0, y: 0 }, { x: 200, y: 0 }], 0, 240);
     expect(a.moveDelta('u2', 0)).toEqual({ dx: -200, dy: 0 });
     expect(a.moveDelta('u1', 0)).toEqual({ dx: -100, dy: 0 });
+  });
+});
+
+describe('R9-2 动画器：逐格多段移动与受击抖动', () => {
+  it('多段路径：段边界处视觉位于途经点，全程后清除', () => {
+    const a = new Animator();
+    const total = a.startMove('u1', [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }], 0, 120);
+    expect(total).toBe(240);
+    expect(a.moveDelta('u1', 0)).toEqual({ dx: -100, dy: -100 });
+    // 第一段完成（120ms）：视觉恰在途经点 (100,0)，直线插值此处应在 (75,75) 附近——多段化判定点
+    const dSeg = a.moveDelta('u1', 120)!;
+    expect(dSeg.dx).toBeCloseTo(0);
+    expect(dSeg.dy).toBeCloseTo(-100);
+    expect(a.moveDelta('u1', 240)).toBeNull();
+  });
+
+  it('多段中途：沿第二段缓动推进，不偏离路径走廊', () => {
+    const a = new Animator();
+    a.startMove('u1', [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }], 0, 120);
+    // 第二段中点：easeOut(0.5)=0.75 → 视觉 (100,75)，逻辑终点 (100,100)
+    const d = a.moveDelta('u1', 180)!;
+    expect(d.dx).toBeCloseTo(0);
+    expect(d.dy).toBeCloseTo(-25);
+  });
+
+  it('受击抖动：圆周偏移随时间衰减，结束清除并退出活跃', () => {
+    const a = new Animator();
+    a.startShake('u1', 0, 200);
+    const d0 = a.shakeDelta('u1', 0)!;
+    expect(d0.dx).toBeCloseTo(0);
+    expect(d0.dy).toBeCloseTo(SHAKE_AMP);
+    const dMid = a.shakeDelta('u1', 100)!;
+    expect(Math.hypot(dMid.dx, dMid.dy)).toBeCloseTo(SHAKE_AMP / 2);
+    expect(a.shakeDelta('u1', 200)).toBeNull();
+    expect(a.active(0)).toBe(true);
+    expect(a.active(200)).toBe(false);
+  });
+
+  it('抖动确定性：同一时刻两次读取结果一致', () => {
+    const a = new Animator();
+    a.startShake('u1', 0, 200);
+    expect(a.shakeDelta('u1', 73)).toEqual(a.shakeDelta('u1', 73));
   });
 });
 
