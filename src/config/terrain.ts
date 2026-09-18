@@ -26,7 +26,7 @@ export const TERRAIN_CONFIGS: Record<TerrainType, TerrainConfig> = {
     hpRegenPct: 0,
     mpRegen: 0,
     rangeBonus: 0,
-    color: '#4a7c4e',
+    color: '#4a6350',
     label: '平原'
   },
   forest: {
@@ -39,7 +39,7 @@ export const TERRAIN_CONFIGS: Record<TerrainType, TerrainConfig> = {
     hpRegenPct: 0,
     mpRegen: 0,
     rangeBonus: 0,
-    color: '#2d5a3d',
+    color: '#2f4736',
     label: '森林'
   },
   mountain: {
@@ -52,7 +52,7 @@ export const TERRAIN_CONFIGS: Record<TerrainType, TerrainConfig> = {
     hpRegenPct: 0,
     mpRegen: 0,
     rangeBonus: 0,
-    color: '#6b6b6b',
+    color: '#6a675f',
     label: '山'
   },
   base: {
@@ -65,7 +65,7 @@ export const TERRAIN_CONFIGS: Record<TerrainType, TerrainConfig> = {
     hpRegenPct: 10,
     mpRegen: 10,    // R6-2 定稿：通用补给点，仅 MP 资源受益
     rangeBonus: 0,
-    color: '#8b6914',
+    color: '#7d6a3d',
     label: '基地'
   }
 };

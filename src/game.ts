@@ -660,7 +660,7 @@ export class Game {
     for (const u of dead) {
       const world = axialToPixel(u.position, HEX_SIZE);
       this.animator.startGhost(
-        getTemplate(u.templateId)?.label[0] ?? '?',
+        u.templateId,
         u.faction === 'player' ? FACTION_COLORS.player : FACTION_COLORS.enemy,
         world.x, world.y, performance.now()
       );

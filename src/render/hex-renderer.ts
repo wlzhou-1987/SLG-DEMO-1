@@ -6,11 +6,20 @@ import type { Animator, GhostView } from './animator';
 import { axialToPixel, hexCorners, facingToAngle } from '../core/hex';
 import { getTerrain } from '../core/map';
 import { TERRAIN_CONFIGS } from '../config/terrain';
-import { getTemplate } from '../config/units';
+import { TERRAIN_PATTERNS } from './terrain-patterns';
+import { SILHOUETTE_SHAPES, getShapeId, BOSS_SHAPE } from './silhouettes';
 
 export const HEX_SIZE = 24; // 六边形外接圆半径（像素）
 
 export const FACTION_COLORS = { player: '#4a90d9', enemy: '#d94a4a' } as const;
+
+// R9-1 视觉定稿常量（基准 docs/prototypes/r9-visual.html）
+const GRID_COLOR = '#1c2128';
+const TOKEN_DISK_COLOR = '#20262f';
+const SILHOUETTE_COLOR = '#e8eef4';
+const BOSS_RING_COLOR = '#ffb347';
+const FACING_TRIANGLE_COLOR = '#ffffff';
+const FACING_TRIANGLE_STROKE = '#1a1a1a';
 
 export class HexRenderer {
   private ctx: CanvasRenderingContext2D;
@@ -36,13 +45,14 @@ export class HexRenderer {
         const config = TERRAIN_CONFIGS[terrain];
 
         this.drawHex(screen.x, screen.y, config.color, true);
+        TERRAIN_PATTERNS[terrain](this.ctx, screen.x, screen.y, this.hexSize);
       }
     }
   }
 
   /** 绘制网格线 */
   drawGrid(map: MapState, camera: Camera, canvasWidth: number, canvasHeight: number) {
-    this.ctx.strokeStyle = '#1a1a1a';
+    this.ctx.strokeStyle = GRID_COLOR;
     this.ctx.lineWidth = 1;
 
     for (let r = 0; r < map.height; r++) {
@@ -81,52 +91,35 @@ export class HexRenderer {
       if (screen.x < -this.hexSize * 2 || screen.x > canvasWidth + this.hexSize * 2) continue;
       if (screen.y < -this.hexSize * 2 || screen.y > canvasHeight + this.hexSize * 2) continue;
 
-      const template = getTemplate(unit.templateId);
-      if (!template) continue;
-      const baseColor = unit.faction === 'player' ? FACTION_COLORS.player : FACTION_COLORS.enemy;
+      const shapeId = getShapeId(unit.templateId);
+      const ringColor = unit.faction === 'player' ? FACTION_COLORS.player : FACTION_COLORS.enemy;
       // R3-8：潜行单位半透明渲染（对己方视角可见的表示，§7.4）
       const stealthed = unit.statuses.some(s => s.type === 'stealth');
       const alpha = unit.hasActed ? 0.5 : stealthed ? 0.45 : 1;
       const appear = animator ? animator.appearScale(unit.id, now) : 1;
       const flash = animator ? animator.flashAmount(unit.id, now) : 0;
-      const size = this.hexSize * appear;
+      const R = this.hexSize * 0.75 * appear;
 
-      // 单位底色
       this.ctx.globalAlpha = alpha * appear;
-      this.drawHex(screen.x, screen.y, baseColor, true, size);
+      this.drawToken(screen.x, screen.y, R, ringColor, shapeId);
 
-      // 兵种首字
-      this.ctx.fillStyle = '#ffffff';
-      this.ctx.font = `bold ${Math.round(14 * appear)}px sans-serif`;
-      this.ctx.textAlign = 'center';
-      this.ctx.textBaseline = 'middle';
-      this.ctx.fillText(template.label[0], screen.x, screen.y);
-
-      // 朝向箭头
+      // 朝向三角（A 案：盘缘内侧，指向朝向）
       const angle = facingToAngle(unit.facing as Facing) * Math.PI / 180;
-      const arrowLen = size * 0.5;
-      const arrowX = screen.x + Math.cos(angle) * arrowLen;
-      const arrowY = screen.y + Math.sin(angle) * arrowLen;
-      this.ctx.strokeStyle = '#ffffff';
-      this.ctx.lineWidth = 2;
-      this.ctx.beginPath();
-      this.ctx.moveTo(screen.x, screen.y);
-      this.ctx.lineTo(arrowX, arrowY);
-      this.ctx.stroke();
+      this.drawFacingTriangle(screen.x, screen.y, R, angle);
 
-      // HP 条
+      // HP 条（贴盘下缘，三档色）
       const hpRatio = unit.hp / unit.maxHp;
-      const barWidth = size * 1.2;
+      const barWidth = R * 1.5;
       const barHeight = 4;
       const barX = screen.x - barWidth / 2;
-      const barY = screen.y + size * 0.7;
+      const barY = screen.y + R + 3;
 
       this.ctx.fillStyle = '#333333';
       this.ctx.fillRect(barX, barY, barWidth, barHeight);
       this.ctx.fillStyle = hpRatio > 0.5 ? '#4ade80' : hpRatio > 0.25 ? '#fbbf24' : '#ef4444';
       this.ctx.fillRect(barX, barY, barWidth * hpRatio, barHeight);
 
-      // 状态标记（§7.4：咏唱/延时/持续小图标 + 剩余回合）
+      // 状态标记（§7.4：盘上方黄字 + 剩余回合）
       if (unit.statuses.length > 0) {
         const labels = unit.statuses.map(s => {
           if (s.type === 'shield') return `盾${s.absorbLeft}`;
@@ -139,31 +132,29 @@ export class HexRenderer {
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'alphabetic';
         this.ctx.fillStyle = '#ffd75e';
-        this.ctx.fillText(labels.join(' '), screen.x, screen.y - size * 0.85);
+        this.ctx.fillText(labels.join(' '), screen.x, screen.y - R - 6);
       }
 
-      // 受击闪烁：白色覆盖随强度衰减
+      // 受击闪烁：白色圆盘覆盖随强度衰减
       if (flash > 0) {
         this.ctx.globalAlpha = flash;
-        this.drawHex(screen.x, screen.y, '#ffffff', true, size);
+        this.ctx.beginPath();
+        this.ctx.arc(screen.x, screen.y, R, 0, Math.PI * 2);
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.fill();
       }
 
       this.ctx.globalAlpha = 1;
     }
   }
 
-  /** 绘制阵亡幽灵（缩小淡出） */
+  /** 绘制阵亡幽灵（圆盘+剪影，缩小淡出） */
   drawGhosts(ghosts: GhostView[], camera: Camera) {
     for (const g of ghosts) {
       const screen = camera.worldToScreen({ x: g.x, y: g.y });
-      const size = this.hexSize * g.scale;
+      const R = this.hexSize * 0.75 * g.scale;
       this.ctx.globalAlpha = g.alpha;
-      this.drawHex(screen.x, screen.y, g.color, true, size);
-      this.ctx.fillStyle = '#ffffff';
-      this.ctx.font = `bold ${Math.round(14 * g.scale)}px sans-serif`;
-      this.ctx.textAlign = 'center';
-      this.ctx.textBaseline = 'middle';
-      this.ctx.fillText(g.label, screen.x, screen.y);
+      this.drawToken(screen.x, screen.y, R, g.color, getShapeId(g.templateId));
       this.ctx.globalAlpha = 1;
     }
   }
@@ -202,6 +193,56 @@ export class HexRenderer {
     this.ctx.strokeStyle = '#fbbf24';
     this.ctx.lineWidth = 3;
     this.drawHexOutline(screen.x, screen.y);
+  }
+
+  /** 底座圆盘（R9-1 定稿）：BOSS 金环双圈 + 深盘心 + 阵营色环 + 盘心内剪影 */
+  private drawToken(cx: number, cy: number, R: number, ringColor: string, shapeId: string): void {
+    if (shapeId === BOSS_SHAPE) {
+      this.ctx.beginPath();
+      this.ctx.arc(cx, cy, R * 1.14, 0, Math.PI * 2);
+      this.ctx.lineWidth = R * 0.13;
+      this.ctx.strokeStyle = BOSS_RING_COLOR;
+      this.ctx.stroke();
+    }
+    this.ctx.beginPath();
+    this.ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    this.ctx.fillStyle = TOKEN_DISK_COLOR;
+    this.ctx.fill();
+    this.ctx.beginPath();
+    this.ctx.arc(cx, cy, R * 0.93, 0, Math.PI * 2);
+    this.ctx.lineWidth = R * 0.17;
+    this.ctx.strokeStyle = ringColor;
+    this.ctx.stroke();
+
+    const inner = R * 0.82;
+    this.ctx.save();
+    this.ctx.beginPath();
+    this.ctx.arc(cx, cy, inner, 0, Math.PI * 2);
+    this.ctx.clip();
+    this.ctx.translate(cx, cy);
+    this.ctx.fillStyle = SILHOUETTE_COLOR;
+    this.ctx.strokeStyle = SILHOUETTE_COLOR;
+    SILHOUETTE_SHAPES[shapeId](this.ctx, inner * 1.5);
+    this.ctx.restore();
+  }
+
+  /** 朝向三角（A 案：嵌盘缘内侧，白底深描边，指向朝向） */
+  private drawFacingTriangle(cx: number, cy: number, R: number, angle: number): void {
+    const c = Math.cos(angle), s = Math.sin(angle);
+    const rot = (px: number, py: number): [number, number] => [cx + px * c - py * s, cy + px * s + py * c];
+    const apex = rot(R, 0);
+    const b1 = rot(R * 0.70, -R * 0.24);
+    const b2 = rot(R * 0.70, R * 0.24);
+    this.ctx.beginPath();
+    this.ctx.moveTo(apex[0], apex[1]);
+    this.ctx.lineTo(b1[0], b1[1]);
+    this.ctx.lineTo(b2[0], b2[1]);
+    this.ctx.closePath();
+    this.ctx.fillStyle = FACING_TRIANGLE_COLOR;
+    this.ctx.strokeStyle = FACING_TRIANGLE_STROKE;
+    this.ctx.lineWidth = 1.5;
+    this.ctx.fill();
+    this.ctx.stroke();
   }
 
   private drawHex(cx: number, cy: number, color: string, fill: boolean, size: number = this.hexSize) {

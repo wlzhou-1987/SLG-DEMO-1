@@ -66,8 +66,10 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | 文件 | 职责（关键导出） | 设计章节 | 测试 |
 | --- | --- | --- | --- |
 | src/render/camera.ts | Camera 类：平移/以屏幕点为中心缩放/居中、屏幕↔世界坐标换算 | §5.3 | — |
-| src/render/hex-renderer.ts | HexRenderer 类：地形/网格/单位（朝向箭头+HP 条+状态图标）/阵亡幽灵/范围覆盖/选中指示分层绘制；HEX_SIZE、FACTION_COLORS 常量 | §5.3/§7.4 | — |
-| src/render/animator.ts | Animator 类：移动滑行/突进/受击闪烁/登场渐入/阵亡幽灵动画状态机，随时间自衰减；时长常量 MOVE_MS 等 | §7.4 | tests/render/animator.test.ts |
+| src/render/hex-renderer.ts | HexRenderer 类：地形（色块+图案）/网格/单位（R9-1 底座圆盘 drawToken——BOSS 金环双圈+深盘心+阵营色环+盘心内剪影、朝向三角 A 案、HP 条贴盘下缘、状态图标）/阵亡幽灵（圆盘+剪影）/范围覆盖/选中指示分层绘制；HEX_SIZE、FACTION_COLORS、R9 视觉常量 | §5.3/§7.4 | — |
+| src/render/silhouettes.ts | R9-1 兵种矢量剪影：14 形状绘制函数（SILHOUETTE_SHAPES，颜色由调用方预设）、SILHOUETTE_MAP 17 模板映射（敌我斧/弓/法共用）、getShapeId 未知回退剑士形、BOSS_SHAPE | §5.3 | tests/render/silhouettes.test.ts |
+| src/render/terrain-patterns.ts | R9-1 地形矢量图案：TERRAIN_PATTERNS 四地形各一绘制函数（草簇/双树/双峰/堡垒垛口拱门），图案色为模块常量 | §5.3 | tests/render/terrain-patterns.test.ts |
+| src/render/animator.ts | Animator 类：移动滑行/突进/受击闪烁/登场渐入/阵亡幽灵动画状态机（GhostView 携 templateId 供剪影渲染），随时间自衰减；时长常量 MOVE_MS 等 | §7.4 | tests/render/animator.test.ts |
 | src/render/effects.ts | EffectSystem 类：战场飘字（伤害/MISS/治疗/盾吸收/**暴击 R7-2 亮橙前缀「暴击-」**），世界坐标锚定随镜头移动；FLOAT_COLOR | §7.4 | tests/render/effects.test.ts |
 | src/render/input.ts | InputHandler 类：画布鼠标事件（点击/拖动/滚轮/双击/悬停），拖动阈值区分点击与平移；dispose 移除全部监听（战前画布让位时用） | §7.1 | — |
 | src/render/prep-board.ts | PrepBoard 类：战前画布——部署区高亮 + 我方站位渲染 + 点击调整（选中/移动/交换/区外 onInvalid），复用 Camera/HexRenderer/InputHandler | §7.0 | tests/render/prep-board.test.ts |

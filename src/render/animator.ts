@@ -8,7 +8,7 @@ export const STRIKE_GAP_MS = 80;
 export interface MoveDelta { dx: number; dy: number }
 
 export interface GhostView {
-  label: string;
+  templateId: string;
   color: string;
   x: number;
   y: number;
@@ -27,7 +27,7 @@ interface TimedFx { unitId: string; startMs: number; durMs: number }
 interface FlashFx extends TimedFx { kind: 'flash' }
 interface AppearFx extends TimedFx { kind: 'appear' }
 interface LungeFx extends TimedFx { kind: 'lunge'; dx: number; dy: number }
-interface GhostFx { label: string; color: string; worldX: number; worldY: number; startMs: number; durMs: number }
+interface GhostFx { templateId: string; color: string; worldX: number; worldY: number; startMs: number; durMs: number }
 
 const easeOut = (p: number) => 1 - (1 - p) * (1 - p);
 
@@ -105,8 +105,8 @@ export class Animator {
     return 1;
   }
 
-  startGhost(label: string, color: string, worldX: number, worldY: number, now: number, durMs: number = GHOST_MS): void {
-    this.ghostFx.push({ label, color, worldX, worldY, startMs: now, durMs });
+  startGhost(templateId: string, color: string, worldX: number, worldY: number, now: number, durMs: number = GHOST_MS): void {
+    this.ghostFx.push({ templateId, color, worldX, worldY, startMs: now, durMs });
   }
 
   /** 当前可见的阵亡幽灵（缩小+淡出） */
@@ -116,7 +116,7 @@ export class Animator {
         const p = (now - g.startMs) / g.durMs;
         if (p >= 1) return null;
         const t = Math.max(0, p);
-        return { label: g.label, color: g.color, x: g.worldX, y: g.worldY, scale: 1 - 0.4 * t, alpha: 1 - t };
+        return { templateId: g.templateId, color: g.color, x: g.worldX, y: g.worldY, scale: 1 - 0.4 * t, alpha: 1 - t };
       })
       .filter((g): g is GhostView => g !== null);
   }
