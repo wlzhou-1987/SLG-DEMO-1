@@ -112,9 +112,17 @@ export class Game {
     this.resizeCanvas();
     window.addEventListener('resize', () => {
       this.resizeCanvas();
+      // R14：构造时画布 0 尺寸（布局未 settled）会静默跳过初始居中——首次有效 resize 补做
+      if (!this.cameraCentered) this.centerOnSpawn();
       this.render();
     });
     this.centerOnSpawn();
+    // R14：布局稳定后不一定有 resize 事件——首帧 rAF 再试一次（已居中则跳过）
+    requestAnimationFrame(() => {
+      this.resizeCanvas();
+      if (!this.cameraCentered) this.centerOnSpawn();
+      this.render();
+    });
 
     this.updateTopbar();
     clearUnitInfo();
@@ -972,7 +980,9 @@ export class Game {
     this.canvas.height = wrap.clientHeight;
   }
 
-  /** 初始视野：对准南方我方出生点 */
+  /** 初始视野：对准南方我方出生点（R14：成功后置位，供 resize 补做判定） */
+  private cameraCentered = false;
+
   private centerOnSpawn() {
     const w = this.canvas.width;
     const h = this.canvas.height;
@@ -983,6 +993,7 @@ export class Game {
     const cy = players.reduce((s, u) => s + u.position.r, 0) / players.length;
     const world = axialToPixel({ q: cx, r: cy }, HEX_SIZE);
     this.camera.centerOn(world.x, world.y, w, h);
+    this.cameraCentered = true;
   }
 
   /** 按需渲染：状态变更后同步重绘（M2 无动画，不跑常驻 rAF 循环） */

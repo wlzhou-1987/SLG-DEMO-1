@@ -90,7 +90,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 
 | 文件 | 职责 | 设计章节 | 测试 |
 | --- | --- | --- | --- |
-| src/game.ts | Game 类：游戏主循环与状态协调枢纽——构造支持注入我方战前编成（缺省 PLAYER_UNITS、非法 throw，§7.0）、Phase 状态机（idle/unitSelected/actionMenu→**技能二级列表**/targetSelect/forecast/spellForecast/reMove/facingConfirm/enemyTurn/gameOver）、输入分发、玩家/敌方行动流（R5-1 四处扣费：confirmBattle/confirmSpell 即时与起唱/executeBehaviorSkill/敌方阶段）、技能菜单消耗标签+资源不足灰显、动画编排（**R7-2 暴击标记：飘字「暴击-N」亮橙 + 战报「暴击！命中」**——单体/AoE/法术三路径；**R12-1 虔诚溅射展示**：showSpellResult 尾接 splash——治疗飘字 + 战报「虔诚溅射：…」）、胜负呈现 | §2/§4.8/§7.0/§7.2/§4.13 | tests/game.test.ts |
+| src/game.ts | Game 类：游戏主循环与状态协调枢纽——构造支持注入我方战前编成（缺省 PLAYER_UNITS、非法 throw，§7.0）、**R14 相机初始偏移竞态修复**（cameraCentered 标记：构造时画布 0 尺寸早退后，首帧 rAF 与 window resize 双路补做初始居中，已居中则不重置玩家视角）、Phase 状态机（idle/unitSelected/actionMenu→**技能二级列表**/targetSelect/forecast/spellForecast/reMove/facingConfirm/enemyTurn/gameOver）、输入分发、玩家/敌方行动流（R5-1 四处扣费：confirmBattle/confirmSpell 即时与起唱/executeBehaviorSkill/敌方阶段）、技能菜单消耗标签+资源不足灰显、动画编排（**R7-2 暴击标记：飘字「暴击-N」亮橙 + 战报「暴击！命中」**——单体/AoE/法术三路径；**R12-1 虔诚溅射展示**：showSpellResult 尾接 splash——治疗飘字 + 战报「虔诚溅射：…」）、胜负呈现 | §2/§4.8/§7.0/§7.2/§4.13 | tests/game.test.ts |
 | src/main.ts | 入口：两阶段编排——先挂战前准备界面，开战后按所选编成实例化 Game | §7.0/§9 | — |
 | src/style.css | 全局样式：布局与 UI 元素（topbar/面板/菜单/预报/日志/战前准备） | §7.0/§7.1 | — |
 | electron/main.cjs | Electron 主进程：仅创建窗口（dev 加载 127.0.0.1:5174，打包加载 dist/index.html） | §9 | — |

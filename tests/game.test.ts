@@ -91,8 +91,17 @@ const documentStub = {
   createElement: (): FakeElement => new FakeElement(),
 } as unknown as Document;
 
+const windowListeners = new Map<string, Array<() => void>>();
+const fireWindow = (type: string): void => {
+  for (const fn of windowListeners.get(type) ?? []) fn();
+};
+
 const windowStub = {
-  addEventListener: (): void => {},
+  addEventListener: (type: string, fn: () => void): void => {
+    const arr = windowListeners.get(type) ?? [];
+    arr.push(fn);
+    windowListeners.set(type, arr);
+  },
   setTimeout: (fn: () => void, ms?: number): number =>
     globalThis.setTimeout(fn, ms) as unknown as number,
   clearTimeout: (t: number): void => {
@@ -460,5 +469,38 @@ describe('R3-10 瞬发行动经济学（嗜血）', () => {
     menuClick('待机');
     const menu = mapWrap().children.find(c => c.className === 'action-menu');
     menu?.children.find(c => c.textContent.includes('确认'))?.fire('click');
+  });
+});
+
+describe('R14 相机初始偏移竞态（R2-5 备案收口）', () => {
+  it('构造时画布 0 尺寸早退后，窗口 resize 应补做初始居中；居中后的 resize 不再重置视角', () => {
+    const parent = CANVAS_STUB.parentElement as { clientWidth: number; clientHeight: number };
+    const saved = { w: parent.clientWidth, h: parent.clientHeight };
+
+    // 布局未 settled：wrap 尺寸 0 → resizeCanvas 得 0 尺寸画布 → centerOnSpawn 早退（竞态现场）
+    parent.clientWidth = 0;
+    parent.clientHeight = 0;
+    const game = new Game(CANVAS_STUB) as unknown as GameDriver & { camera: Camera };
+    expect(game.camera.x).toBe(0);
+    expect(game.camera.y).toBe(0);
+
+    // 布局完成：窗口 resize → 画布取到真实尺寸并补做初始居中
+    parent.clientWidth = saved.w;
+    parent.clientHeight = saved.h;
+    fireWindow('resize');
+    const cam = new Camera();
+    const players = game.units.filter(u => u.faction === 'player');
+    const world = axialToPixel({
+      q: players.reduce((s, u) => s + u.position.q, 0) / players.length,
+      r: players.reduce((s, u) => s + u.position.r, 0) / players.length
+    }, HEX_SIZE);
+    cam.centerOn(world.x, world.y, saved.w, saved.h);
+    expect(game.camera.x).toBeCloseTo(cam.x);
+    expect(game.camera.y).toBeCloseTo(cam.y);
+
+    // 已居中后的普通 resize 不重置玩家视角（平移保留）
+    game.camera.pan(50, 50);
+    fireWindow('resize');
+    expect(game.camera.x).not.toBeCloseTo(cam.x);
   });
 });
