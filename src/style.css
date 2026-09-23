@@ -136,6 +136,41 @@ html, body {
 }
 #log-entries .log-entry.phase { color: #8a93a5; text-align: center; }
 
+/* R15-2 DOM 美术位（§7.5）：三级回落头像窗（独立头像→立绘裁切→阵营色首字） */
+.art-slot {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #141922;
+}
+.art-slot .art-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 10%;   /* 立绘裁切取上部（头胸入窗） */
+  display: block;
+}
+.art-fb {
+  display: none;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-style: normal;
+  font-weight: bold;
+  font-size: 14px;
+}
+.art-fb-on { display: flex; }
+
+#sidepanel .unit-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+#sidepanel .unit-head h3 { margin-bottom: 2px; }
+
+.forecast .fc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.forecast .fc-head h3 { margin: 0; flex: 1; }
+
 /* 战前准备（§7.0 R1）：右侧面板，主画布留给站位调整 */
 .prep-screen {
   position: fixed; top: 0; right: 0; bottom: 0; width: 300px; z-index: 50;

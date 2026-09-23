@@ -7,6 +7,7 @@ import { getPool, learnBlockReason, SLOT_LIMITS } from '../config/pool';
 import type { PoolEntryKind, LearnBlockReason } from '../config/pool';
 import { equipmentAtoms, WEAPONS, WEAPON_SLOT_LIMIT } from '../config/weapons';
 import { getJob } from '../config/jobs';
+import { portraitMarkup } from './portrait';
 
 /** 通用池条目视图（R3-5 UI 渲染与测试驱动） */
 export interface PoolItemView {
@@ -85,7 +86,10 @@ export function createPrepScreen(
     });
     const span = document.createElement('span');
     span.textContent = getTemplate(u.templateId)?.name ?? u.templateId;
+    const art = document.createElement('span');   // R15-2 名单行 32px 头像窗
+    art.innerHTML = portraitMarkup(u.templateId, 'player', span.textContent, 32);
     row.appendChild(box);
+    row.appendChild(art);
     row.appendChild(span);
     checkboxes.set(u.templateId, box);
     rosterBlock.appendChild(row);

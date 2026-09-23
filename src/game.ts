@@ -385,7 +385,10 @@ export class Game {
       hitRate: forecasts[i].hitRate,
       critRate: forecasts[i].critRate
     }));
-    showAoeForecastPanel(skill.name, this.unitName(unit), rows,
+    showAoeForecastPanel(
+      skill.name,
+      { name: this.unitName(unit), templateId: unit.templateId, faction: unit.faction },
+      rows,
       () => { void this.confirmAoeBattle(unit, skill, targets); },
       () => { this.openActionMenu(unit, originPos); this.render(); }
     );
@@ -475,7 +478,10 @@ export class Game {
     this.phase = { mode: 'forecast', unit, target, skill, forecast };
     const atkName = getTemplate(unit.templateId)?.name ?? unit.templateId;
     const defName = getTemplate(target.templateId)?.name ?? target.templateId;
-    showForecastPanel(forecast, atkName, defName,
+    showForecastPanel(
+      forecast,
+      { name: atkName, templateId: unit.templateId, faction: unit.faction },
+      { name: defName, templateId: target.templateId, faction: target.faction },
       () => { void this.confirmBattle(unit, target, skill); },
       () => { this.enterTargetSelect(unit, skill, originPos); this.render(); }
     );
@@ -487,7 +493,11 @@ export class Game {
     this.phase = { mode: 'spellForecast', unit, target, spell, forecast };
     const casterName = getTemplate(unit.templateId)?.name ?? unit.templateId;
     const targetName = getTemplate(target.templateId)?.name ?? target.templateId;
-    showSpellForecastPanel(spell.name, casterName, targetName, forecast,
+    showSpellForecastPanel(
+      spell.name,
+      { name: casterName, templateId: unit.templateId, faction: unit.faction },
+      targetName,
+      forecast,
       () => { void this.confirmSpell(unit, target, spell); },
       () => { this.enterTargetSelect(unit, spell, originPos); this.render(); }
     );

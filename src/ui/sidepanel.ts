@@ -6,6 +6,7 @@ import { basicAttackSkills, WEAPONS } from '../config/weapons';
 import { getJob } from '../config/jobs';
 import { TERRAIN_CONFIGS } from '../config/terrain';
 import { getTrait } from '../config/traits';
+import { portraitMarkup } from './portrait';
 
 const ARMOR_LABELS: Record<ArmorType, string> = {
   none: '无甲', light: '轻甲', medium: '中甲', heavy: '重甲'
@@ -58,9 +59,11 @@ export function showUnitInfo(unit: UnitState): void {
     .join('');
 
   const job = getJob(unit.templateId)!;
+  const head =
+    `<div class="unit-head">${portraitMarkup(unit.templateId, unit.faction, template.name, 48)}` +
+    `<div><h3>${template.name} <small>${factionLabel}</small></h3><p>HP ${unit.hp}/${unit.maxHp}</p></div></div>`;
   el.innerHTML =
-    `<h3>${template.name} <small>${factionLabel}</small></h3>` +
-    `<p>HP ${unit.hp}/${unit.maxHp}</p>` +
+    head +
     `<table>` +
     `<tr><td>力量</td><td>${template.str}</td><td>魔力</td><td>${template.mag}</td></tr>` +
     `<tr><td>物防</td><td>${template.pdef}</td><td>魔防</td><td>${template.mdef}</td></tr>` +

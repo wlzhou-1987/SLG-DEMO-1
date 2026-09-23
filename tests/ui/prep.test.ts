@@ -58,6 +58,16 @@ describe('prep 战前准备界面（R1-3）', () => {
     expect(prep.errorList.innerHTML).toBe('');
   });
 
+  it('R15-2：出场名单行含 32px 头像窗，立绘三级回落到 standing 路径', () => {
+    const prep = make();
+    // root: [title, rosterBlock, skillBlock, equipBlock, errorList, startButton]
+    const rosterBlock = prep.root.children[1];
+    const lordRow = rosterBlock.children[1];   // h3 后首行 = lord（PLAYER_UNITS 首位）
+    const art = lordRow.children[1];           // [checkbox, 头像, 名字]
+    expect(art.innerHTML).toContain('art-slot');
+    expect(art.innerHTML).toContain('src="art/standing/lord.png"');
+  });
+
   it('默认站位沿用关卡配置（PLAYER_UNITS 同位）', () => {
     const prep = make();
     const byId = new Map(PLAYER_UNITS.map(u => [u.templateId, u.position]));
