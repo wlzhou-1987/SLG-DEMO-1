@@ -7,6 +7,7 @@ import { getPool, learnBlockReason, SLOT_LIMITS } from '../config/pool';
 import type { PoolEntryKind, LearnBlockReason } from '../config/pool';
 import { equipmentAtoms, WEAPONS, WEAPON_SLOT_LIMIT } from '../config/weapons';
 import { getJob } from '../config/jobs';
+import { artPath } from '../config/art';
 import { portraitMarkup } from './portrait';
 
 /** 通用池条目视图（R3-5 UI 渲染与测试驱动） */
@@ -96,6 +97,11 @@ export function createPrepScreen(
   }
   root.appendChild(rosterBlock);
 
+  // R15-3 立绘预览窗：选中角色显示（名单与技能区块之间）；无立绘时区块置空（CSS :empty 隐藏不占位）
+  const previewBlock = document.createElement('div');
+  previewBlock.className = 'prep-block prep-preview';
+  root.appendChild(previewBlock);
+
   // R3-5 技能配置区块（选中角色 → 主动/被动槽 + 通用池双过滤）
   const loadouts = new Map<string, { active: string[]; passive: string[] }>();
   let selectedId: string | null = null;
@@ -144,8 +150,31 @@ export function createPrepScreen(
     selectedId = templateId;
     poolOpenFor = null;
     eqListOpen = false;
+    renderPreview();
     renderSkillBlock();
     renderEquipBlock();
+  }
+
+  /** R15-3 立绘预览窗：立绘 contain 满宽；回落 = 头像放大（portrait 供给时）→ 区块隐藏 */
+  function renderPreview(): void {
+    const t = selectedId ? getTemplate(selectedId) : null;
+    if (!t || !checkboxes.get(t.id)?.checked) {
+      previewBlock.innerHTML = '';
+      return;
+    }
+    const standing = artPath('standing', t.id);
+    if (standing) {
+      previewBlock.innerHTML =
+        `<div class="preview-art"><img src="${standing}" alt="${t.name}" ` +
+        `onerror="this.closest('.prep-preview').innerHTML=''"></div>` +
+        `<div class="preview-name">${t.name}</div>`;
+      return;
+    }
+    const portrait = artPath('portrait', t.id);
+    previewBlock.innerHTML = portrait
+      ? `<div class="preview-art">${portraitMarkup(t.id, 'player', t.name, 200)}</div>` +
+        `<div class="preview-name">${t.name}</div>`
+      : '';
   }
 
   function editableEquipment(templateId: string): string[] {
@@ -372,6 +401,7 @@ export function createPrepScreen(
     startButton.disabled = !check.ok;
     errorList.innerHTML = check.ok ? '' : check.errors.map(e => `<li>${e}</li>`).join('');
     renderSkillBlock();
+    renderPreview();   // 取消勾选致选中失效时同步隐藏预览
     renderEquipBlock();
   }
 

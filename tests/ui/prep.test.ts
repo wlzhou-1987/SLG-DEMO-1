@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createPrepScreen } from '../../src/ui/prep';
 import { PLAYER_UNITS } from '../../src/config/map';
+import { ART_ASSETS } from '../../src/config/art';
 import type { RosterEntry } from '../../src/core/deployment';
 
 /**
@@ -66,6 +67,31 @@ describe('prep 战前准备界面（R1-3）', () => {
     const art = lordRow.children[1];           // [checkbox, 头像, 名字]
     expect(art.innerHTML).toContain('art-slot');
     expect(art.innerHTML).toContain('src="art/standing/lord.png"');
+  });
+
+  it('R15-3：选中角色显示立绘预览窗，切换角色随换', () => {
+    const prep = make();
+    // root: [title, rosterBlock, previewBlock, skillBlock, ...]
+    const preview = prep.root.children[2];
+    expect(preview.innerHTML).toBe('');   // 未选中时区块隐藏（:empty）
+    prep.selectUnit('lord');
+    expect(preview.innerHTML).toContain('src="art/standing/lord.png"');
+    prep.selectUnit('mage');
+    expect(preview.innerHTML).toContain('src="art/standing/mage.png"');
+    expect(preview.innerHTML).not.toContain('art/standing/lord.png"');
+  });
+
+  it('R15-3：立绘缺失回落隐藏区块（全缺不为占位而占位）', () => {
+    const prep = make();
+    const preview = prep.root.children[2];
+    const orig = ART_ASSETS.lord;
+    ART_ASSETS.lord = {};                      // 临时清供给
+    try {
+      prep.selectUnit('lord');
+      expect(preview.innerHTML).toBe('');
+    } finally {
+      ART_ASSETS.lord = orig;
+    }
   });
 
   it('默认站位沿用关卡配置（PLAYER_UNITS 同位）', () => {
