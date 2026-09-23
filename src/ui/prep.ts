@@ -52,7 +52,7 @@ const WEAPON_LABELS: Record<string, string> = {
   spear: '枪', axe: '斧', bow: '弓', staff: '法杖'
 };
 
-/** 战前准备界面（§7.0 R1 + R3-5 技能配置）：出场名单勾选 + 技能配置 + 占位区块 + 校验提示 + 开战按钮 */
+/** 战前准备界面（§7.0 R1 + R3-5 技能配置 + R2-5 装备配置）：出场名单勾选 + 技能配置 + 装备配置 + 校验提示 + 开战按钮 */
 export function createPrepScreen(
   onStart: (roster: RosterEntry[]) => void,
   onRosterUpdated?: () => void
@@ -108,15 +108,6 @@ export function createPrepScreen(
   const equipBlock = document.createElement('div');
   equipBlock.className = 'prep-block equip-block';
   root.appendChild(equipBlock);
-
-  {
-    const block = document.createElement('div');
-    block.className = 'prep-block disabled';
-    const h = document.createElement('h3');
-    h.textContent = '地图配置 · 未开放';
-    block.appendChild(h);
-    root.appendChild(block);
-  }
 
   const errorList = document.createElement('ul');
   errorList.className = 'prep-errors';
