@@ -3,6 +3,7 @@ import type { MapState } from './map';
 import { getTerrain } from './map';
 import type { UnitState } from './unit';
 import type { SkillTemplate } from '../config/skills';
+import type { SpellTemplate } from '../config/spells';
 import type { UnitTemplate } from '../config/units';
 import { getTemplate, getTemplateSkills, isFlying } from '../config/units';
 import { basicAttackSkills, WEAPONS } from '../config/weapons';
@@ -458,14 +459,17 @@ export function resolveAoeBattle(
 }
 
 
-/** R4-5 属性条件射程加成（§4.4：弓挂力量、法术挂魔力；阈值可配；R2-2 起普攻自带 weaponType 统一走 isBow 判定） */
+/** R4-5 属性条件射程加成 + R12-2 特性门控动态射程（§4.4：弓挂力量、法术挂魔力、治疗/增益法术挂技×「强化治疗」特性；阈值可配；同类不互斥按加法合计；R2-2 起普攻自带 weaponType 统一走 isBow 判定） */
 export function rangeBonus(t: import('../config/units').UnitTemplate, skill: SkillTemplate): number {
-  if (skill.damageType === 'magic') {
-    return t.mag >= RANGE_PARAMS.spellMagThreshold ? RANGE_PARAMS.spellBonus : 0;
+  let bonus = 0;
+  if (skill.damageType === 'magic' && t.mag >= RANGE_PARAMS.spellMagThreshold) bonus += RANGE_PARAMS.spellBonus;
+  if ((skill as SpellTemplate).targetType === 'ally' && t.traits?.includes('heal-boost') && t.tec >= RANGE_PARAMS.healTecThreshold) {
+    bonus += RANGE_PARAMS.healBonus;
   }
   const wt = skill.weaponType;
   const isBow = wt === 'bow' || (Array.isArray(wt) && wt.includes('bow'));
-  return isBow && t.str >= RANGE_PARAMS.bowStrThreshold ? RANGE_PARAMS.bowBonus : 0;
+  if (isBow && t.str >= RANGE_PARAMS.bowStrThreshold) bonus += RANGE_PARAMS.bowBonus;
+  return bonus;
 }
 
 /** R6-1 地形额外射程（§3/§4.4：即时读、只加最大射程；飞行不享加成型地形效果 §4.11） */

@@ -45,8 +45,10 @@ export const COMBAT_PARAMS = {
 export const RANGE_PARAMS = {
   bowStrThreshold: 19,   // 力量 ≥ 19 弓类射程 +1（终战档：我方弓箭 19 吃、敌弓 13 不吃）
   spellMagThreshold: 20, // 魔力 ≥ 20 法术施法距离 +1（法师 24 吃、敌方法师 19 不吃）
+  healTecThreshold: 16,  // R12-2 动态射程：技 ≥ 16 且持「强化治疗」特性 → 治疗/增益法术射程 +1（牧师 tec16 恰吃；特性门控，敌方无此特性不吃）
   bowBonus: 1,
-  spellBonus: 1
+  spellBonus: 1,
+  healBonus: 1
 } as const;
 
 /** R5 资源参数（§4.13；R5-3 定稿 2026-09-11——tests/balance 20 局 14 胜 6 败 0 平） */

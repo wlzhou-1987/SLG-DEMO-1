@@ -874,6 +874,20 @@ describe('R4-5 射程条件加成与递增距离惩罚', () => {
     expect(rangeBonus(getTemplate('mage_enemy')!, SPELLS.fireball)).toBe(0);
   });
 
+  it('R12-2 特性门控 tec 射程：牧师 ally 法程 +1（tec16）与魔力阈值叠加 = 2；enemy 法术不吃 tec 分支', () => {
+    const priest = getTemplate('priest')!;
+    expect(rangeBonus(priest, SPELLS.heal)).toBe(2);
+    expect(rangeBonus(priest, SPELLS.fireball)).toBe(1);
+    expect(effectiveRangeMax(priest, SPELLS.heal)).toBe(4);
+  });
+
+  it('R12-2 tec 阈值与特性门控边界：tec15 不吃、无 heal-boost 不吃、mag<20 时仅 tec 吃', () => {
+    const priest = getTemplate('priest')!;
+    expect(rangeBonus({ ...priest, tec: 15 }, SPELLS.heal)).toBe(1);
+    expect(rangeBonus({ ...priest, traits: [] }, SPELLS.heal)).toBe(1);
+    expect(rangeBonus({ ...priest, mag: 19 }, SPELLS.heal)).toBe(1);
+  });
+
   it('非弓物理与普攻近战无加成', () => {
     expect(rangeBonus(getTemplate('lord')!, SKILLS.stab)).toBe(0);
     expect(rangeBonus(getTemplate('knight')!, basicAttackSkill(getTemplate('knight')!))).toBe(0);
