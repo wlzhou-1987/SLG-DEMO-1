@@ -357,7 +357,7 @@
 - 一句话：canvas 尺寸竞态致战前→战斗初始 centerOnSpawn 偶发不执行，cam 留 (0,0) 显示北方
 - 完成记录（2026-09-23，commit d96b74b）：根因 = 构造时 wrap 布局未 settled → resizeCanvas 得 0 尺寸画布 → centerOnSpawn 静默早退，而 window resize 监听不补做居中。修复 = cameraCentered 成功置位标记 + 双路补做（首帧 rAF 重试〔布局稳定后无 resize 事件的路径〕+ resize 监听内未居中则补做），已居中后的 resize 不重置玩家视角。TDD 红→绿 1 测试（0 尺寸构造 → 相机 0,0 → resize 后居中复算一致 → 平移后 resize 不复位；window 桩改捕获监听）；474 测试绿 + build 无错；浏览器实证（vite 5173）：开战后点击屏幕中心直接选中领主〔出生点居中〕、画布 530×714 正常
 
-### R15 美术资源接入预留位（状态：已拆解，设计定稿 2026-09-23）
+### R15 美术资源接入预留位（状态：✅ 已完成 2026-09-23〔R15-1~5 五 issue 全 ✅〕；设计定稿 2026-09-23）
 - 来源：用户提议（GBA 风美术样图开始生成后的 UI 预留规划）
 - 一句话：为立绘/头像/棋子三类美术资源在**既有界面**预留落点，供给渐进填充、任一时刻界面完整可用
 - 设计结论（定稿 2026-09-23，规则真源 = GAME-DESIGN §7.5/§5.3/§9）：
@@ -371,11 +371,18 @@
   - **布局零重构**：sidepanel 300px / prep 300px / forecast 380px 全不变，美术位内嵌；唯一新增空间 = prep 预览区块（选中时插入）与结算浮层
 - 待议：无（四节设计经用户逐项确认：整体框架/规格管线/落点细节/拆分验收）
 - 排期：R15-1 先行，R15-2/3/4/5 依赖 R15-1、相互独立可并行；**美术供给为内容动作非 issue**——生成、迁入 public/art/、art.ts 登记随到随做；浏览器/Electron 同 public 路径无分支
+- **实施轮注记（2026-09-23 连做五 issue，每 issue 独立 commit）**：实施时首批美术已生成（gpt-image-2 经 LovBrowser Bridge 批量 85 张，清单 docs/prototypes/art-samples/MANIFEST.md，目录未跟踪不提交）——立绘 17/17（模板 id 命名，一一对应无冲突：敌方斧/弓/法为独立模板 id）、棋子 0（样张无真透明，MANIFEST 注明需抠图）、头像 0（立绘裁切链承担）；**vite base './' 约束发现**——art 路径必须相对（'art/standing/x.png'），绝对路径在 Electron file:// 下失效，已落 art.ts 与测试；立绘迁入方式经用户定夺 = sips 降采样 512（7.5MB，母本留 art-samples）；超范围三类 67 张（地形/标识 6、特效 32、图标 29）经用户定夺登记 R16
+- **浏览器验证（vite 5173 + browser-use，实路径）**：① prep 名单 10 行头像实图全加载（naturalWidth 512，src=art/standing/*.png 相对路径生效）② 点选领主预览窗立绘实图 + 名字 + 区块可见（未选中时 :empty 隐藏）③ 开战点画布中心选中领主（R14 居中修复联动）sidepanel unit-head 头像实图 + 标题「领主 我方」④ 棋子盘心剪影回落正常（sprite 未登记不走 drawImage——中心 40×40 像素采样：剪影 #e8eef4 计 90px + 我方蓝环 156px，R9 底座体系无扰动）⑤ art/standing/lord.png 资源服务 200（449KB）⑥ 控制台零错误。**DOM 桩覆盖、浏览器不可达路径如实标注**：forecast 攻守头像（真实对局需多回合接战才可攻击，走与实证组件同一 portraitMarkup 与同一 standing src 链）、gameover 浮层（需打完整局触发，同构）
 
 | issue | 内容与验收标准 | 状态 / 完成记录 |
 | --- | --- | --- |
-| R15-1 | 配置层资源映射：src/config/art.ts（映射表 templateId → {standing?, portrait?, sprite?} + 查询函数，只登记已有资源）+ public/art 三目录约定 + 加载失败=缺失同回落口径。验收：新增 ≥4 测试（17 模板键集合法、三类查询缺失返 null、登记字段类型、未登记模板回落）；npm test 全绿；build 无错；ARCHITECTURE 条目同步 | 待开发 |
-| R15-2 | DOM 头像位三处：prep 名单行 32px / sidepanel 标题 48px / forecast 攻守行 28px（AoE/法术仅施法者），三级回落（本类→立绘裁切→阵营色首字窗）。验收：DOM 桩测试 ≥6（三落点渲染、三级回落各态、名单行高稳定）；npm test 全绿；build 无错；浏览器验证三处头像与回落 | 待开发 |
-| R15-3 | prep 立绘预览窗：选中角色显示（约 200~260px 满宽 contain，实现期按面板滚动体验定），回落 = 头像放大 → 区块隐藏。验收：DOM 桩测试 ≥3（选中显示/切换角色/回落隐藏）；npm test 全绿；build 无错；浏览器验证 | 待开发 |
-| R15-4 | 棋子贴图管线：渲染层资源管理器（预加载缓存）+ drawToken/drawGhosts 盘心贴图（圆形裁切），缺失/未就绪回落剪影，底座体系全保留。验收：新增 ≥3 测试（资源管理器、缺失回落、幽灵同源）；npm test 全绿；build 无错；浏览器像素验证（贴图进盘心、战前画布同步生效） | 待开发 |
-| R15-5 | 胜负结算浮层（§7.4 结算画面做实）：胜方阵营代表立绘（我方=领主/敌方=BOSS）+ 回合数 + 双方存活统计，立绘缺失回落头像。验收：DOM 桩测试 ≥3（胜/败两态、统计内容、立绘回落）；npm test 全绿；build 无错；浏览器验证两态 | 待开发 |
+| R15-1 | 配置层资源映射：src/config/art.ts（映射表 templateId → {standing?, portrait?, sprite?} + 查询函数，只登记已有资源）+ public/art 三目录约定 + 加载失败=缺失同回落口径。验收：新增 ≥4 测试（17 模板键集合法、三类查询缺失返 null、登记字段类型、未登记模板回落）；npm test 全绿；build 无错；ARCHITECTURE 条目同步 | ✅ 已完成（2026-09-23，b13e589，TDD 红→绿 4 测试〔键集=17 模板且立绘全量登记/artPath 相对路径拼接与未登记类别、未知模板返 null/登记值文件名类型/登记与 public/art/standing 文件双向一致——登记制不漂移〕，全量 478 绿、build 无错、dist/art 17 张随构建复制实证；17 立绘 sips -Z 512 迁入共 7.5MB〔用户定夺降采样方案，母本留 art-samples 未跟踪〕；portrait/sprite 目录 .gitkeep 占位；ARCHITECTURE 条目同步） |
+| R15-2 | DOM 头像位三处：prep 名单行 32px / sidepanel 标题 48px / forecast 攻守行 28px（AoE/法术仅施法者），三级回落（本类→立绘裁切→阵营色首字窗）。验收：DOM 桩测试 ≥6（三落点渲染、三级回落各态、名单行高稳定）；npm test 全绿；build 无错；浏览器验证三处头像与回落 | ✅ 已完成（2026-09-23，d7532cd，TDD 红→绿 9 新测试〔portraitMarkup 三级回落 4：portrait 优先/standing 裁切/首字窗/onerror 兜底 + sidepanel 2 + forecast 2〔攻左守右、法术仅施法者单 img〕+ prep 名单 1〕，全量 487 绿、build 无错；src/ui/portrait.ts 统一件〔onerror 显同级隐藏占位、cover 取上部 10%〕；ForecastWho 签名携 templateId/faction，game.ts 三调用点同步，showForecastPanel 并入 buildPanel 统一构建；prep 名单/sidepanel/预览窗三处浏览器实证见条目级记录，forecast 落点由 DOM 桩覆盖〔真实对局多回合才可攻击，同组件实证〕；ARCHITECTURE 条目同步） |
+| R15-3 | prep 立绘预览窗：选中角色显示（约 200~260px 满宽 contain，实现期按面板滚动体验定），回落 = 头像放大 → 区块隐藏。验收：DOM 桩测试 ≥3（选中显示/切换角色/回落隐藏）；npm test 全绿；build 无错；浏览器验证 | ✅ 已完成（2026-09-23，ab9fcd1，TDD 红→绿 2 新测试〔选中显示+切换随换/立绘缺失区块隐藏〕共 3 断言组，全量 489 绿、build 无错；实现 max-height 220px contain 满宽〔设计带内〕，:empty CSS 隐藏不占位（无 style 操作、DOM 桩零改动）、portrait 供给时回落 200px 头像放大、refresh 同步取消勾选的选中失效；浏览器实证：预览窗立绘实图 + 领主名字 + 区块可见/未选中隐藏；ARCHITECTURE 条目补于 1185439） |
+| R15-4 | 棋子贴图管线：渲染层资源管理器（预加载缓存）+ drawToken/drawGhosts 盘心贴图（圆形裁切），缺失/未就绪回落剪影，底座体系全保留。验收：新增 ≥3 测试（资源管理器、缺失回落、幽灵同源）；npm test 全绿；build 无错；浏览器像素验证（贴图进盘心、战前画布同步生效） | ✅ 已完成（2026-09-23，4ccef8b，TDD 红→绿 7 新测试〔SpriteCache 4：null 不加载/未就绪 null+就绪命中不重建/失败负缓存恒 null/clear 重载 + hex-renderer 3：未登记无 drawImage/登记就绪盘心 drawImage/幽灵同源——globalThis.Image 桩注入〕，全量 496 绿、build 无错；drawToken 增 sprite 参数盘心分支〔圆 clip 内 drawImage 满铺，未就绪/失败走原剪影路径〕，战前画布复用 drawUnits 自动生效；**当前 sprite 零登记 = 全量剪影回落**（样张无真透明），管线就绪待透明底棋子供给；浏览器像素实证：盘心剪影 90px + 蓝环 156px 采样在位、未走贴图分支；过程教训：测试中一处丑陋 TS 断言 vitest 不报而 build 揪出（tsc 在 build 侧），已简化） |
+| R15-5 | 胜负结算浮层（§7.4 结算画面做实）：胜方阵营代表立绘（我方=领主/敌方=BOSS）+ 回合数 + 双方存活统计，立绘缺失回落头像。验收：DOM 桩测试 ≥3（胜/败两态、统计内容、立绘回落）；npm test 全绿；build 无错；浏览器验证两态 | ✅ 已完成（2026-09-23，09d989e，TDD 红→绿 3 新测试〔胜态领主立绘+回合/存活统计/败态 BOSS 立绘/立绘缺失回落 art-fb-on〕，全量 499 绿、build 无错；src/ui/gameover.ts〔go-art 内嵌 portraitMarkup 三级链，standing 加载失败 onerror 显头像回落〕，game.ts enterGameOver 接入〔存活数按 faction 过滤〕；浏览器不可达路径（需打完整局）由 DOM 桩覆盖、同组件同链实证，如实标注见条目级记录；ARCHITECTURE 条目同步） |
+
+### R16 美术二期：地形/特效/图标（状态：待设计）
+- 来源：首批美术样张超出 R15 三类范围的部分（docs/prototypes/art-samples/MANIFEST.md B/C/D 共 67 张，2026-09-23 用户定夺登记）
+- 一句话：地形贴图与标识（6）、战斗特效单帧（32）、UI 图标（29）三类美术的接入设计——播放入口、替换范围、与 R9 矢量图案/现有文字标签的关系、回落策略均待设计
+- 设计结论：待设计
