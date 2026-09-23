@@ -320,7 +320,7 @@
 | R11-1 | 战前画布拖动残影修复（PrepBoard.render() 绘制前整幅背景清屏）。验收：新增 ≥1 回归测试（render 首笔 = fillRect 整幅）；npm test 全绿；build 无错；浏览器拖动后视口空白区无旧帧残留 | ✅ 已完成（2026-09-18，commit 68bdec2，TDD 红→绿：记录型 ctx 桩断言构造与手动 render 首笔均为 fillRect(0,0,w,h)〔修复前首笔为 beginPath〕；src/render/prep-board.ts 持有 ctx 引用 + render() 背景填充 #0d0f13 与 Game.render 同源；全量 451 绿、build 无错；浏览器像素实证（vite 5173 + browser-use）：拖动 500px 后右缘两采样点均为纯背景 [13,15,19]，左缘地图色 [74,153,93] 正常、控制台无错误——旧帧残留消除） |
 | R11-2 | 技能详细功能描述（SkillTemplate.desc + 全条目文案 + 战前槽位/池展示）。验收：新增 ≥2 测试（配置完整性 + UI 渲染）；npm test 全绿；build 无错；浏览器可见描述文本 | ✅ 已完成（2026-09-18，commit 9e873c3，skills.ts desc?: string + SKILLS 20 条、spells.ts 6 条文案〔嗜血=自伤 10% 攻+3 防-2 瞬发、瞄准射击=蓄力威力+3 无距离惩罚、冲杀=直线落背后等按已核实机制撰写〕；prep.ts descOf/PoolItemView.desc、槽位 slot-desc 与池条目 pool-item-desc 渲染、style.css 两样式；配置测试断言 SKILLS/SPELLS 全条目 desc 非空、UI 测试断言槽位与池 innerHTML 含描述；全量 451 绿、build 无错；浏览器 DOM 实证：领主槽位刺击描述可见、池 12 条目全部带描述行〔技能+法术〕；GAME-DESIGN §7.0、ARCHITECTURE skills/spells/prep 三条目同步） |
 
-### R12 悬空项收口（状态：已定夺 2026-09-23，拆 R12-1/2/3 实施中）
+### R12 悬空项收口（状态：✅ 已完成 2026-09-23〔R12-1/2/3 均 ✅〕）
 - 来源：2026-09-18 进度全量核查（除 R9 外需求池 issue 已清空后的代码交叉核查发现）
 - 一句话：收口三项已声明/已占位但无承接的悬空项——虔诚溅射、强化治疗动态射程、战前地图配置占位
 - 核查事实（2026-09-18 代码证据）：
@@ -337,9 +337,9 @@
 
 | issue | 内容与验收标准 | 状态 / 完成记录 |
 | --- | --- | --- |
-| R12-3 | 撤战前地图配置占位（prep.ts 区块删除 + 相关 UI 测试同步；GAME-DESIGN §7.0 改写 + §8 增列「战前地图配置」；ARCHITECTURE prep 条目同步）。验收：npm test 全绿；build 无错；prep 界面无地图配置区块；文档三处同步 | ⬜ 待实施 |
-| R12-2 | tec→射程（TDD：RANGE_PARAMS 增 healTecThreshold 16/healBonus 1；rangeBonus 改累加结构，ally 法术 + heal-boost 特性 + tec≥16 → +1，与魔力阈值叠加）。验收：≥4 新测试（特性门控/阈值边界/叠加=4/无特性不吃）；npm test 全绿；build 无错；GAME-DESIGN §4.4 阈值口径同步；施法范围/AI/预报消费点全生效核查 | ⬜ 待实施 |
-| R12-1 | 虔诚溅射（TDD：traits.pious 增 splash 配置；spell.ts ally 结算后按定夺择取血量最低友方复制减半结算值；战报/飘字同步；§5 与 desc「随机友方」→「血量最低友方」）。验收：≥5 新测试（择取规则/并列序/排除主目标自身/三类法术减半保底/无候选与无特性不溅射）；npm test 全绿；build 无错；sim 12~15 胜带内（出带需回调并记录）；文档同步 | ⬜ 待实施 |
+| R12-3 | 撤战前地图配置占位（prep.ts 区块删除 + 相关 UI 测试同步；GAME-DESIGN §7.0 改写 + §8 增列「战前地图配置」；ARCHITECTURE prep 条目同步）。验收：npm test 全绿；build 无错；prep 界面无地图配置区块；文档三处同步 | ✅ 已完成（2026-09-23，commit bfa2524：prep.ts 占位区块删除〔grep 全仓唯一引用、无测试断言〕；§7.0 改写「地图配置不开放」+ §8 增列、ARCHITECTURE prep 条目同步；465 测试绿 + build 无错） |
+| R12-2 | tec→射程（TDD：RANGE_PARAMS 增 healTecThreshold 16/healBonus 1；rangeBonus 改累加结构，ally 法术 + heal-boost 特性 + tec≥16 → +1，与魔力阈值叠加）。验收：≥4 新测试（特性门控/阈值边界/叠加=4/无特性不吃）；npm test 全绿；build 无错；GAME-DESIGN §4.4 阈值口径同步；施法范围/AI/预报消费点全生效核查 | ✅ 已完成（2026-09-23，commit 9be9bbc，TDD 红→绿 2 测试：牧师 ally 法程 2〔mag21 阈值 +tec16 阈值叠加〕/enemy 法术不吃 tec 分支/effectiveRangeMax=4/tec15、无特性、mag19 三边界各恰 +1；rangeBonus 改累加结构〔原 else-if 式〕，targetType 经 SpellTemplate 类型收窄读取；消费链核查：game.ts 施法目标与 ai.ts 两处均走 effectiveRangeMax 全生效，反击候选 combat.ts:223 基础射程口径系 R4-5 既有行为不动；§4.4 动态射程行回写落地口径、ARCHITECTURE combat 两条目同步；467 测试绿 + build 无错 + **sim 13/7/0 逐种子不变**） |
+| R12-1 | 虔诚溅射（TDD：traits.pious 增 splash 配置；spell.ts ally 结算后按定夺择取血量最低友方复制减半结算值；战报/飘字同步；§5 与 desc「随机友方」→「血量最低友方」）。验收：≥5 新测试（择取规则/并列序/排除主目标自身/三类法术减半保底/无候选与无特性不溅射）；npm test 全绿；build 无错；sim 12~15 胜带内（出带需回调并记录）；文档同步 | ✅ 已完成（2026-09-23，commit 45aaea8，TDD 红→绿 6 测试：治疗溅射含 tec 加治减半〔18→9〕/择取三序〔HP→距→数组序〕/范围边界〔有效射程 4 内、5 外不候选〕+敌方阵营不候选/再生护盾减半同回合数/门控与无候选/保底 1；实现：resolveSpell 签名增 units 全场单位〔22 调用方同步：game.ts×2、sim×3、测试 17——R7-3 教训 sim 与真实同路径〕、piousSplashTarget+splashHalf、EFFECT_PARAMS.piousSplashFraction 0.5、traits desc 与 §5「随机友方」改「血量最低」、game.ts showSpellResult 溅射飘字+战报；473 测试绿 + build 无错 + **sim 13/7/0 逐种子不变**；**插桩实证（R7-3 方法论）：sim 20 局牧师治疗施放 0 次→溅射 0 次——sim 牧师 AI 从不满足「程内有 <70% 友军」系既有行为，溅射平衡影响未经 sim 检验**，逻辑由单测覆盖、真实对局观察；现内容仅我方牧师持 pious〔代码阵营对称〕；另 R12-2 口径修正 commit 9560d81：特性门控从模板 traits 改读实例装填 loadout.passive〔R3-3 口径，战前卸下强化治疗即关闭射程加成〕） |
 
 ### R13 静止画面动画残影定格（状态：✅ 已定性关闭 2026-09-18——非缺陷，验证方法伪影）
 - 来源：R9-2 浏览器像素验证时发现（初判疑为渲染竞态）
