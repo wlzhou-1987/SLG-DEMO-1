@@ -8,6 +8,9 @@ import { getTerrain } from '../core/map';
 import { TERRAIN_CONFIGS } from '../config/terrain';
 import { TERRAIN_PATTERNS } from './terrain-patterns';
 import { SILHOUETTE_SHAPES, getShapeId, BOSS_SHAPE } from './silhouettes';
+import { spriteCache } from './sprite-cache';
+import type { LoadedImage } from './sprite-cache';
+import { artPath } from '../config/art';
 
 export const HEX_SIZE = 24; // 六边形外接圆半径（像素）
 
@@ -103,7 +106,7 @@ export class HexRenderer {
       const R = this.hexSize * 0.75 * appear;
 
       this.ctx.globalAlpha = alpha * appear;
-      this.drawToken(screen.x, screen.y, R, ringColor, shapeId);
+      this.drawToken(screen.x, screen.y, R, ringColor, shapeId, this.resolveSprite(unit.templateId));
 
       // 朝向三角（A 案：盘缘内侧，指向朝向）
       const angle = facingToAngle(unit.facing as Facing) * Math.PI / 180;
@@ -156,7 +159,7 @@ export class HexRenderer {
       const screen = camera.worldToScreen({ x: g.x, y: g.y });
       const R = this.hexSize * 0.75 * g.scale;
       this.ctx.globalAlpha = g.alpha;
-      this.drawToken(screen.x, screen.y, R, g.color, getShapeId(g.templateId));
+      this.drawToken(screen.x, screen.y, R, g.color, getShapeId(g.templateId), this.resolveSprite(g.templateId));
       this.ctx.globalAlpha = 1;
     }
   }
@@ -197,8 +200,13 @@ export class HexRenderer {
     this.drawHexOutline(screen.x, screen.y);
   }
 
-  /** 底座圆盘（R9-1 定稿）：BOSS 金环双圈 + 深盘心 + 阵营色环 + 盘心内剪影 */
-  private drawToken(cx: number, cy: number, R: number, ringColor: string, shapeId: string): void {
+  /** R15-4 棋子贴图：登记且已加载才返回（未登记/未就绪/失败均 null → 剪影回落） */
+  private resolveSprite(templateId: string): LoadedImage | null {
+    return spriteCache.get(artPath('sprite', templateId));
+  }
+
+  /** 底座圆盘（R9-1 定稿）：BOSS 金环双圈 + 深盘心 + 阵营色环 + 盘心内剪影/贴图（R15-4） */
+  private drawToken(cx: number, cy: number, R: number, ringColor: string, shapeId: string, sprite: LoadedImage | null = null): void {
     if (shapeId === BOSS_SHAPE) {
       this.ctx.beginPath();
       this.ctx.arc(cx, cy, R * 1.14, 0, Math.PI * 2);
@@ -221,10 +229,15 @@ export class HexRenderer {
     this.ctx.beginPath();
     this.ctx.arc(cx, cy, inner, 0, Math.PI * 2);
     this.ctx.clip();
-    this.ctx.translate(cx, cy);
-    this.ctx.fillStyle = SILHOUETTE_COLOR;
-    this.ctx.strokeStyle = SILHOUETTE_COLOR;
-    SILHOUETTE_SHAPES[shapeId](this.ctx, inner * 1.5);
+    if (sprite) {
+      // R15-4 盘心贴图：方图满铺圆窗（透明底为登记前置条件）
+      this.ctx.drawImage(sprite as CanvasImageSource, cx - inner, cy - inner, inner * 2, inner * 2);
+    } else {
+      this.ctx.translate(cx, cy);
+      this.ctx.fillStyle = SILHOUETTE_COLOR;
+      this.ctx.strokeStyle = SILHOUETTE_COLOR;
+      SILHOUETTE_SHAPES[shapeId](this.ctx, inner * 1.5);
+    }
     this.ctx.restore();
   }
 
