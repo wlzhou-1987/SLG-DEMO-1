@@ -433,7 +433,7 @@ export class Game {
       const isEnemy = u.faction !== unit.faction;
       if (isEnemy === wantAlly) continue;
       const d = distance(unit.position, u.position);
-      const rMax = effectiveRangeMax(getTemplate(unit.templateId)!, skill, getTerrain(this.map, unit.position));
+      const rMax = effectiveRangeMax(getTemplate(unit.templateId)!, skill, getTerrain(this.map, unit.position), unit.loadout.passive);
       if (d >= skill.rangeMin && d <= rMax) {
         if (skill.rush && rushDestination(this.map, this.units, unit, u) === null) continue;
         targets.add(hexKey(u.position));

@@ -54,7 +54,7 @@ export function decideEnemyAction(
       const d = distance(dest, target.position);
       // R3-2：普攻恒入择优候选（纯普攻单位同规则，§6）；R5-1：资源不足的技能不入选（回落普攻）；R2-2：普攻按装备展开
       for (const skill of [...basicAttackSkills(enemy.equipment), ...getUnitActiveSkills(enemy)]) {
-        if (d < skill.rangeMin || d > effectiveRangeMax(template, skill, getTerrain(map, dest))) continue;
+        if (d < skill.rangeMin || d > effectiveRangeMax(template, skill, getTerrain(map, dest), enemy.loadout.passive)) continue;
         if (!canAfford(enemy, skill)) continue;
 
         const forecast = calcBattleForecast(map, attackerAt, target, skill);
@@ -137,7 +137,7 @@ export function checkGroupActivation(map: MapState, units: UnitState[]): void {
       const resolved = [...basicAttackSkills(m.equipment), ...getUnitActiveSkills(m)];
       const rangeMin = Math.min(...resolved.map(s => s.rangeMin));
       // 口径：警戒范围不含地形射程加成（按落位变化的近似值；当前 4 地形 rangeBonus 均 0）
-      const rangeMax = Math.max(...resolved.map(s => effectiveRangeMax(template, s)));
+      const rangeMax = Math.max(...resolved.map(s => effectiveRangeMax(template, s, undefined, m.loadout.passive)));
       const alert = calcAttackRange(moveRange, rangeMin, rangeMax);
       return players.some(p => moveRange.has(hexKey(p.position)) || alert.has(hexKey(p.position)));
     });

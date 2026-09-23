@@ -459,11 +459,11 @@ export function resolveAoeBattle(
 }
 
 
-/** R4-5 属性条件射程加成 + R12-2 特性门控动态射程（§4.4：弓挂力量、法术挂魔力、治疗/增益法术挂技×「强化治疗」特性；阈值可配；同类不互斥按加法合计；R2-2 起普攻自带 weaponType 统一走 isBow 判定） */
-export function rangeBonus(t: import('../config/units').UnitTemplate, skill: SkillTemplate): number {
+/** R4-5 属性条件射程加成 + R12-2 特性门控动态射程（§4.4：弓挂力量、法术挂魔力、治疗/增益法术挂技×「强化治疗」特性；阈值可配；同类不互斥按加法合计；R2-2 起普攻自带 weaponType 统一走 isBow 判定；被动来源 = 实例装填 loadout.passive，R3-3 口径） */
+export function rangeBonus(t: import('../config/units').UnitTemplate, skill: SkillTemplate, passive?: readonly string[]): number {
   let bonus = 0;
   if (skill.damageType === 'magic' && t.mag >= RANGE_PARAMS.spellMagThreshold) bonus += RANGE_PARAMS.spellBonus;
-  if ((skill as SpellTemplate).targetType === 'ally' && t.traits?.includes('heal-boost') && t.tec >= RANGE_PARAMS.healTecThreshold) {
+  if ((skill as SpellTemplate).targetType === 'ally' && passive?.includes('heal-boost') && t.tec >= RANGE_PARAMS.healTecThreshold) {
     bonus += RANGE_PARAMS.healBonus;
   }
   const wt = skill.weaponType;
@@ -478,11 +478,12 @@ function terrainRangeBonus(t: import('../config/units').UnitTemplate, terrain?: 
   return TERRAIN_CONFIGS[terrain].rangeBonus;
 }
 
-/** 实际射程上限 = 技能基础 + 属性加成 + 地形加成（目标选择/择优用；惩罚仍按基础 rangeMax） */
+/** 实际射程上限 = 技能基础 + 属性加成 + 地形加成（目标选择/择优用；惩罚仍按基础 rangeMax）；passive 透传 rangeBonus 实例被动（R12-2） */
 export function effectiveRangeMax(
   t: import('../config/units').UnitTemplate,
   skill: SkillTemplate,
-  terrain?: TerrainType
+  terrain?: TerrainType,
+  passive?: readonly string[]
 ): number {
-  return skill.rangeMax + rangeBonus(t, skill) + terrainRangeBonus(t, terrain);
+  return skill.rangeMax + rangeBonus(t, skill, passive) + terrainRangeBonus(t, terrain);
 }
