@@ -83,7 +83,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/ui/topbar.ts | updateTopbar：顶栏回合/阶段/兵力与结束回合按钮 | §7.1 | — |
 | src/ui/prep.ts | createPrepScreen：战前准备面板（右侧）——出场名单勾选（**R15-2 行内 32px 头像窗**）+ **立绘预览窗（R15-3：选中角色 contain 满宽，无供给区块 :empty 隐藏）** + 技能配置区块（R3-5：选中角色 → 主动 0~5/被动 0~6 槽、通用池混排双过滤置灰、出厂默认、编辑后随编成传 loadout；R2-3/5 武器过滤与头部原子读**编辑装备**；**槽位与池条目均展示 desc 功能描述，PoolItemView 携 desc**）+ **装备区块（R2-5：选人 → 武器槽 ×2、类别过滤条目清单置灰、出厂默认预填、同条目双持合法、可清空至 0——校验仅上限无保底、编辑后随编成传 equipment）** + 实时校验 + 开战按钮；地图配置区块已撤（R12-3：移入 §8 不做）；站位记忆画布调整结果（getRoster/setChecked/setBoardRoster/selectUnit/addToSlot/removeFromSlot/poolEntries/getEffectiveEquipment/equipWeapon/unequipWeapon/equipmentEntries/refresh/clickStart） | §7.0/§4.9/§4.14 | tests/ui/prep.test.ts |
 | src/ui/portrait.ts | portraitMarkup：DOM 头像窗三级回落（R15-2，§7.5）——独立头像 → 立绘裁切（cover 取上部）→ 阵营色底+名首字；img onerror 显示同级隐藏占位（加载失败=缺失同回落） | §7.5 | tests/ui/portrait.test.ts |
-| src/ui/sidepanel.ts | showUnitInfo/clearUnitInfo、showTerrainInfo/clearTerrainInfo：右侧单位属性（头部 48px 头像窗〔R15-2〕+ 装备条目行〔R2-5〕/特性/状态/主资源读 JobConfig）与地形面板（R6-1 效果字段条件显示） | §7.3/§3/§4.14/§7.5 | tests/ui/sidepanel.test.ts |
+| src/ui/sidepanel.ts | showUnitInfo/clearUnitInfo、showTerrainInfo/clearTerrainInfo：右侧单位属性（头部 48px 头像窗〔R15-2〕+ 装备条目行〔R2-5〕/特性/状态/主资源读 JobConfig；技能列表显示**有效射程**〔§4.4 属性/特性加成，不含地形〕）与地形面板（R6-1 效果字段条件显示） | §7.3/§3/§4.14/§7.5/§4.4 | tests/ui/sidepanel.test.ts |
 | src/ui/action-menu.ts | showActionMenu/hideActionMenu：画布内浮动行动菜单（R5-1 disabled 灰显项不触发回调） | §7.2/§4.13 | tests/ui/action-menu.test.ts |
 | src/ui/forecast.ts | showForecastPanel/showSpellForecastPanel/showAoeForecastPanel：战斗/法术/AoE 多目标预报面板（确认/取消；**R7-2 打击行含暴击率/必暴显「必定」**；R15-2 ForecastWho 签名携 templateId/faction——标题行攻守头像 28px、AoE/法术仅施法者） | §4.5/§4.12/§4.9/§7.5 | tests/ui/forecast.test.ts |
 | src/ui/battle-log.ts | logBattle：战斗日志（最新在顶，30 条裁剪） | §7.4 | — |
@@ -94,7 +94,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 
 | 文件 | 职责 | 设计章节 | 测试 |
 | --- | --- | --- | --- |
-| src/game.ts | Game 类：游戏主循环与状态协调枢纽——构造支持注入我方战前编成（缺省 PLAYER_UNITS、非法 throw，§7.0）、**R14 相机初始偏移竞态修复**（cameraCentered 标记：构造时画布 0 尺寸早退后，首帧 rAF 与 window resize 双路补做初始居中，已居中则不重置玩家视角）、Phase 状态机（idle/unitSelected/actionMenu→**技能二级列表**/targetSelect/forecast/spellForecast/reMove/facingConfirm/enemyTurn/gameOver）、输入分发、玩家/敌方行动流（R5-1 四处扣费：confirmBattle/confirmSpell 即时与起唱/executeBehaviorSkill/敌方阶段）、技能菜单消耗标签+资源不足灰显、动画编排（**R7-2 暴击标记：飘字「暴击-N」亮橙 + 战报「暴击！命中」**——单体/AoE/法术三路径；**R12-1 虔诚溅射展示**：showSpellResult 尾接 splash——治疗飘字 + 战报「虔诚溅射：…」）、胜负呈现 | §2/§4.8/§7.0/§7.2/§4.13 | tests/game.test.ts |
+| src/game.ts | Game 类：游戏主循环与状态协调枢纽——构造支持注入我方战前编成（缺省 PLAYER_UNITS、非法 throw，§7.0）、**R14 相机初始偏移竞态修复**（cameraCentered 标记：构造时画布 0 尺寸早退后，首帧 rAF 与 window resize 双路补做初始居中，已居中则不重置玩家视角）、Phase 状态机（idle/unitSelected/actionMenu→**技能二级列表**/targetSelect/forecast/spellForecast/reMove/facingConfirm/enemyTurn/gameOver）、输入分发、选中攻击叠层按**有效射程**绘制（§4.4 属性/特性加成计入；口径同 ai.ts 警戒范围，不含地形加成）、玩家/敌方行动流（R5-1 四处扣费：confirmBattle/confirmSpell 即时与起唱/executeBehaviorSkill/敌方阶段）、技能菜单消耗标签+资源不足灰显、动画编排（**R7-2 暴击标记：飘字「暴击-N」亮橙 + 战报「暴击！命中」**——单体/AoE/法术三路径；**R12-1 虔诚溅射展示**：showSpellResult 尾接 splash——治疗飘字 + 战报「虔诚溅射：…」）、胜负呈现 | §2/§4.8/§7.0/§7.2/§4.13 | tests/game.test.ts |
 | src/main.ts | 入口：两阶段编排——先挂战前准备界面，开战后按所选编成实例化 Game | §7.0/§9 | — |
 | src/style.css | 全局样式：布局与 UI 元素（topbar/面板/菜单/预报/日志/战前准备） | §7.0/§7.1 | — |
 | electron/main.cjs | Electron 主进程：仅创建窗口（dev 加载 127.0.0.1:5174，打包加载 dist/index.html） | §9 | — |

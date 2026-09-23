@@ -1,5 +1,6 @@
 import type { UnitState } from '../core/unit';
 import { getUnitActiveSkills } from '../core/unit';
+import { effectiveRangeMax } from '../core/combat';
 import type { ArmorType, DamageType, TerrainType } from '../core/types';
 import { getTemplate, isFlying } from '../config/units';
 import { basicAttackSkills, WEAPONS } from '../config/weapons';
@@ -36,8 +37,12 @@ export function showUnitInfo(unit: UnitState): void {
   }
 
   const factionLabel = unit.faction === 'player' ? '我方' : '敌方';
+  // 有效射程 = 基础 + 属性/特性加成（§4.4）；地形加成不读（口径同选中叠层）
   const skills = [...basicAttackSkills(unit.equipment), ...getUnitActiveSkills(unit)]
-    .map(s => `<li>${s.name}（${DAMAGE_LABELS[s.damageType]}·射程 ${s.rangeMin}-${s.rangeMax}）</li>`)
+    .map(s => {
+      const rMax = effectiveRangeMax(template, s, undefined, unit.loadout.passive);
+      return `<li>${s.name}（${DAMAGE_LABELS[s.damageType]}·射程 ${s.rangeMin}-${rMax}）</li>`;
+    })
     .join('');
 
   const statuses = unit.statuses.map(s => {

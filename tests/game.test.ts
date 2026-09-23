@@ -3,7 +3,7 @@ import { Game } from '../src/game';
 import { Camera } from '../src/render/camera';
 import { HEX_SIZE } from '../src/render/hex-renderer';
 import { STEP_MOVE_MS } from '../src/render/animator';
-import { axialToPixel } from '../src/core/hex';
+import { axialToPixel, distance } from '../src/core/hex';
 import type { HexCoord } from '../src/core/types';
 import type { UnitState } from '../src/core/unit';
 import { enterStealth } from '../src/core/stealth';
@@ -502,5 +502,45 @@ describe('R14 相机初始偏移竞态（R2-5 备案收口）', () => {
     game.camera.pan(50, 50);
     fireWindow('resize');
     expect(game.camera.x).not.toBeCloseTo(cam.x);
+  });
+});
+
+describe('选中叠层有效射程（§4.4 属性/特性射程加成接入显示层）', () => {
+  beforeEach(() => {
+    elements.clear();
+  });
+
+  /** 叠层边缘格距最近可达格的最大距离：裸射程弓/法为 2，吃属性加成后为 3，近战为 1 */
+  const overlayFringe = (game: GameDriver, click: (h: HexCoord) => void, unit: UnitState): number => {
+    click(unit.position);
+    const ph = (game as unknown as {
+      phase: { mode: string; moveRange: Set<string>; attackRange: Set<string> };
+    }).phase;
+    expect(ph.mode).toBe('unitSelected');
+    const parse = (k: string): HexCoord => {
+      const [q, r] = k.split(',').map(Number);
+      return { q, r };
+    };
+    const moves = [...ph.moveRange].map(parse);
+    const nearest = (c: HexCoord) => Math.min(...moves.map(m => distance(m, c)));
+    return Math.max(...[...ph.attackRange].map(k => nearest(parse(k))));
+  };
+
+  it('弓箭：力量 19 吃 +1，红色叠层含距可达格 3 格的延伸圈', () => {
+    const { game, click } = createGame();
+    const archer = game.units.find(u => u.templateId === 'archer')!;
+    expect(overlayFringe(game, click, archer)).toBe(3);
+  });
+
+  it('法师：魔力 24 吃 +1，叠层含施法距离 3 的延伸圈', () => {
+    const { game, click } = createGame();
+    const mage = game.units.find(u => u.templateId === 'mage')!;
+    expect(overlayFringe(game, click, mage)).toBe(3);
+  });
+
+  it('领主：近战无加成，叠层边缘保持 1', () => {
+    const { game, click } = createGame();
+    const lord = game.units.find(u => u.templateId === 'lord')!;
+    expect(overlayFringe(game, click, lord)).toBe(1);
   });
 });

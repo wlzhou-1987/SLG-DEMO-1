@@ -38,3 +38,26 @@ describe('R15-2 单位面板头部头像', () => {
     expect(panel.innerHTML).toContain('art-fb');  // onerror 兜底在位
   });
 });
+
+describe('技能列表有效射程显示（§4.4 属性/特性射程加成）', () => {
+  it('弓箭：力量 19 ≥ 阈值，普攻与技能显示射程 2-3', () => {
+    showUnitInfo(createUnitState('archer', 'player', { q: 0, r: 0 }));
+    expect(panel.innerHTML).toContain('射程 2-3');
+    expect(panel.innerHTML).not.toContain('射程 2-2');
+  });
+
+  it('法师：魔力 24 ≥ 阈值，火球显示射程 1-3', () => {
+    showUnitInfo(createUnitState('mage', 'player', { q: 0, r: 0 }));
+    expect(panel.innerHTML).toContain('火球（法术·射程 1-3）');
+  });
+
+  it('牧师：魔力 21 + 强化治疗特性双加成，治疗法术显示射程 1-4', () => {
+    showUnitInfo(createUnitState('priest', 'player', { q: 0, r: 0 }));
+    expect(panel.innerHTML).toContain('射程 1-4');
+  });
+
+  it('领主：近战无加成仍显示射程 1-1', () => {
+    showUnitInfo(createUnitState('lord', 'player', { q: 0, r: 0 }));
+    expect(panel.innerHTML).toContain('射程 1-1');
+  });
+});

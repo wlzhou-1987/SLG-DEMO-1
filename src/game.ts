@@ -267,7 +267,8 @@ export class Game {
     );
     const resolvedSkills = [...basicAttackSkills(unit.equipment), ...getUnitActiveSkills(unit)];
     const rangeMin = Math.min(...resolvedSkills.map(s => s.rangeMin));
-    const rangeMax = Math.max(...resolvedSkills.map(s => s.rangeMax));
+    // 口径同 ai.ts 警戒范围：属性/特性射程计入叠层，地形加成不读（本期 4 地形 rangeBonus 均 0）
+    const rangeMax = Math.max(...resolvedSkills.map(s => effectiveRangeMax(template, s, undefined, unit.loadout.passive)));
     const attackRange = calcAttackRange(moveRange, rangeMin, rangeMax);
 
     this.phase = { mode: 'unitSelected', unit, moveRange, attackRange, moveCosts };
