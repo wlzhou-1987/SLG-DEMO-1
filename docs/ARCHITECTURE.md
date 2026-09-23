@@ -58,6 +58,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/config/spells.ts | 法术定义：SpellTemplate（继承 SkillTemplate 含 desc 功能描述，id/target/learnable；释放方式×生效方式）、SPELLS 六法术（陨石术 armorResist heavy ×1.5——法术破重甲钥匙，R4-8）、getSpell/isSpell | §4.12 | —（tests/core/spell 间接） |
 | src/config/traits.ts | 特性修正：TRAIT_CONFIGS（再移动/背刺/沉稳/真实视野〔revealRange 声明，R3-8 结算〕/鹰眼〔R7-2 rangedHitBonus 远程命中+溢出转暴击〕/虔诚〔R12-1 溅射：消费点 spell.ts〕，learnable 标记、weaponType 声明、firstStrikeThreshold 先攻降阈声明〔R4-7〕、critCapBonus 上限突破声明位〔R7-2〕）、getTrait | §4.7 | —（tests/core/combat 间接） |
 | src/config/pool.ts | 通用技能池：getPool（三表 learnable 条目 union 视图）、learnBlockReason/canLearn（双过滤；**R2-3 武器判据 = 装备原子并集**，签名带 equipment 参数；R2-4 资源判据读 JobConfig.resourceType）、SLOT_LIMITS、findRegisteredEntry（三表全量查）、validateLoadoutForTemplate（装填合法性：未注册/分组/双约束；R2-3 第三参 equipment 缺省回落模板默认，敌方关卡装备覆盖同源） | §4.9/§4.14 | tests/config/pool.test.ts |
+| src/config/art.ts | 美术资源登记（R15，§7.5）：ART_ASSETS 显式登记表（templateId → {standing?, portrait?, sprite?}，只登记已迁入 public/art/ 的资源）+ artPath 查询（相对路径 base './' 兼容 Electron file://，未登记返 null 走回落链）；新增美术 = 放文件 + 加登记行 | §7.5 | tests/config/art.test.ts |
 | src/config/map.ts | 关卡布局：MAP_OVERRIDES（地形）、PLAYER_UNITS（我方 10 人站位）、DEPLOY_ZONE（部署区）、ENEMY_GROUPS（9 敌组含 aiType；UnitPlacement 可选 loadout/**equipment 关卡覆盖默认装备**〔R2-2〕——敌方首版：弓手×4 狙击+真实视野、BOSS 重锤+横扫+真实视野）、GroupAiType | §3/§5.2/§6/§7.0 | tests/config/map.test.ts |
 | src/config/reinforcements.ts | 增援事件：ReinforcementEvent、REINFORCEMENTS（回合触发/BOSS 半血触发） | §6 | —（tests/core/reinforce 间接） |
 
