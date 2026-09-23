@@ -136,7 +136,7 @@ function actPlayerUnit(map: MapState, units: UnitState[], u: UnitState, rng: () 
     );
     if (wounded.length > 0) {
       const worst = wounded.reduce((a, b) => (a.hp / a.maxHp <= b.hp / b.maxHp ? a : b));
-      resolveSpell(map, u, worst, healSkill, rng);
+      resolveSpell(map, u, worst, healSkill, units, rng);
       u.hasActed = true;
       return;
     }
@@ -193,7 +193,7 @@ function actPlayerUnit(map: MapState, units: UnitState[], u: UnitState, rng: () 
         // R7-3 口径修正：单体法术走 resolveSpell（与真实 confirmSpell 一致——无反击、pyro 加成、
         // 咒杀挂 DoT 而非直伤；R10-1 前 sim 将咒杀当直伤 29 结算，R10 规则变更后口径失真）；
         // castSpellThisTurn 由 resolveSpell 内部设置
-        resolveSpell(map, u, bestAtk.target, bestAtk.skill, rng);
+        resolveSpell(map, u, bestAtk.target, bestAtk.skill, units, rng);
       } else {
         const result = resolveBattle(map, u, bestAtk.target, bestAtk.skill, rng);
         u.hp = result.attackerHp;
@@ -215,7 +215,7 @@ function applyStatusEvents(map: MapState, units: UnitState[], events: StatusEven
     const caster = units.find(u => u.id === e.unitId);
     const target = units.find(u => u.id === e.targetId);
     if (caster && target) {
-      resolveSpell(map, caster, target, e.spell, rng);
+      resolveSpell(map, caster, target, e.spell, units, rng);
       if (caster.faction === 'player' && target.faction === 'enemy') provokeGroup(units, target);
     }
   }

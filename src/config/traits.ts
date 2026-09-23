@@ -116,7 +116,7 @@ export const TRAIT_CONFIGS: Record<string, TraitConfig> = {
   pious: {
     id: 'pious',
     name: '虔诚',
-    desc: '释放增益类法术时复制一半效果到治疗范围内随机友方',
+    desc: '释放治疗/增益法术时，复制一半效果到施法者射程内血量最低的其他友方',
     learnable: false
   },
   'eagle-eye': {

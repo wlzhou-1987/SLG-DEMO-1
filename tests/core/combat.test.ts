@@ -1025,7 +1025,7 @@ describe('R4-6 双轴命中回避', () => {
     const priest = createUnitState('priest', 'player', { q: 10, r: 15 }, { active: [], passive: [] });
     const lord = createUnitState('lord', 'player', { q: 11, r: 15 });
     lord.hp = 30;
-    const r = resolveSpell(map, priest, lord, SPELLS.heal, () => 0.99);
+    const r = resolveSpell(map, priest, lord, SPELLS.heal, [priest, lord], () => 0.99);
     expect(r.kind).toBe('heal');
     expect(r.hit).toBeUndefined();
     expect(lord.hp).toBe(40);  // mag21×0.5=10
@@ -1287,7 +1287,7 @@ describe('R7-1 暴击核心结算', () => {
     const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
     const seq1 = [0.0, 0.0];
     let i = 0;
-    const r1 = resolveSpell(map, mage, sw, SPELLS.fireball, () => seq1[i++]);
+    const r1 = resolveSpell(map, mage, sw, SPELLS.fireball, [mage, sw], () => seq1[i++]);
     if (r1.kind !== 'damage') throw new Error('期望 damage 分支');
     expect(r1.hit).toBe(true);
     expect(r1.crit).toBe(true);
@@ -1296,7 +1296,7 @@ describe('R7-1 暴击核心结算', () => {
     const sw2 = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
     const seq2 = [0.0, 0.99];
     let j = 0;
-    const r2 = resolveSpell(map, mage, sw2, SPELLS.fireball, () => seq2[j++]);
+    const r2 = resolveSpell(map, mage, sw2, SPELLS.fireball, [mage, sw2], () => seq2[j++]);
     if (r2.kind !== 'damage') throw new Error('期望 damage 分支');
     expect(r2.crit).toBe(false);
     expect(r2.damage).toBe(23);  // floor(19×1.25)

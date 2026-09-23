@@ -157,7 +157,7 @@ describe('R5-2 生成与恢复结算', () => {
   it('法术结算标记施法（resolveSpell 即时与咏唱触发）', () => {
     const mage = createUnitState('mage', 'player', { q: 10, r: 15 });
     const sw = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
-    resolveSpell(map, mage, sw, SPELLS.fireball, () => 0);
+    resolveSpell(map, mage, sw, SPELLS.fireball, [mage, sw], () => 0);
     expect(mage.castSpellThisTurn).toBe(true);
   });
 

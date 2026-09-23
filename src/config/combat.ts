@@ -84,6 +84,7 @@ export const EFFECT_PARAMS = {
   pyroBoostMult: 1.25,
   pyroDotTurns: 2,
   healPerTechHalf: 0.5,
+  piousSplashFraction: 0.5,  // R12-1 虔诚溅射：主目标结算值复制比例（floor、保底 1）
   ambushBonus: 5,
   aimPowerBonus: 3
 // 强化祝福：祝福期间每回合怒气生成

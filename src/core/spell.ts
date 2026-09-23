@@ -4,11 +4,13 @@ import type { UnitState } from './unit';
 import { getAreaCells, unitsInArea } from './area';
 import type { SpellTemplate } from '../config/spells';
 import { getTemplate } from '../config/units';
-import { calcStrike } from './combat';
+import { calcStrike, effectiveRangeMax } from './combat';
 import { EFFECT_PARAMS } from '../config/combat';
 import { getJob } from '../config/jobs';
 import { statValue } from './status';
 import { gainOnStruck } from './resources';
+import { distance } from './hex';
+import { getTerrain } from './map';
 import type { PartSide } from './combat';
 import type { ArmorType } from './types';
 
@@ -78,17 +80,45 @@ export function calcSpellForecast(
   }
 }
 
-export type SpellResult = SpellForecast & { hit?: boolean; crit?: boolean; targetHp: number };
+export type SpellResult = SpellForecast & { hit?: boolean; crit?: boolean; targetHp: number; splash?: { targetId: string; value: number } };
+
+/** R12-1 虔诚溅射目标（§5）：施法者法术有效射程内存活友方，排除主目标与施法者；绝对 HP 最低 → 距施法者近 → 数组序（确定性） */
+function piousSplashTarget(
+  map: MapState,
+  caster: UnitState,
+  target: UnitState,
+  spell: SpellTemplate,
+  units: UnitState[]
+): UnitState | undefined {
+  if (!caster.loadout.passive.includes('pious')) return undefined;
+  const rMax = effectiveRangeMax(getTemplate(caster.templateId)!, spell, getTerrain(map, caster.position), caster.loadout.passive);
+  let best: UnitState | undefined;
+  let bestDist = Infinity;
+  for (const u of units) {
+    if (u === caster || u === target || u.faction !== caster.faction || u.hp <= 0) continue;
+    const d = distance(caster.position, u.position);
+    if (d > rMax) continue;
+    if (!best || u.hp < best.hp || (u.hp === best.hp && d < bestDist)) { best = u; bestDist = d; }
+  }
+  return best;
+}
+
+/** R12-1 溅射复制量：主目标结算值 ×piousSplashFraction（向下取整、保底 1） */
+function splashHalf(value: number): number {
+  return Math.max(1, Math.floor(value * EFFECT_PARAMS.piousSplashFraction));
+}
 
 /**
  * 即时释放的法术结算。增益必中；伤害类掷命中。
  * 持续/延时类在目标身上挂状态，阶段开始由 tickStatuses 推进。
+ * units 为全场单位（虔诚溅射候选；R7-3 教训：sim 与真实走同一签名同一路径）。
  */
 export function resolveSpell(
   map: MapState,
   caster: UnitState,
   target: UnitState,
   spell: SpellTemplate,
+  units: UnitState[],
   rng: () => number = Math.random
 ): SpellResult {
   const forecast = calcSpellForecast(map, caster, target, spell);
@@ -125,21 +155,48 @@ export function resolveSpell(
         ? forecast.amount + Math.floor((getTemplate(caster.templateId)?.tec ?? 0) * EFFECT_PARAMS.healPerTechHalf)
         : forecast.amount;
       target.hp = Math.min(target.maxHp, target.hp + amount);
-      return { ...forecast, amount, targetHp: target.hp };
+      let splash: SpellResult['splash'];
+      const st = piousSplashTarget(map, caster, target, spell, units);
+      if (st) {
+        const v = splashHalf(amount);
+        st.hp = Math.min(st.maxHp, st.hp + v);
+        splash = { targetId: st.id, value: v };
+      }
+      return { ...forecast, amount, targetHp: target.hp, splash };
     }
     case 'regen': {
       target.statuses.push({
         type: 'regen', skillName: spell.name, turnsLeft: forecast.turns,
         appliedAtTurn: castTurn, healPerTurn: forecast.healPerTurn
       });
-      return { ...forecast, targetHp: target.hp };
+      let splash: SpellResult['splash'];
+      const st = piousSplashTarget(map, caster, target, spell, units);
+      if (st) {
+        const v = splashHalf(forecast.healPerTurn);
+        st.statuses.push({
+          type: 'regen', skillName: spell.name, turnsLeft: forecast.turns,
+          appliedAtTurn: castTurn, healPerTurn: v
+        });
+        splash = { targetId: st.id, value: v };
+      }
+      return { ...forecast, targetHp: target.hp, splash };
     }
     case 'shield': {
       target.statuses.push({
         type: 'shield', skillName: spell.name, turnsLeft: forecast.turns,
         appliedAtTurn: castTurn, armorType: forecast.armorType, absorbLeft: forecast.absorb
       });
-      return { ...forecast, targetHp: target.hp };
+      let splash: SpellResult['splash'];
+      const st = piousSplashTarget(map, caster, target, spell, units);
+      if (st) {
+        const v = splashHalf(forecast.absorb);
+        st.statuses.push({
+          type: 'shield', skillName: spell.name, turnsLeft: forecast.turns,
+          appliedAtTurn: castTurn, armorType: forecast.armorType, absorbLeft: v
+        });
+        splash = { targetId: st.id, value: v };
+      }
+      return { ...forecast, targetHp: target.hp, splash };
     }
     case 'dot': {
       // R10-1 咒杀 DoT：掷命中，命中挂锁定切分值；法术命中受击回怒（§4.13）

@@ -509,7 +509,7 @@ export class Game {
     }
 
     const hpBefore = target.hp;
-    const spellResult = resolveSpell(this.map, unit, target, spell);
+    const spellResult = resolveSpell(this.map, unit, target, spell, this.units);
     if (target.faction === 'enemy') provokeGroup(this.units, target);  // 打一个引来一组
     this.removeDead();
     this.victory = checkVictory(this.units);
@@ -701,6 +701,19 @@ export class Game {
     } else if (result.kind === 'dot') {
       if (result.hit) logBattle(`${c}·${skillName} → ${t} 中咒（每回合 -${result.damagePerTurn}，共 ${result.turns} 回合）`);
       else logBattle(`${c}·${skillName} → ${t} 落空`);
+    }
+    // R12-1 虔诚溅射展示：与主结算同构（治疗飘字 + 战报行）
+    const sp = result.splash;
+    if (sp) {
+      const su = this.units.find(u => u.id === sp.targetId);
+      if (su) {
+        if (result.kind === 'heal') this.floatText(`+${sp.value}`, FLOAT_COLOR.heal, su.position);
+        const desc = result.kind === 'heal' ? `回复 +${sp.value}`
+          : result.kind === 'regen' ? `获得再生（每回合 +${sp.value}·${result.turns} 回合）`
+          : result.kind === 'shield' ? `获得护盾（吸收 ${sp.value}·${result.turns} 回合）`
+          : '';
+        logBattle(`虔诚溅射：${this.unitName(su)} ${desc}`);
+      }
     }
   }
 
@@ -896,7 +909,7 @@ export class Game {
           } else if (caster && target) {
             // 目标先亡则法术落空（§4.12）
             const hpBefore = target.hp;
-            const r = resolveSpell(this.map, caster, target, e.spell);
+            const r = resolveSpell(this.map, caster, target, e.spell, this.units);
             this.showSpellResult(caster, target, e.spell.name, hpBefore, r);
             if (caster.faction === 'player' && target.faction === 'enemy') {
               provokeGroup(this.units, target);
