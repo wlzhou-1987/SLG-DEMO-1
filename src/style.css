@@ -171,6 +171,30 @@ html, body {
 .forecast .fc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .forecast .fc-head h3 { margin: 0; flex: 1; }
 
+/* R15-5 胜负结算浮层（§7.4/§7.5） */
+.gameover {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(8, 10, 14, .72);
+  z-index: 30;
+}
+.gameover-panel {
+  background: #1b202a;
+  border: 1px solid #56617a;
+  border-radius: 10px;
+  padding: 20px 32px;
+  text-align: center;
+}
+.gameover-panel h2 { color: #ffd75e; font-size: 20px; margin: 10px 0 6px; }
+.gameover-panel .go-stats { color: #c8d0dc; font-size: 14px; }
+.go-art { display: flex; justify-content: center; }
+.go-art .go-img { max-height: 240px; max-width: 280px; object-fit: contain; border-radius: 8px; }
+.go-art .go-fb-wrap { display: none; }
+.go-art .go-fb-wrap.go-fb-on { display: flex; }
+
 /* 战前准备（§7.0 R1）：右侧面板，主画布留给站位调整 */
 .prep-screen {
   position: fixed; top: 0; right: 0; bottom: 0; width: 300px; z-index: 50;

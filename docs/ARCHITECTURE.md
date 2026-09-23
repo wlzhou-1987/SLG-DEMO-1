@@ -87,6 +87,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/ui/action-menu.ts | showActionMenu/hideActionMenu：画布内浮动行动菜单（R5-1 disabled 灰显项不触发回调） | §7.2/§4.13 | tests/ui/action-menu.test.ts |
 | src/ui/forecast.ts | showForecastPanel/showSpellForecastPanel/showAoeForecastPanel：战斗/法术/AoE 多目标预报面板（确认/取消；**R7-2 打击行含暴击率/必暴显「必定」**；R15-2 ForecastWho 签名携 templateId/faction——标题行攻守头像 28px、AoE/法术仅施法者） | §4.5/§4.12/§4.9/§7.5 | tests/ui/forecast.test.ts |
 | src/ui/battle-log.ts | logBattle：战斗日志（最新在顶，30 条裁剪） | §7.4 | — |
+| src/ui/gameover.ts | showGameOverOverlay/hideGameOverOverlay：胜负结算浮层（R15-5，§7.4 结算画面做实）——胜方阵营代表立绘（我方=领主/敌方=BOSS，缺失回落 portraitMarkup 三级链）+ 回合数 + 双方存活统计 | §7.4/§7.5 | tests/ui/gameover.test.ts |
 | src/ui/notice.ts | showNotice：战场提示条（增援登场等，定时淡出） | §7.4 | — |
 
 ### 根与桌面壳

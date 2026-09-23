@@ -30,6 +30,7 @@ import { updateTopbar } from './ui/topbar';
 import { showUnitInfo, clearUnitInfo, showTerrainInfo, clearTerrainInfo } from './ui/sidepanel';
 import { showActionMenu, hideActionMenu } from './ui/action-menu';
 import { showForecastPanel, hideForecastPanel, showSpellForecastPanel, showAoeForecastPanel } from './ui/forecast';
+import { showGameOverOverlay } from './ui/gameover';
 import { getTerrain } from './core/map';
 import { checkVictory, startPlayerPhase, applyTerrainRegen } from './core/turn';
 import type { VictoryState } from './core/turn';
@@ -979,6 +980,12 @@ export class Game {
     this.phase = { mode: 'gameOver' };
     this.phaseLabel = this.victory === 'playerWin' ? '🏆 我方胜利' : '☠ 我方败北';
     logBattle(this.victory === 'playerWin' ? '🏆 我方胜利' : '☠ 我方败北', 'phase');
+    // R15-5 结算浮层：胜方阵营代表立绘 + 回合数 + 双方存活统计（§7.4 结算画面做实）
+    showGameOverOverlay(this.victory, {
+      turn: this.turn,
+      playerAlive: this.units.filter(u => u.faction === 'player').length,
+      enemyAlive: this.units.filter(u => u.faction === 'enemy').length
+    });
     this.updateTopbar();
     this.render();
   }
