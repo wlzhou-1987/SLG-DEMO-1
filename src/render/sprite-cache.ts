@@ -12,7 +12,11 @@ export interface LoadedImage {
 
 type ImageFactory = () => LoadedImage;
 
-const defaultFactory: ImageFactory = () => new Image() as unknown as LoadedImage;
+const defaultFactory: ImageFactory = () =>
+  // 无 Image 全局的环境（node 测试）：给永不就绪的桩，等价加载失败 → 剪影回落
+  typeof Image === 'undefined'
+    ? ({ complete: true, naturalWidth: 0, src: '' } as LoadedImage)
+    : (new Image() as unknown as LoadedImage);
 
 export class SpriteCache {
   private cache = new Map<string, LoadedImage>();

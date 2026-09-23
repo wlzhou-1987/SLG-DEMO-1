@@ -15,25 +15,25 @@ export interface ArtAssets {
 
 const ART_ROOT = 'art';
 
-/** 首批供给 2026-09-23：17 模板立绘全量（512×512 降采样迁入，母本见 docs/prototypes/art-samples） */
+/** 首批供给 2026-09-23：17 模板立绘全量 + 棋子透明底全量（立绘母本抠图 512×512，母本见 docs/prototypes/art-samples） */
 export const ART_ASSETS: Record<string, ArtAssets> = {
-  lord: { standing: 'lord.png' },
-  defender: { standing: 'defender.png' },
-  paladin: { standing: 'paladin.png' },
-  thief: { standing: 'thief.png' },
-  knight: { standing: 'knight.png' },
-  pegasus: { standing: 'pegasus.png' },
-  axeman: { standing: 'axeman.png' },
-  archer: { standing: 'archer.png' },
-  priest: { standing: 'priest.png' },
-  mage: { standing: 'mage.png' },
-  swordsman: { standing: 'swordsman.png' },
-  spearman: { standing: 'spearman.png' },
-  axeman_enemy: { standing: 'axeman_enemy.png' },
-  hammerman: { standing: 'hammerman.png' },
-  archer_enemy: { standing: 'archer_enemy.png' },
-  mage_enemy: { standing: 'mage_enemy.png' },
-  boss: { standing: 'boss.png' }
+  lord: { standing: 'lord.png', sprite: 'lord.png' },
+  defender: { standing: 'defender.png', sprite: 'defender.png' },
+  paladin: { standing: 'paladin.png', sprite: 'paladin.png' },
+  thief: { standing: 'thief.png', sprite: 'thief.png' },
+  knight: { standing: 'knight.png', sprite: 'knight.png' },
+  pegasus: { standing: 'pegasus.png', sprite: 'pegasus.png' },
+  axeman: { standing: 'axeman.png', sprite: 'axeman.png' },
+  archer: { standing: 'archer.png', sprite: 'archer.png' },
+  priest: { standing: 'priest.png', sprite: 'priest.png' },
+  mage: { standing: 'mage.png', sprite: 'mage.png' },
+  swordsman: { standing: 'swordsman.png', sprite: 'swordsman.png' },
+  spearman: { standing: 'spearman.png', sprite: 'spearman.png' },
+  axeman_enemy: { standing: 'axeman_enemy.png', sprite: 'axeman_enemy.png' },
+  hammerman: { standing: 'hammerman.png', sprite: 'hammerman.png' },
+  archer_enemy: { standing: 'archer_enemy.png', sprite: 'archer_enemy.png' },
+  mage_enemy: { standing: 'mage_enemy.png', sprite: 'mage_enemy.png' },
+  boss: { standing: 'boss.png', sprite: 'boss.png' }
 };
 
 /** 查询资源相对路径；未登记返回 null（调用方回落） */

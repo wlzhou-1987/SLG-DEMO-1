@@ -63,4 +63,9 @@ describe('R15-4 SpriteCache（§5.3/§7.5）', () => {
     expect(cache.get('a.png')).toBeNull();                 // 重新加载
     expect(images).toHaveLength(2);
   });
+
+  it('默认工厂在无 Image 全局的环境（node 测试）不抛错：返回 null 走剪影回落', () => {
+    const cache = new SpriteCache();                        // 默认工厂
+    expect(cache.get('art/sprite/lord.png')).toBeNull();
+  });
 });
