@@ -1,7 +1,9 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ART_ASSETS, artPath, TERRAIN_ART, terrainArtPath } from '../../src/config/art';
+import { ART_ASSETS, artPath, TERRAIN_ART, terrainArtPath, FX_ART, FX_BY_SKILL_ID, FX_COMMON, fxPath, fxNameForSkill, allFxPaths } from '../../src/config/art';
+import { SKILLS } from '../../src/config/skills';
+import { SPELLS } from '../../src/config/spells';
 import type { ArtKind } from '../../src/config/art';
 import { PLAYER_TEMPLATES, ENEMY_TEMPLATES } from '../../src/config/units';
 import type { TerrainType } from '../../src/core/types';
@@ -82,5 +84,47 @@ describe('R16 地形贴图登记（art.ts 扩展，§7.5 登记制同构）', ()
     const registered = new Set(Object.values(TERRAIN_ART));
     for (const f of registered) expect(files.has(f), `已登记文件存在：terrain/${f}`).toBe(true);
     for (const f of files) expect(registered.has(f), `目录文件已登记：terrain/${f}`).toBe(true);
+  });
+});
+
+describe('R16-2 战斗特效登记（art.ts 扩展，§7.4/§7.5）', () => {
+  it('技能/法术映射全量覆盖 20 技能 + 6 法术，映射值均在 FX_ART 在册（全量接入定稿）', () => {
+    const ids = [...Object.keys(SKILLS), ...Object.keys(SPELLS)];
+    expect(ids).toHaveLength(26);
+    for (const id of ids) {
+      const fxName = FX_BY_SKILL_ID[id];
+      expect(fxName, `${id} 有特效映射`).toBeDefined();
+      expect(FX_ART[fxName], `${id} → ${fxName} 在 FX_ART 在册`).toBeDefined();
+    }
+  });
+
+  it('通用反馈四键在册；fxPath 相对路径（base ./ 兼容 Electron file://），未登记返 null', () => {
+    for (const key of ['crit', 'miss', 'shieldBreak', 'death'] as const) {
+      expect(FX_ART[FX_COMMON[key]], `${key} 在册`).toBeDefined();
+    }
+    expect(fxPath('slash')).toBe('art/fx/fx-slash.png');
+    expect(fxPath('death')).toBe('art/fx/fx-death.png');
+    expect(fxPath('unknown-fx')).toBeNull();
+  });
+
+  it('普攻三线按 damageType 自动映射；未知技能/无映射伤害线返 null（缺失不播）', () => {
+    expect(fxNameForSkill({ id: 'basic:longsword', damageType: 'slashing' })).toBe('slash');
+    expect(fxNameForSkill({ id: 'basic:longbow', damageType: 'piercing' })).toBe('thrust');
+    expect(fxNameForSkill({ id: 'basic:staff', damageType: 'blunt' })).toBe('blunt');
+    expect(fxNameForSkill({ id: 'stab', damageType: 'piercing' })).toBe('thrust-strike');
+    expect(fxNameForSkill({ id: 'stealth', damageType: 'piercing' })).toBe('stealth');
+    expect(fxNameForSkill({ id: 'not-a-skill', damageType: 'slashing' })).toBeNull();
+    expect(fxNameForSkill({ id: 'basic:magic-thing', damageType: 'magic' })).toBeNull();  // magic 线无普攻特效
+  });
+
+  it('登记与 public/art/fx 物理文件一致（登记制不漂移，33 张）', () => {
+    const dir = resolve(process.cwd(), 'public/art/fx');
+    expect(existsSync(dir), 'fx 目录存在').toBe(true);
+    const files = new Set(readdirSync(dir).filter(f => f.endsWith('.png')));
+    const registered = new Set(Object.values(FX_ART));
+    expect(registered.size).toBe(33);
+    expect(allFxPaths()).toHaveLength(33);   // 预载清单与登记同基数
+    for (const f of registered) expect(files.has(f), `已登记文件存在：fx/${f}`).toBe(true);
+    for (const f of files) expect(registered.has(f), `目录文件已登记：fx/${f}`).toBe(true);
   });
 });

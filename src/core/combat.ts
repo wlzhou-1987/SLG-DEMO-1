@@ -50,6 +50,7 @@ export function attackSide(
 
 export interface StrikeForecast {
   skillName: string;
+  skillId: string;    // R16-2 表现层逐击选特效（普攻 = basic:<武器> 前缀）
   damageType: DamageType;
   side: PartSide;
   damage: number;   // 单次命中伤害（预报值，非暴击）
@@ -191,7 +192,7 @@ export function calcStrike(
     + atkTraits.reduce((s, id) => s + (TRAIT_CONFIGS[id]?.critCapBonus ?? 0), 0);
 
   return {
-    skillName: skill.name, damageType: skill.damageType, side, damage, hitRate, count: 1, rangePenalty,
+    skillName: skill.name, skillId: skill.id, damageType: skill.damageType, side, damage, hitRate, count: 1, rangePenalty,
     critRate: calcCritRate(attacker, atkT, defender, defT, { overflow: critOverflow, capBonus: critCapBonus }),
     critDamage,
     mustCrit: skill.critOverride === true
@@ -296,6 +297,8 @@ export interface StrikeResult {
   absorbed: number;  // 护盾吸收部分（表现层区分扣血与吸收）
   side: PartSide;
   skillName: string;
+  skillId: string;      // R16-2 表现层逐击选特效
+  damageType: DamageType;
 }
 
 export interface BattleResult {
@@ -338,7 +341,7 @@ export function resolveBattle(
     }
     attackerHp = attacker.hp;
     defenderHp = defender.hp;
-    strikes.push({ byAttacker, hit, crit, damage, absorbed, side: s.side, skillName: s.skillName });
+    strikes.push({ byAttacker, hit, crit, damage, absorbed, side: s.side, skillName: s.skillName, skillId: s.skillId, damageType: s.damageType });
     if (hit) {
       // R5-2 资源积攒（§4.13）：攻击者命中入池（怒任意攻击/专与MP仅普攻）、受击方回怒；R7-1 暴击额外怒气
       const striker = byAttacker ? attacker : defender;

@@ -26,7 +26,7 @@ const originalDocument = globalThis.document;
 
 function strike(over: Partial<StrikeForecast>): StrikeForecast {
   return {
-    skillName: '普攻', damageType: 'slashing', side: 'front',
+    skillName: '普攻', skillId: 'basic:longsword', damageType: 'slashing', side: 'front',
     damage: 10, hitRate: 90, count: 1,
     critRate: 35, critDamage: 20, mustCrit: false,
     ...over

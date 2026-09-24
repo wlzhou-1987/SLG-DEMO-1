@@ -398,7 +398,7 @@
 | issue | 内容与验收 | 状态 |
 | --- | --- | --- |
 | R16-1 | 地形贴图接入（配置+渲染）：4 张满铺贴图迁入 public/art/terrain（文件名 = TerrainType 强约定）+ art.ts TERRAIN_ART/terrainArtPath 登记（Partial 登记制，未登记返 null）+ drawTerrain 贴图分支（六边形裁切满铺；未登记/未就绪/失败回落色块+矢量图案；战前画布同源自动生效）。验收：新增 ≥5 测试；npm test 全绿；build 无错；浏览器像素验证 | ✅ 已完成（2026-09-24，commit 75d8012，TDD 红→绿 5 测试〔config 3：4 地形全量登记与文件名合法 / terrainArtPath 相对路径与未登记返 null / 登记与 public/art/terrain 物理文件双向一致——登记制不漂移；render 2：就绪每格 drawImage（4 格 4 次）/ 未登记回落无 drawImage——R9 图案层保留〕；迁入 = sips -Z 512（4 张共 1.4MB，母本留 art-samples 未跟踪）；全量 518 绿、build 无错、dist/art/terrain 4 张随构建复制；浏览器实证〔vite 5173 + browser-use：art/terrain 四请求全 200——战前视口 plain/forest、开战缩放后 mountain/base 进视口即请求；画布唯一色 5bit 量化 748~1146（矢量自绘不可能量级，drawImage 分支生效）；控制台零错误〕；贴图满铺观感无视觉模型自查，须用户目验） |
-| R16-2 | 特效管线与全量映射（render+config）：33 张迁入 public/art/fx（sips 512）+ art.ts FX 登记（普攻 damageType 三线自动/id 映射表/通用反馈 4 键）+ 单帧闪现状态机（约一格宽快速淡出、世界系随 zoom、SpriteCache 复用）+ 挂点五处（playStrikes 逐击/法术/AoE 逐目标/行为技能自身格/阵亡）。验收：≥5 测试（登记完整性/普攻三线映射/未登记不播/闪现状态机参数）；npm test 全绿；build 无错；浏览器像素验证命中特效在盘 | 待开发 |
+| R16-2 | 特效管线与全量映射（render+config）：33 张迁入 public/art/fx（sips 512）+ art.ts FX 登记（普攻 damageType 三线自动/id 映射表/通用反馈 4 键）+ 单帧闪现状态机（约一格宽快速淡出、世界系随 zoom、SpriteCache 复用）+ 挂点五处（playStrikes 逐击/法术/AoE 逐目标/行为技能自身格/阵亡）。验收：≥5 测试（登记完整性/普攻三线映射/未登记不播/闪现状态机参数）；npm test 全绿；build 无错；浏览器像素验证命中特效在盘 | 开发中 |
 | R16-3 | 图标接入 sidepanel+prep（ui+config）：32 张迁入 public/art/icon（sips 256；icon-debuff 超前不登记、icon-lance→spear 映射）+ art.ts ICON 登记 + ui 图标 helper（缺失/失败回落文字）+ sidepanel 五处 + prep 声明图标化。验收：DOM 桩 ≥6（五处渲染/声明图标/回落文字）；npm test 全绿；build 无错；浏览器验证五处图标 | 待开发 |
 | R16-4 | 标识两张（render+config）：marker 迁入 + art.ts MARKER 登记 + prep-board 部署区叠加半透明 + hex-renderer 增援点常驻（§6 配置 point 去重、开战后显示）。验收：≥3 测试（登记/叠加绘制/增援点集合）；npm test 全绿；build 无错；浏览器像素验证 | 待开发 |
 

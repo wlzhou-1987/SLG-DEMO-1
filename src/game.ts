@@ -24,6 +24,9 @@ import type { RosterEntry } from './core/deployment';
 import { Camera } from './render/camera';
 import { HexRenderer, HEX_SIZE, FACTION_COLORS } from './render/hex-renderer';
 import { EffectSystem, FLOAT_COLOR } from './render/effects';
+import { FxSystem } from './render/fx';
+import { spriteCache } from './render/sprite-cache';
+import { fxPath, fxNameForSkill, FX_COMMON, allFxPaths } from './config/art';
 import { Animator, LUNGE_MS, FLASH_MS, STRIKE_GAP_MS } from './render/animator';
 import { InputHandler } from './render/input';
 import { updateTopbar } from './ui/topbar';
@@ -63,6 +66,7 @@ export class Game {
   private camera = new Camera();
   private renderer: HexRenderer;
   private effects = new EffectSystem();
+  private fx = new FxSystem();
   private animator = new Animator();
   private animating = false;
   private busy = false;  // 动画播放中，画布点击忽略
@@ -83,6 +87,8 @@ export class Game {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d')!;
     this.renderer = new HexRenderer(this.ctx);
+    // R16-2 特效预载：触发 SpriteCache 懒加载，首次命中即就绪
+    for (const p of allFxPaths()) spriteCache.get(p);
 
     this.map = createMapState(MAP_OVERRIDES);
     const playerRoster: RosterEntry[] = roster ?? PLAYER_UNITS;
@@ -356,6 +362,7 @@ export class Game {
     if (!payCost(unit, skill)) return;  // R5-1 行为技能消耗（潜行 30 专注）
     // R3-9：行为技能统一执行器（潜行/防御姿态/祝福/战斗怒吼/嗜血）
     const msg = executeBehavior(unit, skill, this.units);
+    this.playFx(fxNameForSkill(skill), unit.position);   // R16-2 行为技能自身格特效
     if (msg) logBattle(`${this.unitName(unit)} ${msg.replace(`${unit.id} `, '')}`);
     if (skill.instant) {
       this.openActionMenu(unit, originPos ?? unit.position);
@@ -417,7 +424,7 @@ export class Game {
       if (!t) continue;
       await this.playStrikes(unit, t, [{
         byAttacker: true, hit: r.hit, crit: r.crit, damage: r.damage, absorbed: r.absorbed,
-        side: r.forecast.side, skillName: skill.name
+        side: r.forecast.side, skillName: skill.name, skillId: skill.id, damageType: skill.damageType
       }]);
     }
     logBattle(`${this.unitName(unit)} 释放 ${skill.name}，命中 ${results.filter(r => r.hit).length}/${results.length}`);
@@ -540,10 +547,11 @@ export class Game {
     if (spellResult.kind === 'damage') {
       await this.playStrikes(unit, target, [{
         byAttacker: true, hit: spellResult.hit === true, crit: spellResult.crit === true,
-        damage: spellResult.damage, absorbed: 0, side: spellResult.side, skillName: spell.name
+        damage: spellResult.damage, absorbed: 0, side: spellResult.side, skillName: spell.name,
+        skillId: spell.id, damageType: spell.damageType
       }]);
     } else {
-      this.showSpellResult(unit, target, spell.name, hpBefore, spellResult);
+      this.showSpellResult(unit, target, spell, hpBefore, spellResult);
     }
 
     if (this.victory !== 'ongoing') {
@@ -609,6 +617,16 @@ export class Game {
     this.kickAnimLoop();
   }
 
+  /** R16-2 单帧特效闪现（§7.4）：无特效名/未登记不播 */
+  private playFx(name: string | null | undefined, pos: HexCoord): void {
+    if (!name) return;
+    const p = fxPath(name);
+    if (!p) return;
+    const world = axialToPixel(pos, HEX_SIZE);
+    this.fx.spawn(p, world.x, world.y, performance.now());
+    this.kickAnimLoop();
+  }
+
   private sleep(ms: number): Promise<void> {
     return new Promise(r => setTimeout(r, ms));
   }
@@ -627,7 +645,8 @@ export class Game {
       this.camera.tick(now - lastMs);
       lastMs = now;
       this.effects.prune(now);
-      if (!this.effects.active(now) && !this.animator.active(now) && !this.camera.animating()) {
+      this.fx.prune(now);
+      if (!this.effects.active(now) && !this.fx.active(now) && !this.animator.active(now) && !this.camera.animating()) {
         this.animating = false;
         this.render();
         return;
@@ -665,6 +684,9 @@ export class Game {
       if (s.hit) {
         this.animator.startFlash(def.id, performance.now());
         this.animator.startShake(def.id, performance.now());
+        this.playFx(fxNameForSkill({ id: s.skillId, damageType: s.damageType }), def.position);   // R16-2 技能/普攻线特效
+        if (s.crit) this.playFx(FX_COMMON.crit, def.position);
+        if (s.absorbed > 0) this.playFx(FX_COMMON.shieldBreak, def.position);
         const hpLoss = s.damage - s.absorbed;
         // R7-2 暴击标记：飘字前缀 + 战报「暴击！」
         if (hpLoss > 0) this.floatText(s.crit ? `暴击-${hpLoss}` : `-${hpLoss}`, s.crit ? FLOAT_COLOR.crit : FLOAT_COLOR.damage, def.position);
@@ -674,6 +696,7 @@ export class Game {
           (hpLoss > 0 ? ` -${hpLoss}` : '') + (s.absorbed > 0 ? `（盾吸收 ${s.absorbed}）` : '')
         );
       } else {
+        this.playFx(FX_COMMON.miss, def.position);               // R16-2 落空特效
         this.floatText('MISS', FLOAT_COLOR.miss, def.position);
         logBattle(`${this.unitName(atk)}·${s.skillName} → ${this.unitName(def)} 落空`);
       }
@@ -688,6 +711,7 @@ export class Game {
     if (dead.length === 0) return;
     for (const u of dead) {
       const world = axialToPixel(u.position, HEX_SIZE);
+      this.playFx(FX_COMMON.death, u.position);   // R16-2 阵亡消散特效（叠加于幽灵淡出之上）
       this.animator.startGhost(
         u.templateId,
         u.faction === 'player' ? FACTION_COLORS.player : FACTION_COLORS.enemy,
@@ -701,29 +725,42 @@ export class Game {
     this.kickAnimLoop();
   }
 
-  /** 法术结算飘字与日志：伤害/MISS/治疗/状态施加（过量治疗只显示实际回复） */
-  private showSpellResult(caster: UnitState, target: UnitState, skillName: string, hpBefore: number, result: SpellResult): void {
+  /** 法术结算飘字/特效与日志：伤害/MISS/治疗/状态施加（过量治疗只显示实际回复）；R16-2 起携 spell 供特效映射 */
+  private showSpellResult(caster: UnitState, target: UnitState, spell: SpellTemplate, hpBefore: number, result: SpellResult): void {
+    const skillName = spell.name;
+    const fxN = fxNameForSkill(spell);
     const c = this.unitName(caster), t = this.unitName(target);
     if (result.kind === 'damage') {
       if (result.hit) {
+        this.playFx(fxN, target.position);
+        if (result.crit) this.playFx(FX_COMMON.crit, target.position);
         this.floatText(result.crit ? `暴击-${result.damage}` : `-${result.damage}`,
           result.crit ? FLOAT_COLOR.crit : FLOAT_COLOR.damage, target.position);
         logBattle(`${c}·${skillName} → ${t} ${result.crit ? '暴击！' : ''}命中 -${result.damage}`);
       } else {
+        this.playFx(FX_COMMON.miss, target.position);
         this.floatText('MISS', FLOAT_COLOR.miss, target.position);
         logBattle(`${c}·${skillName} → ${t} 落空`);
       }
     } else if (result.kind === 'heal') {
+      this.playFx(fxN, target.position);
       const healed = result.targetHp - hpBefore;
       if (healed > 0) this.floatText(`+${healed}`, FLOAT_COLOR.heal, target.position);
       logBattle(`${c}·${skillName} → ${t} 回复 +${healed}`);
     } else if (result.kind === 'regen') {
+      this.playFx(fxN, target.position);
       logBattle(`${c}·${skillName} → ${t} 获得再生（每回合 +${result.healPerTurn}·${result.turns} 回合）`);
     } else if (result.kind === 'shield') {
+      this.playFx(fxN, target.position);
       logBattle(`${c}·${skillName} → ${t} 获得护盾（吸收 ${result.absorb}·${result.turns} 回合）`);
     } else if (result.kind === 'dot') {
-      if (result.hit) logBattle(`${c}·${skillName} → ${t} 中咒（每回合 -${result.damagePerTurn}，共 ${result.turns} 回合）`);
-      else logBattle(`${c}·${skillName} → ${t} 落空`);
+      if (result.hit) {
+        this.playFx(fxN, target.position);
+        logBattle(`${c}·${skillName} → ${t} 中咒（每回合 -${result.damagePerTurn}，共 ${result.turns} 回合）`);
+      } else {
+        this.playFx(FX_COMMON.miss, target.position);
+        logBattle(`${c}·${skillName} → ${t} 落空`);
+      }
     }
     // R12-1 虔诚溅射展示：与主结算同构（治疗飘字 + 战报行）
     const sp = result.splash;
@@ -922,6 +959,12 @@ export class Game {
             for (const r of aoeResults) {
               const t = this.units.find(u => u.id === r.targetId);
               if (!t) continue;
+              if (r.hit) {
+                this.playFx(fxNameForSkill(e.spell), t.position);      // R16-2 AoE 法术逐目标特效
+                if (r.crit) this.playFx(FX_COMMON.crit, t.position);
+              } else {
+                this.playFx(FX_COMMON.miss, t.position);
+              }
               this.floatText(r.hit ? (r.crit ? `暴击-${r.damage}` : `-${r.damage}`) : 'MISS',
                 r.hit ? (r.crit ? FLOAT_COLOR.crit : FLOAT_COLOR.damage) : FLOAT_COLOR.miss, t.position);
               if (caster.faction === 'player' && t.faction === 'enemy') {
@@ -933,7 +976,7 @@ export class Game {
             // 目标先亡则法术落空（§4.12）
             const hpBefore = target.hp;
             const r = resolveSpell(this.map, caster, target, e.spell, this.units);
-            this.showSpellResult(caster, target, e.spell.name, hpBefore, r);
+            this.showSpellResult(caster, target, e.spell, hpBefore, r);
             if (caster.faction === 'player' && target.faction === 'enemy') {
               provokeGroup(this.units, target);
             }
@@ -944,6 +987,7 @@ export class Game {
           if (caster && target && target.hp > 0) {
             const hpBefore = target.hp;
             resolveChargeStrike(this.map, caster, target, e.skill);
+            this.playFx(fxNameForSkill(e.skill), target.position);   // R16-2 蓄力触发特效
             if (hpBefore > target.hp) {
               this.floatText(`-${hpBefore - target.hp}`, FLOAT_COLOR.damage, target.position);
             }
@@ -1064,6 +1108,7 @@ export class Game {
       this.renderer.drawSelectionIndicator(this.phase.unit.position, this.camera);
     }
 
+    this.fx.draw(this.ctx, HEX_SIZE, performance.now());
     this.effects.draw(this.ctx, this.camera, performance.now());
     this.renderer.resetView();
   };

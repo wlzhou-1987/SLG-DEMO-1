@@ -1277,7 +1277,7 @@ describe('R7-1 暴击核心结算', () => {
   });
 
   it('expectedDamage：E = 命中率×(非暴×(1−p)+暴伤×p)；mustCrit p=1', () => {
-    const s = { skillName: 'x', damageType: 'slashing' as const, side: 'front' as const, damage: 10, critDamage: 20, hitRate: 50, count: 1, critRate: 20, mustCrit: false };
+    const s = { skillName: 'x', skillId: 'x', damageType: 'slashing' as const, side: 'front' as const, damage: 10, critDamage: 20, hitRate: 50, count: 1, critRate: 20, mustCrit: false };
     expect(expectedDamage(s)).toBeCloseTo(0.5 * (10 * 0.8 + 20 * 0.2));  // 6
     expect(expectedDamage({ ...s, mustCrit: true })).toBeCloseTo(0.5 * 20);  // 10
   });
@@ -1436,5 +1436,23 @@ describe('R21 反击射程统一（守方有效射程判定，§4.4/§4.5）', (
     expect(f2.counter?.hitRate).toBe(88);
     expect(f3.counter?.hitRate).toBe(73);
     expect(f3.counter?.rangePenalty).toBe(15);
+  });
+});
+
+describe('R16-2 StrikeResult 携带技能身份（表现层逐击选特效，§7.4）', () => {
+  beforeEach(() => resetUnitCounter());
+
+  const map = createMapState();
+
+  it('攻方与反击击均携带 skillId/damageType（普攻 = basic:<武器> 前缀）', () => {
+    const attacker = createUnitState('lord', 'player', { q: 10, r: 15 });
+    const defender = createUnitState('swordsman', 'enemy', { q: 11, r: 15 });
+    const r = resolveBattle(map, attacker, defender, basicAttackSkill(getTemplate('lord')!), hitNoCrit());
+    expect(r.strikes.length).toBeGreaterThanOrEqual(2);
+    for (const s of r.strikes) {
+      expect(s.skillId.startsWith('basic:')).toBe(true);
+      expect(s.damageType).toBe('slashing');
+    }
+    expect(r.strikes[0].skillId).toBe(r.strikes[1].skillId);   // 双方同为长剑普攻
   });
 });
