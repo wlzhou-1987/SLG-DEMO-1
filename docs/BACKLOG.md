@@ -416,7 +416,7 @@
 - 一句话：HP 条正下方细条（3px）按比例显示 UnitState.resources——配色 MP 天蓝 #66c2ff / 怒气橙 #ff8c42 / 专注金 #ffd75e（渲染常量 RESOURCE_COLORS，与阵营环/HP 三档色拉开距离）；怒气 0 空起=空槽只显底色属规则语义；世界系绘制随 zoom 等比
 - 完成记录（2026-09-24）：TDD 红→绿 2 测试（专注半仓几何+颜色、怒气空仓前景宽 0），FakeCtx fillRect 升级为记录样式与几何（过程坑：类体内重复定义 fillRect 后者覆盖前者、专注上限为 100 非直觉小值——测试改按 max 取半仓）；全量 513 绿、build 无错；浏览器像素实证：开局 MP 蓝 198px、专注金 495px 在盘、怒气橙 0px（空起符合规则）、控制台零错误；GAME-DESIGN §7.4/ARCHITECTURE 回写
 
-### R21 反击射程口径统一（状态：开发中）
+### R21 反击射程口径统一（状态：✅ 已完成 2026-09-24）
 - 来源：R17 附带发现（反击择优用裸 rangeMax；2026-09-24 用户定夺修复统一）
 - 一句话：反击资格按守方**有效射程**判定——pickCounterSkill 接 effectiveRangeMax，全链路（目标选择/AI/显示/反击）口径一致
 - 设计结论（定稿 2026-09-24）：
@@ -427,7 +427,7 @@
 
 | issue | 内容与验收 | 状态 |
 | --- | --- | --- |
-| R21-1 | pickCounterSkill 射程判定接 effectiveRangeMax。验收：新增 ≥3 测试（延伸守方 3 格反击存在/无延伸守方维持无反击/延伸反击吃 −15 惩罚）；npm test 全绿（sim 逐种子不变）；build 无错；GAME-DESIGN 反击口径句回写 | 开发中 |
+| R21-1 | pickCounterSkill 射程判定接 effectiveRangeMax。验收：新增 ≥3 测试（延伸守方 3 格反击存在/无延伸守方维持无反击/延伸反击吃 −15 惩罚）；npm test 全绿（sim 逐种子不变）；build 无错；GAME-DESIGN 反击口径句回写 | ✅ 已完成（2026-09-24，commit a9d4c9f，TDD 红→绿〔存在性与延伸惩罚两测试红→119 绿〕，新增 3 测试、全量 521 绿、build 无错、**sim 13 胜 7 败 0 平逐种子不变**（等价锚兑现——当前内容不可触发）；实现 = combat.ts:223 一处判定改 effectiveRangeMax(defT, skill, undefined, defender.loadout.passive)，注释同步；测试注入 3 格物理技能 test-volley 构造同构场景（内容暂无射程 3 敌方）；GAME-DESIGN §4.3 反击块增「反击射程口径」句、ARCHITECTURE combat 条目同步；R17 附带发现就此闭合 |
 
 ### R22 地形移动数据驱动化（状态：待开发）
 - 来源：R6-1 范围外发现（getMoveCost/isPassable 硬编码地形名；2026-09-24 用户定夺数据驱动化）
