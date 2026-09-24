@@ -208,7 +208,7 @@ function firstStrikeThresholdFor(passives: readonly string[]): number {
   return t;
 }
 
-/** 守方反击技能：普攻恒入候选，射程覆盖攻方位置者中期望伤害最高（§4.3/§4.9；R7-1 起期望含暴击） */
+/** 守方反击技能：普攻恒入候选，有效射程（§4.4 属性/特性加成，R21；地形不读同 R17 显示口径）覆盖攻方位置者中期望伤害最高（§4.3/§4.9；R7-1 起期望含暴击） */
 function pickCounterSkill(
   map: MapState,
   defender: UnitState,
@@ -220,7 +220,7 @@ function pickCounterSkill(
   let best: SkillTemplate | null = null;
   let bestScore = -1;
   for (const skill of [...basicAttackSkills(defender.equipment), ...getTemplateSkills(defT)]) {
-    if (dist < skill.rangeMin || dist > skill.rangeMax) continue;
+    if (dist < skill.rangeMin || dist > effectiveRangeMax(defT, skill, undefined, defender.loadout.passive)) continue;
     const strike = calcStrike(map, defender, defT, attacker, atkT, skill);
     const score = expectedDamage(strike);  // 与 AI 择优同式（§4.3：精确期望，暴伤经防御后置）
     if (score > bestScore) {

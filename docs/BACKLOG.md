@@ -415,3 +415,29 @@
 - 来源：用户需求「棋子需要在生命值下方增加职业对应资源条（魔法、怒气、专注）」（2026-09-24，轻量路径）
 - 一句话：HP 条正下方细条（3px）按比例显示 UnitState.resources——配色 MP 天蓝 #66c2ff / 怒气橙 #ff8c42 / 专注金 #ffd75e（渲染常量 RESOURCE_COLORS，与阵营环/HP 三档色拉开距离）；怒气 0 空起=空槽只显底色属规则语义；世界系绘制随 zoom 等比
 - 完成记录（2026-09-24）：TDD 红→绿 2 测试（专注半仓几何+颜色、怒气空仓前景宽 0），FakeCtx fillRect 升级为记录样式与几何（过程坑：类体内重复定义 fillRect 后者覆盖前者、专注上限为 100 非直觉小值——测试改按 max 取半仓）；全量 513 绿、build 无错；浏览器像素实证：开局 MP 蓝 198px、专注金 495px 在盘、怒气橙 0px（空起符合规则）、控制台零错误；GAME-DESIGN §7.4/ARCHITECTURE 回写
+
+### R21 反击射程口径统一（状态：开发中）
+- 来源：R17 附带发现（反击择优用裸 rangeMax；2026-09-24 用户定夺修复统一）
+- 一句话：反击资格按守方**有效射程**判定——pickCounterSkill 接 effectiveRangeMax，全链路（目标选择/AI/显示/反击）口径一致
+- 设计结论（定稿 2026-09-24）：
+  - 反击资格 = 守方有效射程覆盖攻方位置：属性/特性加成计入（effectiveRangeMax 同参透传 loadout.passive，R12-2 口径）、地形加成不读（同 R17 显示口径——本期 4 地形 rangeBonus 均 0）
+  - 延伸格反击自动吃递增距离惩罚（惩罚基准仍为技能基础射程，§4.4 既有规则零改动）
+  - 现状核实：combat.ts:223 裸 `skill.rangeMax`，为 R17 三处接入后的最后一处未接；当前内容敌方无射程 3 单位（敌弓 str17/敌法 mag19 均不达标）不可触发——修复属口径统一非平衡改动，sim 逐种子应不变（等价锚）
+- 排期：轻量路径单 issue，本对话完成
+
+| issue | 内容与验收 | 状态 |
+| --- | --- | --- |
+| R21-1 | pickCounterSkill 射程判定接 effectiveRangeMax。验收：新增 ≥3 测试（延伸守方 3 格反击存在/无延伸守方维持无反击/延伸反击吃 −15 惩罚）；npm test 全绿（sim 逐种子不变）；build 无错；GAME-DESIGN 反击口径句回写 | 开发中 |
+
+### R22 地形移动数据驱动化（状态：待开发）
+- 来源：R6-1 范围外发现（getMoveCost/isPassable 硬编码地形名；2026-09-24 用户定夺数据驱动化）
+- 一句话：getMoveCost/isPassable 改读 `TERRAIN_CONFIGS.moveCost`，消除"侧栏显示配置值、寻路走硬编码值"的双真源，兑现 R6「消费点只读字段不认地形名」定稿的唯一违例
+- 设计结论（定稿 2026-09-24）：
+  - moveCost === Infinity ⇔ 地面不可通行（山现值即 Infinity，语义自洽）；flying 分支保留（全地形代价 1、可过山）
+  - 行为等价迁移：配置现值与硬编码一致（plain 1 / forest 2 / mountain ∞ / base 1），sim 逐种子应不变
+  - GAME-DESIGN 规则无变化（地形数值与不可通行规则不变），不动
+- 排期：轻量路径单 issue，本对话完成（R21 后）
+
+| issue | 内容与验收 | 状态 |
+| --- | --- | --- |
+| R22-1 | getMoveCost/isPassable 改读配置。验收：新增 ≥2 测试（mutate 配置值寻路跟随〔红〕/等价锚）；npm test 全绿（sim 逐种子不变）；build 无错；ARCHITECTURE map.ts 条目同步 | 待开发 |

@@ -1395,3 +1395,46 @@ describe('R2-3 反击择优武器维度（多武器守方期望择优，§4.14�
     expect(f.counter?.skillName).toBe('匕首·普攻');    // 18×1.2−11=10 > 必杀 8、背刺/影袭 9
   });
 });
+
+describe('R21 反击射程统一（守方有效射程判定，§4.4/§4.5）', () => {
+  beforeEach(() => resetUnitCounter());
+
+  const map = createMapState();
+  // 3 格物理技能内容暂无（敌方远程 3 单位未出），测试注入同构场景
+  const volley: SkillTemplate = {
+    id: 'test-volley', name: '测试远射', target: 'enemy', damageType: 'piercing',
+    rangeMin: 1, rangeMax: 3, weaponType: 'bow', learnable: false
+  };
+
+  it('延伸守方（弓箭 str19 ≥ 19）3 格外被攻有资格反击', () => {
+    const attacker = createUnitState('swordsman', 'enemy', { q: 8, r: 15 });
+    const defender = createUnitState('archer', 'player', { q: 11, r: 15 });  // 长弓 2 +1 = 3
+    const f = calcBattleForecast(map, attacker, defender, volley);
+    expect(f.counter).not.toBeNull();
+  });
+
+  it('无延伸守方（敌弓 str17 < 19）维持无反击', () => {
+    const attacker = createUnitState('swordsman', 'enemy', { q: 8, r: 15 });
+    const defender = createUnitState('archer_enemy', 'enemy', { q: 11, r: 15 });
+    const f = calcBattleForecast(map, attacker, defender, volley);
+    expect(f.counter).toBeNull();
+  });
+
+  it('延伸格反击吃递增距离惩罚：3 格命中 = 2 格 − 15（惩罚基准 = 基础射程 2）', () => {
+    // 剥鹰眼避免 +30 顶格不可分辨；攻方朝西（4）使反击命中正面部位（补正 0）
+    const bare = { active: [] as string[], passive: [] as string[] };
+    const mkAttacker = (q: number) => {
+      const a = createUnitState('archer_enemy', 'enemy', { q, r: 15 });
+      a.facing = 4;
+      return a;
+    };
+    const d2 = createUnitState('archer', 'player', { q: 11, r: 15 }, bare);
+    const d3 = createUnitState('archer', 'player', { q: 11, r: 15 }, bare);
+    // 敌弓回避 (12+7)×3=57；反击命中 = 50 + 19×5 − 57 = 88（2 格）/ 73（3 格，超程 1 格 −15）
+    const f2 = calcBattleForecast(map, mkAttacker(13), d2, volley);
+    const f3 = calcBattleForecast(map, mkAttacker(14), d3, volley);
+    expect(f2.counter?.hitRate).toBe(88);
+    expect(f3.counter?.hitRate).toBe(73);
+    expect(f3.counter?.rangePenalty).toBe(15);
+  });
+});
