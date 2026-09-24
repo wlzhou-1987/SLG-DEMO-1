@@ -9,8 +9,10 @@ import { equipmentAtoms, WEAPONS, WEAPON_SLOT_LIMIT } from '../config/weapons';
 import { getJob } from '../config/jobs';
 import { artPath } from '../config/art';
 import { portraitMarkup } from './portrait';
+import { iconSpan } from './icon';
+import type { WeaponAtom, ResourceType } from '../config/skills';
 
-/** 通用池条目视图（R3-5 UI 渲染与测试驱动） */
+/** 通用池条目视图（R3-5 UI 渲染与测试驱动；R16-3 增声明字段供图标化） */
 export interface PoolItemView {
   id: string;
   name: string;
@@ -18,6 +20,9 @@ export interface PoolItemView {
   kind: PoolEntryKind;
   blocked: LearnBlockReason | null;
   full: boolean;
+  weaponType?: WeaponAtom | readonly WeaponAtom[];   // 声明（R16-3 图标化）
+  resourceType?: ResourceType;
+  cost?: number;
 }
 
 /** 武器条目清单视图（R2-5：全注册表混排、类别不符置灰） */
@@ -236,7 +241,10 @@ export function createPrepScreen(
         desc: e.entry.desc ?? '',
         kind: e.kind,
         blocked: learnBlockReason(t, effEq, e),
-        full: eff[group].length >= SLOT_LIMITS[group]
+        full: eff[group].length >= SLOT_LIMITS[group],
+        weaponType: e.entry.weaponType,
+        resourceType: e.entry.resourceType,
+        cost: (e.entry as { cost?: number }).cost
       };
     });
   }
@@ -273,11 +281,19 @@ export function createPrepScreen(
     const eff = getEffectiveLoadout(selectedId);
     const nameOf = (id: string): string => resolveSkill(id)?.name ?? getTrait(id)?.name ?? id;
     const descOf = (id: string): string => resolveSkill(id)?.desc ?? getTrait(id)?.desc ?? '';
+    // R16-3 声明图标：武器原子（one-of 逐个）+ 资源图标与消耗
+    const declIcons = (et: { weaponType?: WeaponAtom | readonly WeaponAtom[]; resourceType?: ResourceType; cost?: number } | undefined): string => {
+      if (!et) return '';
+      const wt = Array.isArray(et.weaponType) ? et.weaponType : (et.weaponType ? [et.weaponType] : []);
+      const wIcons = wt.map(w => iconSpan(w)).join('');
+      const rIcon = et.cost !== undefined && et.resourceType ? `${iconSpan(et.resourceType)}${et.cost}` : '';
+      return wIcons || rIcon ? ` <span class="decl-icons">${wIcons}${rIcon}</span>` : '';
+    };
     const slotGroup = (kind: 'active' | 'passive'): string => {
       const ids = [...eff[kind]];
       const limit = SLOT_LIMITS[kind];
       const items = ids.map((id, i) =>
-        `<li><span class="slot-name">${nameOf(id)}</span><small class="slot-desc">${descOf(id)}</small> <button class="slot-remove" data-remove="${kind}:${i}">×</button></li>`).join('');
+        `<li><span class="slot-name">${nameOf(id)}</span>${declIcons(resolveSkill(id) ?? getTrait(id))}<small class="slot-desc">${descOf(id)}</small> <button class="slot-remove" data-remove="${kind}:${i}">×</button></li>`).join('');
       const addBtn = ids.length < limit
         ? `<li class="slot-add" data-add="${kind}">＋ 添加</li>` : '';
       return `<div class="slot-group"><h4>${kind === 'active' ? '主动技能' : '被动技能'}（${ids.length}/${limit}）</h4><ul>${items}${addBtn}</ul></div>`;
@@ -290,12 +306,12 @@ export function createPrepScreen(
         if (v.full) tags.push('已满');
         const disabled = v.blocked !== null || v.full ? ' blocked' : '';
         const descLine = v.desc ? `<div class="pool-item-desc">${v.desc}</div>` : '';
-        return `<div class="pool-item${disabled}" data-pool-id="${v.id}">${v.name} <small>[${tags.join('·')}]</small>${descLine}</div>`;
+        return `<div class="pool-item${disabled}" data-pool-id="${v.id}">${v.name}${declIcons(v)} <small>[${tags.join('·')}]</small>${descLine}</div>`;
       }).join('');
       poolHtml = `<div class="pool-list">${rows || '<p class="dim">池中无可学条目</p>'}</div>`;
     }
     skillBlock.innerHTML =
-      `<h3>技能配置 · ${t.name}（${equipmentAtoms(getEffectiveEquipment(selectedId)).map(w => WEAPON_LABELS[w] ?? w).join('/')}）</h3>` +
+      `<h3>技能配置 · ${t.name}（${equipmentAtoms(getEffectiveEquipment(selectedId)).map(w => iconSpan(w, WEAPON_LABELS[w] ?? w)).join('')}）</h3>` +
       slotGroup('active') + slotGroup('passive') + poolHtml;
   }
 
@@ -309,7 +325,7 @@ export function createPrepScreen(
     const eq = getEffectiveEquipment(selectedId);
     const items = eq.map((id, i) => {
       const w = WEAPONS[id];
-      return `<li>${w?.name ?? id} <button class="slot-remove" data-eq-remove="${i}">×</button></li>`;
+      return `<li>${iconSpan(w?.weaponType)} ${w?.name ?? id} <button class="slot-remove" data-eq-remove="${i}">×</button></li>`;
     }).join('');
     const addBtn = eq.length < WEAPON_SLOT_LIMIT
       ? `<li class="slot-add" data-eq-add>＋ 添加</li>` : '';
@@ -318,7 +334,7 @@ export function createPrepScreen(
       const rows = equipmentEntries(selectedId).map(v => {
         const tags = v.blocked ? ' <small>[类别不符]</small>' : '';
         const disabled = v.blocked ? ' blocked' : '';
-        return `<div class="pool-item${disabled}" data-eq-id="${v.id}">${v.name}${tags}</div>`;
+        return `<div class="pool-item${disabled}" data-eq-id="${v.id}">${iconSpan(WEAPONS[v.id]?.weaponType)} ${v.name}${tags}</div>`;
       }).join('');
       listHtml = `<div class="pool-list">${rows}</div>`;
     }

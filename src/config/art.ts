@@ -161,3 +161,54 @@ export function fxNameForSkill(skill: { id: string; damageType: DamageType }): s
 export function allFxPaths(): string[] {
   return Object.values(FX_ART).map(f => `${ART_ROOT}/fx/${f}`);
 }
+
+/**
+ * UI 图标登记（R16-3，§7.3/§7.0/§7.5）：键 = 语义键（武器原子/资源/伤害线/护甲/兵种标签/状态），
+ * 值 = public/art/icon/ 文件名；未登记 → null → UI 回落文字。
+ * icon-lance.png ↔ weaponType `spear` 映射；icon-status-debuff 超前（core 无 debuff 状态类型）不登记。
+ */
+export const ICON_ART: Record<string, string> = {
+  // 武器原子 8（icon-lance 对应 weaponType spear）
+  sword: 'icon-sword.png',
+  shield: 'icon-shield.png',
+  hammer: 'icon-hammer.png',
+  dagger: 'icon-dagger.png',
+  spear: 'icon-lance.png',
+  axe: 'icon-axe.png',
+  bow: 'icon-bow.png',
+  staff: 'icon-staff.png',
+  // 主资源 3
+  rage: 'icon-rage.png',
+  focus: 'icon-focus.png',
+  mp: 'icon-mp.png',
+  // 伤害线 3（物理；法术 magic 无图不显示）
+  slashing: 'icon-dmg-slash.png',
+  piercing: 'icon-dmg-thrust.png',
+  blunt: 'icon-dmg-blunt.png',
+  // 护甲 4（暂无消费点，登记在册备 forecast 克制明细等未来落点）
+  'armor-none': 'icon-armor-none.png',
+  'armor-light': 'icon-armor-light.png',
+  'armor-medium': 'icon-armor-medium.png',
+  'armor-heavy': 'icon-armor-heavy.png',
+  // 兵种标签 6（键 = UnitTag 值）
+  infantry: 'icon-tag-infantry.png',
+  cavalry: 'icon-tag-cavalry.png',
+  flying: 'icon-tag-flying.png',
+  heavy: 'icon-tag-heavy.png',
+  monster: 'icon-tag-monster.png',
+  dragon: 'icon-tag-dragon.png',
+  // 状态 8（键 = status-<type>；dot 状态复用 burn 图）
+  'status-chant': 'icon-status-channel.png',
+  'status-charge': 'icon-status-charge.png',
+  'status-stealth': 'icon-status-stealth.png',
+  'status-burn': 'icon-status-burn.png',
+  'status-buff': 'icon-status-buff.png',
+  'status-shield': 'icon-status-shield.png',
+  'status-regen': 'icon-status-regen.png',
+  'status-stance': 'icon-status-stance.png'
+};
+
+export function iconPath(key: string): string | null {
+  const file = ICON_ART[key];
+  return file ? `${ART_ROOT}/icon/${file}` : null;
+}

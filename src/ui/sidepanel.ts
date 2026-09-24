@@ -1,20 +1,21 @@
 import type { UnitState } from '../core/unit';
 import { getUnitActiveSkills } from '../core/unit';
 import { effectiveRangeMax } from '../core/combat';
-import type { ArmorType, DamageType, TerrainType } from '../core/types';
+import type { ArmorType, TerrainType } from '../core/types';
 import { getTemplate, isFlying } from '../config/units';
 import { basicAttackSkills, WEAPONS } from '../config/weapons';
 import { getJob } from '../config/jobs';
 import { TERRAIN_CONFIGS } from '../config/terrain';
 import { getTrait } from '../config/traits';
 import { portraitMarkup } from './portrait';
+import { iconSpan } from './icon';
 
 const ARMOR_LABELS: Record<ArmorType, string> = {
   none: '无甲', light: '轻甲', medium: '中甲', heavy: '重甲'
 };
 
-const DAMAGE_LABELS: Record<DamageType, string> = {
-  piercing: '穿刺', slashing: '斩击', blunt: '钝击', magic: '法术'
+const TAG_LABELS: Record<string, string> = {
+  infantry: '步兵', cavalry: '骑兵', flying: '飞行', heavy: '重甲', monster: '魔物', dragon: '龙'
 };
 
 const RESOURCE_LABEL: Record<string, string> = { rage: '怒气', focus: '专注', mp: 'MP' };
@@ -38,14 +39,17 @@ export function showUnitInfo(unit: UnitState): void {
 
   const factionLabel = unit.faction === 'player' ? '我方' : '敌方';
   // 有效射程 = 基础 + 属性/特性加成（§4.4）；地形加成不读（口径同选中叠层）
+  // R16-3：伤害类型图标化（物理三线有图；法术/治疗线 magic 无图不显示）
   const skills = [...basicAttackSkills(unit.equipment), ...getUnitActiveSkills(unit)]
     .map(s => {
       const rMax = effectiveRangeMax(template, s, undefined, unit.loadout.passive);
-      return `<li>${s.name}（${DAMAGE_LABELS[s.damageType]}·射程 ${s.rangeMin}-${rMax}）</li>`;
+      return `<li>${iconSpan(s.damageType)} ${s.name}（射程 ${s.rangeMin}-${rMax}）</li>`;
     })
     .join('');
 
-  const statuses = unit.statuses.map(s => {
+  // R16-3：状态图标（键 = status-<type>，dot 复用 burn 图）
+  const statusIcon = (type: string) => iconSpan(type === 'dot' ? 'status-burn' : `status-${type}`);
+  const statusText = (s: UnitState['statuses'][number]): string => {
     if (s.type === 'shield') return `秘银护盾（吸收 ${s.absorbLeft}·剩 ${s.turnsLeft} 回合）`;
     if (s.type === 'chant') return `咏唱 ${s.skillName}（剩 ${s.turnsLeft} 回合）`;
     if (s.type === 'regen') return `再生（每回合 +${s.healPerTurn}·剩 ${s.turnsLeft} 回合）`;
@@ -55,7 +59,9 @@ export function showUnitInfo(unit: UnitState): void {
     if (s.type === 'stance') return '防御姿态（防御提升·移动取消）';
     if (s.type === 'charge') return `蓄力 ${s.skillName}（剩 ${s.turnsLeft} 回合）`;
     if (s.type === 'dot') return `${s.skillName}（每回合 -${s.damagePerTurn}·剩 ${s.turnsLeft} 回合）`;
-  }).map(s => `<li>${s}</li>`).join('');
+    return '';
+  };
+  const statuses = unit.statuses.map(s => `<li>${statusIcon(s.type)} ${statusText(s)}</li>`).join('');
 
   const traits = [...unit.loadout.passive]
     .map(id => getTrait(id))
@@ -75,9 +81,9 @@ export function showUnitInfo(unit: UnitState): void {
     `<tr><td>速度</td><td>${template.spd}</td><td>技巧</td><td>${template.tec}</td></tr>` +
     `<tr><td>幸运</td><td>${template.lck}</td><td>护甲</td><td>${ARMOR_LABELS[template.armor]}</td></tr>` +
     `<tr><td>移动</td><td>${template.movePoints}</td><td>飞行</td><td>${isFlying(template) ? '是' : '否'}</td></tr>` +
-    `<tr><td>标签</td><td>${template.unitTags.join('·')}</td></tr>` +
-    `<tr><td>装备</td><td>${unit.equipment.map(id => WEAPONS[id]?.name ?? id).join('·')}</td></tr>` +
-    `<tr><td>主资源</td><td>${RESOURCE_LABEL[job.resourceType] ?? job.resourceType} ${unit.resources.current}/${unit.resources.max}</td></tr>` +
+    `<tr><td>标签</td><td>${template.unitTags.map(tg => iconSpan(tg, TAG_LABELS[tg])).join(' ')}</td></tr>` +
+    `<tr><td>装备</td><td>${unit.equipment.map(id => `${iconSpan(WEAPONS[id]?.weaponType)} ${WEAPONS[id]?.name ?? id}`).join('·')}</td></tr>` +
+    `<tr><td>主资源</td><td>${iconSpan(job.resourceType, RESOURCE_LABEL[job.resourceType])} ${unit.resources.current}/${unit.resources.max}</td></tr>` +
     `</table>` +
     (statuses ? `<h4>当前状态</h4><ul>${statuses}</ul>` : '') +
     (traits ? `<h4>特性</h4><ul>${traits}</ul>` : '') +

@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ART_ASSETS, artPath, TERRAIN_ART, terrainArtPath, FX_ART, FX_BY_SKILL_ID, FX_COMMON, fxPath, fxNameForSkill, allFxPaths } from '../../src/config/art';
+import { ART_ASSETS, artPath, TERRAIN_ART, terrainArtPath, FX_ART, FX_BY_SKILL_ID, FX_COMMON, fxPath, fxNameForSkill, allFxPaths, ICON_ART, iconPath } from '../../src/config/art';
 import { SKILLS } from '../../src/config/skills';
 import { SPELLS } from '../../src/config/spells';
 import type { ArtKind } from '../../src/config/art';
@@ -126,5 +126,37 @@ describe('R16-2 战斗特效登记（art.ts 扩展，§7.4/§7.5）', () => {
     expect(allFxPaths()).toHaveLength(33);   // 预载清单与登记同基数
     for (const f of registered) expect(files.has(f), `已登记文件存在：fx/${f}`).toBe(true);
     for (const f of files) expect(registered.has(f), `目录文件已登记：fx/${f}`).toBe(true);
+  });
+});
+
+describe('R16-3 UI 图标登记（art.ts 扩展，§7.3/§7.0/§7.5）', () => {
+  it('语义键集 = 武器 8 + 资源 3 + 伤害线 3 + 护甲 4 + 兵种标签 6 + 状态 8 = 32；icon-lance 映射 spear、debuff 超前不在册', () => {
+    expect(Object.keys(ICON_ART)).toHaveLength(32);
+    for (const k of ['sword', 'shield', 'hammer', 'dagger', 'spear', 'axe', 'bow', 'staff',
+      'rage', 'focus', 'mp',
+      'slashing', 'piercing', 'blunt',
+      'armor-none', 'armor-light', 'armor-medium', 'armor-heavy',
+      'infantry', 'cavalry', 'flying', 'heavy', 'monster', 'dragon',
+      'status-chant', 'status-charge', 'status-stealth', 'status-burn', 'status-buff', 'status-shield', 'status-regen', 'status-stance']) {
+      expect(ICON_ART[k], `${k} 已登记`).toMatch(/^icon-[a-z-]+\.png$/);
+    }
+    expect(ICON_ART['spear']).toBe('icon-lance.png');   // 文件名 lance ↔ weaponType spear
+    expect(ICON_ART['status-dot']).toBeUndefined();      // dot 共用 burn 图？——状态 8 键不含 dot，用 burn
+  });
+
+  it('iconPath：登记返回相对路径（base ./ 兼容 Electron file://），未登记返 null', () => {
+    expect(iconPath('sword')).toBe('art/icon/icon-sword.png');
+    expect(iconPath('magic')).toBeNull();       // 法术伤害线无图
+    expect(iconPath('status-debuff')).toBeNull(); // 超前无对应状态，不登记
+  });
+
+  it('登记与 public/art/icon 物理文件一致（登记制不漂移，32 张）', () => {
+    const dir = resolve(process.cwd(), 'public/art/icon');
+    expect(existsSync(dir), 'icon 目录存在').toBe(true);
+    const files = new Set(readdirSync(dir).filter(f => f.endsWith('.png')));
+    const registered = new Set(Object.values(ICON_ART));
+    expect(registered.size).toBe(32);
+    for (const f of registered) expect(files.has(f), `已登记文件存在：icon/${f}`).toBe(true);
+    for (const f of files) expect(registered.has(f), `目录文件已登记：icon/${f}`).toBe(true);
   });
 });

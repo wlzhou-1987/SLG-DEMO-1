@@ -335,11 +335,54 @@ describe('R2-5 战前装备区块（选人 → 槽 ×2 → 类别过滤清单 �
     prep.selectUnit('defender');
     const kids = (prep.root as unknown as { children: FakeElement[] }).children;
     const skillBlock = kids.find(c => c.className === 'prep-block skill-block')!;
-    expect(skillBlock.innerHTML).toContain('（剑/盾）');           // 出厂长剑+铁盾原子
+    expect(skillBlock.innerHTML).toContain('icon-sword.png');   // R16-3 头部原子图标化（出厂长剑+铁盾）
+    expect(skillBlock.innerHTML).toContain('icon-shield.png');
     prep.unequipWeapon('defender', 0);                              // 卸长剑 → [ironShield]
     expect(prep.equipWeapon('defender', 'ironShield')).toBe(true);  // 双持盾 → 原子仅盾
-    expect(skillBlock.innerHTML).toContain('（盾）');
+    expect(skillBlock.innerHTML).not.toContain('icon-sword.png');
+    expect(skillBlock.innerHTML).toContain('icon-shield.png');
     const entries = prep.poolEntries('defender');
     expect(entries.find(e => e.id === 'sweep')?.blocked).toBe('weapon');  // 过滤源 = 编辑装备
+  });
+});
+
+describe('R16-3 prep 声明图标化（池/槽条目与装备清单，§7.0）', () => {
+  function make() {
+    return createPrepScreen(() => {});
+  }
+  function blockOf(prep: ReturnType<typeof make>, className: string): FakeElement {
+    const kids = (prep.root as unknown as { children: FakeElement[] }).children;
+    return kids.find(c => c.className === className)!;
+  }
+
+  it('池条目视图携带声明（武器原子/资源/消耗）', () => {
+    const prep = make();
+    const stealth = prep.poolEntries('thief').find(e => e.id === 'stealth')!;
+    expect(stealth.resourceType).toBe('focus');
+    expect(stealth.cost).toBe(30);
+    const sweep = prep.poolEntries('lord').find(e => e.id === 'sweep')!;
+    expect(sweep.weaponType).toEqual(['hammer', 'axe']);
+  });
+
+  it('池清单渲染声明图标：资源图标（专注/MP）与武器原子图标', () => {
+    const prep = make();
+    prep.selectUnit('mage');
+    prep.addToSlot('mage', 'heal');                       // 池展开
+    const skill = blockOf(prep, 'prep-block skill-block');
+    expect(skill.innerHTML).toContain('src="art/icon/icon-mp.png"');       // 治疗声明 MP
+    const prep2 = make();
+    prep2.selectUnit('axeman');                           // 斧兵可学横扫（weaponType [锤,斧]）
+    prep2.addToSlot('axeman', 'sweep');
+    const skill2 = blockOf(prep2, 'prep-block skill-block');
+    expect(skill2.innerHTML).toContain('src="art/icon/icon-hammer.png"');
+    expect(skill2.innerHTML).toContain('src="art/icon/icon-axe.png"');     // 头部原子（战斧）与声明共用
+  });
+
+  it('装备清单与已装备槽渲染武器图标', () => {
+    const prep = make();
+    prep.selectUnit('paladin');                            // 出厂 = 战锤 + 铁盾
+    const eq = blockOf(prep, 'prep-block equip-block');
+    expect(eq.innerHTML).toContain('src="art/icon/icon-hammer.png"');
+    expect(eq.innerHTML).toContain('src="art/icon/icon-shield.png"');
   });
 });
