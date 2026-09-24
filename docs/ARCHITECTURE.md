@@ -66,15 +66,15 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 
 | 文件 | 职责（关键导出） | 设计章节 | 测试 |
 | --- | --- | --- | --- |
-| src/render/camera.ts | Camera 类：平移/以屏幕点为中心缩放/居中、屏幕↔世界坐标换算 | §5.3 | — |
-| src/render/hex-renderer.ts | HexRenderer 类：地形（色块+图案）/网格/单位（R9-1 底座圆盘 drawToken——BOSS 金环双圈+深盘心+阵营色环+盘心内**剪影/贴图**〔R15-4：sprite 登记且就绪则盘心 drawImage 圆窗满铺，未登记/未就绪/失败回落剪影〕、朝向三角 A 案、HP 条贴盘下缘、状态图标）/阵亡幽灵（圆盘+剪影/贴图同源）/范围覆盖/选中指示分层绘制；HEX_SIZE、FACTION_COLORS、R9 视觉常量 | §5.3/§7.4/§7.5 | tests/render/hex-renderer.test.ts |
+| src/render/camera.ts | Camera 类：平移/以屏幕点为中心缩放/居中、屏幕↔世界坐标换算；R19 顺滑缩放补间（setZoomTarget 目标倍率+光标不动点、tick 指数趋近、pan/zoomAt/centerOn 打断） | §5.3/§7.1 | tests/render/camera.test.ts |
+| src/render/hex-renderer.ts | HexRenderer 类：地形（色块+图案）/网格/单位（R9-1 底座圆盘 drawToken——BOSS 金环双圈+深盘心+阵营色环+盘心内**剪影/贴图**〔R15-4：sprite 登记且就绪则盘心 drawImage 圆窗满铺，未登记/未就绪/失败回落剪影〕、朝向三角 A 案、HP 条贴盘下缘、状态图标）/阵亡幽灵（圆盘+剪影/贴图同源）/范围覆盖/选中指示分层绘制；**R19 世界系绘制**（applyView/resetView 变换 + 世界包围盒视口裁剪，全要素随 zoom 等比）；HEX_SIZE、FACTION_COLORS、R9 视觉常量 | §5.3/§7.1/§7.4/§7.5 | tests/render/hex-renderer.test.ts |
 | src/render/sprite-cache.ts | 棋子贴图资源管理器（R15-4）：SpriteCache 按 URL 懒加载+缓存（loader 可注入、node 可测），未就绪/失败恒 null（失败=缺失同回落；无 Image 全局环境〔node 测试〕给永不就绪桩同回落）+ spriteCache 单例；clear 供测试/HMR | §5.3/§7.5 | tests/render/sprite-cache.test.ts |
 | src/render/silhouettes.ts | R9-1 兵种矢量剪影：14 形状绘制函数（SILHOUETTE_SHAPES，颜色由调用方预设）、SILHOUETTE_MAP 17 模板映射（敌我斧/弓/法共用）、getShapeId 未知回退剑士形、BOSS_SHAPE | §5.3 | tests/render/silhouettes.test.ts |
 | src/render/terrain-patterns.ts | R9-1 地形矢量图案：TERRAIN_PATTERNS 四地形各一绘制函数（草簇/双树/双峰/堡垒垛口拱门），图案色为模块常量 | §5.3 | tests/render/terrain-patterns.test.ts |
 | src/render/animator.ts | Animator 类：逐格移动滑行（途经点序列多段插值，R9-2）/受击抖动+闪烁/突进/登场渐入/阵亡幽灵动画状态机（GhostView 携 templateId 供剪影渲染），随时间自衰减；时长常量 STEP_MOVE_MS/SHAKE_MS/SHAKE_AMP 等 | §7.4 | tests/render/animator.test.ts |
-| src/render/effects.ts | EffectSystem 类：战场飘字（伤害/MISS/治疗/盾吸收/**暴击 R7-2 亮橙前缀「暴击-」**），世界坐标锚定随镜头移动；FLOAT_COLOR | §7.4 | tests/render/effects.test.ts |
+| src/render/effects.ts | EffectSystem 类：战场飘字（伤害/MISS/治疗/盾吸收/**暴击 R7-2 亮橙前缀「暴击-」**），世界坐标锚定（R19 世界系绘制，字号随 zoom 等比）；FLOAT_COLOR | §7.4 | tests/render/effects.test.ts |
 | src/render/input.ts | InputHandler 类：画布鼠标事件（点击/拖动/滚轮/双击/悬停），拖动阈值区分点击与平移；dispose 移除全部监听（战前画布让位时用） | §7.1 | — |
-| src/render/prep-board.ts | PrepBoard 类：战前画布——部署区高亮 + 我方站位渲染 + 点击调整（选中/移动/交换/区外 onInvalid），复用 Camera/HexRenderer/InputHandler | §7.0 | tests/render/prep-board.test.ts |
+| src/render/prep-board.ts | PrepBoard 类：战前画布——部署区高亮 + 我方站位渲染 + 点击调整（选中/移动/交换/区外 onInvalid），复用 Camera/HexRenderer/InputHandler（R19 render 同构 applyView/resetView 世界系包装） | §7.0 | tests/render/prep-board.test.ts |
 
 ### UI 层 src/ui/（HTML DOM，无框架）
 
