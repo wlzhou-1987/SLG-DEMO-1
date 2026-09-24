@@ -392,7 +392,7 @@
 
 | issue | 内容与验收 | 状态 |
 | --- | --- | --- |
-| R16-1 | 地形贴图接入（配置+渲染）：4 张满铺贴图迁入 public/art/terrain（文件名 = TerrainType 强约定）+ art.ts TERRAIN_ART/terrainArtPath 登记（Partial 登记制，未登记返 null）+ drawTerrain 贴图分支（六边形裁切满铺；未登记/未就绪/失败回落色块+矢量图案；战前画布同源自动生效）。验收：新增 ≥5 测试；npm test 全绿；build 无错；浏览器像素验证 | ✅ 已完成（2026-09-24，TDD 红→绿 5 测试〔config 3：4 地形全量登记与文件名合法 / terrainArtPath 相对路径与未登记返 null / 登记与 public/art/terrain 物理文件双向一致——登记制不漂移；render 2：就绪每格 drawImage（4 格 4 次）/ 未登记回落无 drawImage——R9 图案层保留〕；迁入 = sips -Z 512（4 张共 1.4MB，母本留 art-samples 未跟踪）；全量 518 绿、build 无错、dist/art/terrain 4 张随构建复制；浏览器实证〔vite 5173 + browser-use：art/terrain 四请求全 200——战前视口 plain/forest、开战缩放后 mountain/base 进视口即请求；画布唯一色 5bit 量化 748~1146（矢量自绘不可能量级，drawImage 分支生效）；控制台零错误〕；贴图满铺观感无视觉模型自查，须用户目验） |
+| R16-1 | 地形贴图接入（配置+渲染）：4 张满铺贴图迁入 public/art/terrain（文件名 = TerrainType 强约定）+ art.ts TERRAIN_ART/terrainArtPath 登记（Partial 登记制，未登记返 null）+ drawTerrain 贴图分支（六边形裁切满铺；未登记/未就绪/失败回落色块+矢量图案；战前画布同源自动生效）。验收：新增 ≥5 测试；npm test 全绿；build 无错；浏览器像素验证 | ✅ 已完成（2026-09-24，commit 75d8012，TDD 红→绿 5 测试〔config 3：4 地形全量登记与文件名合法 / terrainArtPath 相对路径与未登记返 null / 登记与 public/art/terrain 物理文件双向一致——登记制不漂移；render 2：就绪每格 drawImage（4 格 4 次）/ 未登记回落无 drawImage——R9 图案层保留〕；迁入 = sips -Z 512（4 张共 1.4MB，母本留 art-samples 未跟踪）；全量 518 绿、build 无错、dist/art/terrain 4 张随构建复制；浏览器实证〔vite 5173 + browser-use：art/terrain 四请求全 200——战前视口 plain/forest、开战缩放后 mountain/base 进视口即请求；画布唯一色 5bit 量化 748~1146（矢量自绘不可能量级，drawImage 分支生效）；控制台零错误〕；贴图满铺观感无视觉模型自查，须用户目验） |
 
 ### R17 有效射程显示层接入（状态：✅ 已完成 2026-09-23）
 - 来源：用户质询「弓手射程挂力量 / 法师射程挂魔力是否实际生效，尝试似乎未生效」（2026-09-23 排查）
