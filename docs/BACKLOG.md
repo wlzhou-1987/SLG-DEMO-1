@@ -429,7 +429,7 @@
 | --- | --- | --- |
 | R21-1 | pickCounterSkill 射程判定接 effectiveRangeMax。验收：新增 ≥3 测试（延伸守方 3 格反击存在/无延伸守方维持无反击/延伸反击吃 −15 惩罚）；npm test 全绿（sim 逐种子不变）；build 无错；GAME-DESIGN 反击口径句回写 | ✅ 已完成（2026-09-24，commit a9d4c9f，TDD 红→绿〔存在性与延伸惩罚两测试红→119 绿〕，新增 3 测试、全量 521 绿、build 无错、**sim 13 胜 7 败 0 平逐种子不变**（等价锚兑现——当前内容不可触发）；实现 = combat.ts:223 一处判定改 effectiveRangeMax(defT, skill, undefined, defender.loadout.passive)，注释同步；测试注入 3 格物理技能 test-volley 构造同构场景（内容暂无射程 3 敌方）；GAME-DESIGN §4.3 反击块增「反击射程口径」句、ARCHITECTURE combat 条目同步；R17 附带发现就此闭合 |
 
-### R22 地形移动数据驱动化（状态：待开发）
+### R22 地形移动数据驱动化（状态：✅ 已完成 2026-09-24）
 - 来源：R6-1 范围外发现（getMoveCost/isPassable 硬编码地形名；2026-09-24 用户定夺数据驱动化）
 - 一句话：getMoveCost/isPassable 改读 `TERRAIN_CONFIGS.moveCost`，消除"侧栏显示配置值、寻路走硬编码值"的双真源，兑现 R6「消费点只读字段不认地形名」定稿的唯一违例
 - 设计结论（定稿 2026-09-24）：
@@ -440,4 +440,4 @@
 
 | issue | 内容与验收 | 状态 |
 | --- | --- | --- |
-| R22-1 | getMoveCost/isPassable 改读配置。验收：新增 ≥2 测试（mutate 配置值寻路跟随〔红〕/等价锚）；npm test 全绿（sim 逐种子不变）；build 无错；ARCHITECTURE map.ts 条目同步 | 待开发 |
+| R22-1 | getMoveCost/isPassable 改读配置。验收：新增 ≥2 测试（mutate 配置值寻路跟随〔红〕/等价锚）；npm test 全绿（sim 逐种子不变）；build 无错；ARCHITECTURE map.ts 条目同步 | ✅ 已完成（2026-09-24，commit 4f9d3f4，TDD 红→绿〔两条 mutate 用例红〕，新增 3 测试〔森林改 3 寻路跟随/平原改 ∞ 地面阻飞行通/现值等价锚〕、全量 524 绿、build 无错、**sim 13 胜 7 败 0 平逐种子不变**〔等价迁移兑现〕；实现 = map.ts 两函数读 TERRAIN_CONFIGS.moveCost、flying 分支保留、删地形名分支；GAME-DESIGN 规则无变化不动；ARCHITECTURE map 条目同步；R6-1「范围外发现待议」就此闭合 |
