@@ -12,7 +12,7 @@ import { spriteCache } from './sprite-cache';
 import type { LoadedImage } from './sprite-cache';
 import { artPath } from '../config/art';
 
-export const HEX_SIZE = 24; // 六边形外接圆半径（像素）
+export const HEX_SIZE = 30; // 六边形外接圆半径（像素；R18 由 24 调大 25% 应对界面拥挤）
 
 export const FACTION_COLORS = { player: '#4a90d9', enemy: '#d94a4a' } as const;
 

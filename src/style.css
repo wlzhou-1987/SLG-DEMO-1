@@ -48,7 +48,7 @@ html, body {
 }
 
 #sidepanel {
-  width: 300px;
+  width: 260px;
   background: #1b202a;
   border-left: 1px solid #39414f;
   padding: 12px;
@@ -109,7 +109,7 @@ html, body {
   position: absolute;
   left: 16px;
   bottom: 16px;
-  width: 380px;
+  width: 340px;
   background: rgba(26, 31, 42, .96);
   border: 1px solid #56617a;
   border-radius: 8px;
