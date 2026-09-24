@@ -1,6 +1,7 @@
 import type { HexCoord, TerrainType } from './types';
 import { isValidHex } from './hex';
 import type { UnitState } from './unit';
+import { TERRAIN_CONFIGS } from '../config/terrain';
 
 export const MAP_WIDTH = 20;
 export const MAP_HEIGHT = 30;
@@ -56,7 +57,8 @@ export function isPassable(
 ): boolean {
   const terrain = getTerrain(map, pos);
   if (terrain === undefined) return false;
-  if (!flying && terrain === 'mountain') return false;
+  // R22 数据驱动：moveCost = Infinity ⇔ 地面不可通行（§3 消费点只读字段不认地形名）
+  if (!flying && TERRAIN_CONFIGS[terrain].moveCost === Infinity) return false;
   if (!flying) {
     const unit = units.find(u => u.position.q === pos.q && u.position.r === pos.r);
     if (unit) return false;
@@ -68,7 +70,5 @@ export function getMoveCost(map: MapState, pos: HexCoord, flying: boolean): numb
   const terrain = getTerrain(map, pos);
   if (terrain === undefined) return Infinity;
   if (flying) return 1;
-  if (terrain === 'mountain') return Infinity;
-  if (terrain === 'forest') return 2;
-  return 1;
+  return TERRAIN_CONFIGS[terrain].moveCost;
 }

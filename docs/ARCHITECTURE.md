@@ -30,7 +30,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | --- | --- | --- | --- |
 | src/core/types.ts | 全篇基础类型：HexCoord/PixelCoord/Facing/TerrainType/Faction/ArmorType/DamageType | §4.1 | —（纯类型） |
 | src/core/hex.ts | 六边形数学：neighbor/directionBetween/distance/inRange/ring、轴↔像素换算（axialToPixel/pixelToAxial）、hexCorners/isValidHex/facingToAngle | §3 | tests/core/hex.test.ts |
-| src/core/map.ts | 地图状态：createMapState（overrides 铺地形）、getTerrain/isPassable/getMoveCost；MAP_WIDTH/HEIGHT 常量 | §3 | tests/core/map.test.ts |
+| src/core/map.ts | 地图状态：createMapState（overrides 铺地形）、getTerrain/isPassable/getMoveCost（**R22 数据驱动**：移动代价/不可通行读 TERRAIN_CONFIGS.moveCost，moveCost=Infinity ⇔ 地面不可通行，不认地形名）；MAP_WIDTH/HEIGHT 常量 | §3 | tests/core/map.test.ts |
 | src/core/unit.ts | 单位实例：UnitState（含 moveSpent/statuses/loadout 技能装填·战斗内冻结/**equipment 装备数组**〔R2-2，编成/关卡传入或模板默认〕/resources 主资源槽〔R5-1〕/groupId/activated）、createUnitState（按编成或出厂装填初始化并冻结，资源按模板初始化；装备可显式覆盖默认并校验非法 throw〔R2-2；类别源 = JobConfig.equipmentClass，R2-4〕）、getUnitAt/getUnitActiveSkills（实例主动解析）/hasUnitTrait/resetUnitCounter | §4.1/§4.8/§4.9/§4.13/§4.14 | tests/core/unit.test.ts |
 | src/core/deployment.ts | 战前编成：RosterEntry（含可选技能装填 loadout/装备 equipment〔R2-2〕）/DeploymentRules、isInDeployZone、validateDeployment（区内/不重叠/模板存在与我方/不重复/人数上下限/必上模板，全参数化）、applyPlacement（站位调整：空格移动/被占交换） | §7.0 | tests/core/deployment.test.ts |
 | src/core/range.ts | 范围计算：calcMovementCosts（Dijkstra；R3-9 封锁邻格仅终点不扩展）、calcMovementRange、calcAttackRange、isBlockaded（fortify+姿态移动阻碍）、rebuildPath（R9-2 代价表反向回溯途经格序列，移动动效专用纯函数） | §3/§4.8/§4.7 | tests/core/range.test.ts |

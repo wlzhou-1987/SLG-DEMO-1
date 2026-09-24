@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createMapState, getTerrain, isPassable, getMoveCost, MAP_WIDTH, MAP_HEIGHT } from '../../src/core/map';
+import { TERRAIN_CONFIGS } from '../../src/config/terrain';
 import type { UnitState } from '../../src/core/unit';
 
 describe('map', () => {
@@ -118,5 +119,39 @@ describe('map', () => {
       });
       expect(getMoveCost(map, { q: 10, r: 15 }, false)).toBe(1);
     });
+  });
+});
+
+describe('R22 地形移动数据驱动（消费点只读配置不认地形名，§3）', () => {
+  it('getMoveCost 跟随 TERRAIN_CONFIGS.moveCost（改配置即生效）', () => {
+    const map = createMapState({ forests: [{ q: 5, r: 5 }] });
+    const original = TERRAIN_CONFIGS.forest.moveCost;
+    try {
+      TERRAIN_CONFIGS.forest.moveCost = 3;
+      expect(getMoveCost(map, { q: 5, r: 5 }, false)).toBe(3);
+    } finally {
+      TERRAIN_CONFIGS.forest.moveCost = original;
+    }
+  });
+
+  it('moveCost = Infinity ⇔ 地面不可通行（isPassable 跟随配置，飞行不受地形阻）', () => {
+    const map = createMapState();
+    const original = TERRAIN_CONFIGS.plain.moveCost;
+    try {
+      TERRAIN_CONFIGS.plain.moveCost = Infinity;
+      expect(isPassable(map, { q: 5, r: 5 }, false)).toBe(false);
+      expect(isPassable(map, { q: 5, r: 5 }, true)).toBe(true);
+      expect(getMoveCost(map, { q: 5, r: 5 }, true)).toBe(1);
+    } finally {
+      TERRAIN_CONFIGS.plain.moveCost = original;
+    }
+  });
+
+  it('等价锚：现值下山不可通行、森林代价 2、飞行全 1', () => {
+    const map = createMapState({ mountains: [{ q: 5, r: 5 }], forests: [{ q: 6, r: 5 }] });
+    expect(getMoveCost(map, { q: 5, r: 5 }, false)).toBe(Infinity);
+    expect(isPassable(map, { q: 5, r: 5 }, false)).toBe(false);
+    expect(getMoveCost(map, { q: 6, r: 5 }, false)).toBe(2);
+    expect(getMoveCost(map, { q: 5, r: 5 }, true)).toBe(1);
   });
 });
