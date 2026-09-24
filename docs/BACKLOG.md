@@ -384,15 +384,23 @@
 | R15-4 | 棋子贴图管线：渲染层资源管理器（预加载缓存）+ drawToken/drawGhosts 盘心贴图（圆形裁切），缺失/未就绪回落剪影，底座体系全保留。验收：新增 ≥3 测试（资源管理器、缺失回落、幽灵同源）；npm test 全绿；build 无错；浏览器像素验证（贴图进盘心、战前画布同步生效） | ✅ 已完成（2026-09-23，4ccef8b，TDD 红→绿 7 新测试〔SpriteCache 4：null 不加载/未就绪 null+就绪命中不重建/失败负缓存恒 null/clear 重载 + hex-renderer 3：未登记无 drawImage/登记就绪盘心 drawImage/幽灵同源——globalThis.Image 桩注入〕，全量 496 绿、build 无错；drawToken 增 sprite 参数盘心分支〔圆 clip 内 drawImage 满铺，未就绪/失败走原剪影路径〕，战前画布复用 drawUnits 自动生效；**当前 sprite 零登记 = 全量剪影回落**（样张无真透明），管线就绪待透明底棋子供给；浏览器像素实证：盘心剪影 90px + 蓝环 156px 采样在位、未走贴图分支；过程教训：测试中一处丑陋 TS 断言 vitest 不报而 build 揪出（tsc 在 build 侧），已简化） |
 | R15-5 | 胜负结算浮层（§7.4 结算画面做实）：胜方阵营代表立绘（我方=领主/敌方=BOSS）+ 回合数 + 双方存活统计，立绘缺失回落头像。验收：DOM 桩测试 ≥3（胜/败两态、统计内容、立绘回落）；npm test 全绿；build 无错；浏览器验证两态 | ✅ 已完成（2026-09-23，09d989e，TDD 红→绿 3 新测试〔胜态领主立绘+回合/存活统计/败态 BOSS 立绘/立绘缺失回落 art-fb-on〕，全量 499 绿、build 无错；src/ui/gameover.ts〔go-art 内嵌 portraitMarkup 三级链，standing 加载失败 onerror 显头像回落〕，game.ts enterGameOver 接入〔存活数按 faction 过滤〕；浏览器不可达路径（需打完整局）由 DOM 桩覆盖、同组件同链实证，如实标注见条目级记录；ARCHITECTURE 条目同步） |
 
-### R16 美术二期：地形/特效/图标（状态：进行中——R16-1 地形已接入 2026-09-24；特效/图标待设计，供给已齐 2026-09-23）
-- 来源：首批美术样张超出 R15 三类范围的部分（docs/prototypes/art-samples/MANIFEST.md B/C/D 共 67 张，2026-09-23 用户定夺登记）
+### R16 美术二期：地形/特效/图标（状态：进行中——R16-1 ✅ 2026-09-24；特效/图标/标识设计定稿 2026-09-24，R16-2/3/4 已拆解待开发）
+- 来源：首批美术样张超出 R15 三类范围的部分（docs/prototypes/art-samples/MANIFEST.md B/C/D，2026-09-23 用户定夺登记）
 - 一句话：地形贴图与标识（6）、战斗特效单帧（32）、UI 图标（29）三类美术的接入设计——播放入口、替换范围、与 R9 矢量图案/现有文字标签的关系、回落策略均待设计（地形部分随 R16-1 定稿：贴图优先 + R9 矢量回落，§7.5 登记制扩展）
 - **供给补齐（2026-09-23）**：对照配置层核查出缺额 5 张并生成（gpt-image-2 同通道）——fx-sweep（skills.ts 20 技能唯一无 fx 的 sweep 横扫）、icon-tag-monster/icon-tag-dragon（units.ts UnitTag 6 种，图标原仅 4 种）、icon-status-regen/icon-status-stance（core/status.ts 8 状态，图标原仅 7 种且 debuff 超前无对应状态）；B/C/D 三类现 72 张全量程序化抠图透明底（icon/marker 256、fx 512，边缘 flood-fill + 边界去色晕，成品与工具在 art-samples/cutout、art-samples/tools，未跟踪）；地形 4 张不需透明（满铺）。特效/图标接入设计（目录约定、播放入口、回落）仍待设计，迁入 public/art 随设计轮
-- 设计结论：地形 = §7.5 登记制扩第四类 terrain（满铺方图、六边形裁切、R9 矢量图案保留为回落）；特效/图标待设计
+- 设计结论：地形 = §7.5 登记制扩第四类 terrain（满铺方图、六边形裁切、R9 矢量图案保留为回落），已随 R16-1 落地；**特效/图标/标识设计定稿（2026-09-24 用户逐项确认，规则真源 = §7.4/§7.5/§7.3/§7.0）**：
+  - **特效（33 张）**：单帧闪现叠加（约一格宽、快速淡出，时长/曲线实现期定）与飘字/受击抖动/闪白**共存不替代**；全量接入——普攻按 damageType 三线自动映射、技能 20/法术 6/行为技能按 id 登记映射、通用反馈 4（crit/miss/shield-break 有盾吸收即播/death 叠加于阵亡淡出）；挂点 = playStrikes 逐击（含反击/追击）/ 法术与 AoE 逐目标 / 行为技能施放者格 / 阵亡；SpriteCache 复用、世界系随 zoom 等比；未登记/未就绪/加载失败**不播**（区别于图标的文字回落）
+  - **图标（32/33 张）**：sidepanel 五处（主资源 3/状态 8/兵种标签 6/装备武器 8/技能列表物理三线伤害类型——法术治疗线无图不显示）+ prep 声明图标化（池/槽条目资源消耗+武器原子、装备清单武器图标；类型标签[技能/法术/被动]保持文字）；action-menu 与 forecast 克制明细保持文字；缺失/加载失败回落现有文字；icon-lance 映射 weaponType `spear`、icon-debuff 超前无对应状态不登记
+  - **标识（2 张）**：marker-deploy 半透明叠加于 prep 部署区绿色高亮（「区内可落位」交互语义色保留）；marker-reinforce 开战后战斗画布常驻显示全部增援刷新点（§6 配置 point），战前画布不显示——增援情报开战才获得（用户定夺）
+  - 目录与登记：public/art/{fx,icon,marker}/<name>.png，art.ts 集中登记制扩展三类（R16-1 先例）；fx 512/icon 256/marker 256 透明底
+- 排期：R16-2 → R16-3/R16-4（后两项相互独立可并行）
 
 | issue | 内容与验收 | 状态 |
 | --- | --- | --- |
 | R16-1 | 地形贴图接入（配置+渲染）：4 张满铺贴图迁入 public/art/terrain（文件名 = TerrainType 强约定）+ art.ts TERRAIN_ART/terrainArtPath 登记（Partial 登记制，未登记返 null）+ drawTerrain 贴图分支（六边形裁切满铺；未登记/未就绪/失败回落色块+矢量图案；战前画布同源自动生效）。验收：新增 ≥5 测试；npm test 全绿；build 无错；浏览器像素验证 | ✅ 已完成（2026-09-24，commit 75d8012，TDD 红→绿 5 测试〔config 3：4 地形全量登记与文件名合法 / terrainArtPath 相对路径与未登记返 null / 登记与 public/art/terrain 物理文件双向一致——登记制不漂移；render 2：就绪每格 drawImage（4 格 4 次）/ 未登记回落无 drawImage——R9 图案层保留〕；迁入 = sips -Z 512（4 张共 1.4MB，母本留 art-samples 未跟踪）；全量 518 绿、build 无错、dist/art/terrain 4 张随构建复制；浏览器实证〔vite 5173 + browser-use：art/terrain 四请求全 200——战前视口 plain/forest、开战缩放后 mountain/base 进视口即请求；画布唯一色 5bit 量化 748~1146（矢量自绘不可能量级，drawImage 分支生效）；控制台零错误〕；贴图满铺观感无视觉模型自查，须用户目验） |
+| R16-2 | 特效管线与全量映射（render+config）：33 张迁入 public/art/fx（sips 512）+ art.ts FX 登记（普攻 damageType 三线自动/id 映射表/通用反馈 4 键）+ 单帧闪现状态机（约一格宽快速淡出、世界系随 zoom、SpriteCache 复用）+ 挂点五处（playStrikes 逐击/法术/AoE 逐目标/行为技能自身格/阵亡）。验收：≥5 测试（登记完整性/普攻三线映射/未登记不播/闪现状态机参数）；npm test 全绿；build 无错；浏览器像素验证命中特效在盘 | 待开发 |
+| R16-3 | 图标接入 sidepanel+prep（ui+config）：32 张迁入 public/art/icon（sips 256；icon-debuff 超前不登记、icon-lance→spear 映射）+ art.ts ICON 登记 + ui 图标 helper（缺失/失败回落文字）+ sidepanel 五处 + prep 声明图标化。验收：DOM 桩 ≥6（五处渲染/声明图标/回落文字）；npm test 全绿；build 无错；浏览器验证五处图标 | 待开发 |
+| R16-4 | 标识两张（render+config）：marker 迁入 + art.ts MARKER 登记 + prep-board 部署区叠加半透明 + hex-renderer 增援点常驻（§6 配置 point 去重、开战后显示）。验收：≥3 测试（登记/叠加绘制/增援点集合）；npm test 全绿；build 无错；浏览器像素验证 | 待开发 |
 
 ### R17 有效射程显示层接入（状态：✅ 已完成 2026-09-23）
 - 来源：用户质询「弓手射程挂力量 / 法师射程挂魔力是否实际生效，尝试似乎未生效」（2026-09-23 排查）
