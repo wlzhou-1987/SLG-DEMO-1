@@ -16,6 +16,9 @@ export const HEX_SIZE = 30; // 六边形外接圆半径（像素；R18 由 24 �
 
 export const FACTION_COLORS = { player: '#4a90d9', enemy: '#d94a4a' } as const;
 
+/** R20 主资源条配色（与阵营环/HP 三档色拉开距离：天蓝/橙/金） */
+export const RESOURCE_COLORS = { mp: '#66c2ff', rage: '#ff8c42', focus: '#ffd75e' } as const;
+
 // R9-1 视觉定稿常量（基准 docs/prototypes/r9-visual.html）
 const GRID_COLOR = '#1c2128';
 const TOKEN_DISK_COLOR = '#20262f';
@@ -144,6 +147,15 @@ export class HexRenderer {
       this.ctx.fillRect(barX, barY, barWidth, barHeight);
       this.ctx.fillStyle = hpRatio > 0.5 ? '#4ade80' : hpRatio > 0.25 ? '#fbbf24' : '#ef4444';
       this.ctx.fillRect(barX, barY, barWidth * hpRatio, barHeight);
+
+      // R20 主资源条（HP 条正下方，职业资源：MP/怒气/专注）
+      const resRatio = unit.resources.current / unit.resources.max;
+      const resY = barY + barHeight + 1;
+      const resHeight = 3;
+      this.ctx.fillStyle = '#333333';
+      this.ctx.fillRect(barX, resY, barWidth, resHeight);
+      this.ctx.fillStyle = RESOURCE_COLORS[unit.resources.type];
+      this.ctx.fillRect(barX, resY, barWidth * resRatio, resHeight);
 
       // 状态标记（§7.4：盘上方黄字 + 剩余回合）
       if (unit.statuses.length > 0) {
