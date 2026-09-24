@@ -7,7 +7,7 @@ import { axialToPixel, hexCorners, facingToAngle } from '../core/hex';
 import { getTerrain } from '../core/map';
 import { TERRAIN_CONFIGS } from '../config/terrain';
 import { TERRAIN_PATTERNS } from './terrain-patterns';
-import { terrainArtPath } from '../config/art';
+import { terrainArtPath, markerPath } from '../config/art';
 import { SILHOUETTE_SHAPES, getShapeId, BOSS_SHAPE } from './silhouettes';
 import { spriteCache } from './sprite-cache';
 import type { LoadedImage } from './sprite-cache';
@@ -88,9 +88,34 @@ export class HexRenderer {
     }
   }
 
+  /**
+   * 战场标识（R16-4，§7.4/§7.5）：按 hexKey 格集半透明叠加 marker 贴图（世界系、视口裁剪）；
+   * 未登记/未就绪/失败不画。deploy = 战前部署区（叠加于绿高亮之上），reinforce = 增援点常驻。
+   */
+  drawMarkers(
+    keys: Set<string>,
+    camera: Camera,
+    canvasWidth: number,
+    canvasHeight: number,
+    marker: 'deploy' | 'reinforce',
+    alpha = 0.45
+  ) {
+    const img = spriteCache.get(markerPath(marker));
+    if (!img) return;
+    const vb = this.viewBounds(camera, canvasWidth, canvasHeight);
+    const s = this.hexSize * 1.6;
+    this.ctx.globalAlpha = alpha;
+    for (const key of keys) {
+      const [qStr, rStr] = key.split(',');
+      const world = axialToPixel({ q: parseInt(qStr), r: parseInt(rStr) }, this.hexSize);
+      if (world.x < vb.x0 || world.x > vb.x1 || world.y < vb.y0 || world.y > vb.y1) continue;
+      this.ctx.drawImage(img as CanvasImageSource, world.x - s / 2, world.y - s / 2, s, s);
+    }
+    this.ctx.globalAlpha = 1;
+  }
+
   /** 绘制网格线 */
-  drawGrid(map: MapState, camera: Camera, canvasWidth: number, canvasHeight: number) {
-    this.ctx.strokeStyle = GRID_COLOR;
+  drawGrid(map: MapState, camera: Camera, canvasWidth: number, canvasHeight: number) {    this.ctx.strokeStyle = GRID_COLOR;
     this.ctx.lineWidth = 1;
 
     const vb = this.viewBounds(camera, canvasWidth, canvasHeight);

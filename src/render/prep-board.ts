@@ -64,6 +64,7 @@ export class PrepBoard {
     this.renderer.drawTerrain(this.map, this.camera, w, h);
     this.renderer.drawGrid(this.map, this.camera, w, h);
     this.renderer.drawRangeOverlay(this.zoneKeys(), this.camera, '#4ade80', w, h);
+    this.renderer.drawMarkers(this.zoneKeys(), this.camera, w, h, 'deploy', 0.35);   // R16-4 部署区标识叠加（绿高亮语义保留）
     const viewUnits = this.cb.getRoster().map(e => createUnitState(e.templateId, 'player', e.position));
     this.renderer.drawUnits(viewUnits, this.camera, w, h);
     if (this.selected) this.renderer.drawSelectionIndicator(this.selected, this.camera);

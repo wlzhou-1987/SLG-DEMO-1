@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { ART_ASSETS, artPath, TERRAIN_ART, terrainArtPath, FX_ART, FX_BY_SKILL_ID, FX_COMMON, fxPath, fxNameForSkill, allFxPaths, ICON_ART, iconPath } from '../../src/config/art';
+import { ART_ASSETS, artPath, TERRAIN_ART, terrainArtPath, FX_ART, FX_BY_SKILL_ID, FX_COMMON, fxPath, fxNameForSkill, allFxPaths, ICON_ART, iconPath, MARKER_ART, markerPath } from '../../src/config/art';
 import { SKILLS } from '../../src/config/skills';
 import { SPELLS } from '../../src/config/spells';
 import type { ArtKind } from '../../src/config/art';
@@ -158,5 +158,22 @@ describe('R16-3 UI 图标登记（art.ts 扩展，§7.3/§7.0/§7.5）', () => {
     expect(registered.size).toBe(32);
     for (const f of registered) expect(files.has(f), `已登记文件存在：icon/${f}`).toBe(true);
     for (const f of files) expect(registered.has(f), `目录文件已登记：icon/${f}`).toBe(true);
+  });
+});
+
+describe('R16-4 战场标识登记（art.ts 扩展，§7.4/§7.5）', () => {
+  it('deploy/reinforce 两键登记，markerPath 相对路径（base ./ 兼容 Electron file://）', () => {
+    expect(markerPath('deploy')).toBe('art/marker/marker-deploy.png');
+    expect(markerPath('reinforce')).toBe('art/marker/marker-reinforce.png');
+  });
+
+  it('登记与 public/art/marker 物理文件一致（登记制不漂移，2 张）', () => {
+    const dir = resolve(process.cwd(), 'public/art/marker');
+    expect(existsSync(dir), 'marker 目录存在').toBe(true);
+    const files = new Set(readdirSync(dir).filter(f => f.endsWith('.png')));
+    const registered = new Set(Object.values(MARKER_ART));
+    expect(registered.size).toBe(2);
+    for (const f of registered) expect(files.has(f), `已登记文件存在：marker/${f}`).toBe(true);
+    for (const f of files) expect(registered.has(f), `目录文件已登记：marker/${f}`).toBe(true);
   });
 });

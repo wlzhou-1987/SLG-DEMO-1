@@ -1,10 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { PrepBoard } from '../../src/render/prep-board';
 import { createMapState } from '../../src/core/map';
 import { MAP_OVERRIDES, DEPLOY_ZONE } from '../../src/config/map';
 import { Camera } from '../../src/render/camera';
 import { HEX_SIZE } from '../../src/render/hex-renderer';
 import { axialToPixel } from '../../src/core/hex';
+import { MARKER_ART } from '../../src/config/art';
+import { spriteCache } from '../../src/render/sprite-cache';
 import type { HexCoord } from '../../src/core/types';
 import type { RosterEntry } from '../../src/core/deployment';
 import type { MapState } from '../../src/core/map';
@@ -135,5 +137,67 @@ describe('PrepBoard 渲染清屏（拖动残影修复）', () => {
     const before = calls.length;
     board.render();
     expect(calls[before]).toEqual({ prop: 'fillRect', args: [0, 0, CANVAS_W, CANVAS_H] });
+  });
+});
+
+describe('R16-4 部署区标识叠加（prep-board，§7.0）', () => {
+  class MarkerCtx {
+    drawImageCalls = 0;
+    fillStyles: string[] = [];
+    globalAlpha = 1;
+    fillStyle = '';
+    strokeStyle = '';
+    font = '';
+    lineWidth = 1;
+    beginPath(): void {}
+    arc(): void {}
+    moveTo(): void {}
+    lineTo(): void {}
+    closePath(): void {}
+    fill(): void { this.fillStyles.push(this.fillStyle); }
+    stroke(): void {}
+    fillText(): void {}
+    fillRect(): void {}
+    clip(): void {}
+    save(): void {}
+    restore(): void {}
+    setTransform(): void {}
+    translate(): void {}
+    drawImage(): void { this.drawImageCalls++; }
+  }
+  class MarkerImage { complete = true; naturalWidth = 256; src = ''; }
+  const originalImage = (globalThis as { Image?: unknown }).Image;
+
+  afterEach(() => {
+    (globalThis as { Image?: unknown }).Image = originalImage;
+    spriteCache.clear();
+  });
+
+  function makeCtxBoard(): MarkerCtx {
+    const ctx = new MarkerCtx();
+    (globalThis as { Image?: unknown }).Image = MarkerImage as unknown as typeof Image;
+    spriteCache.clear();   // 前序用例可能在无 Image 环境缓存了永不就绪桩，装桩后重置
+    const canvas = {
+      width: 0, height: 0,
+      getContext: (): unknown => ctx,
+      addEventListener: (): void => {},
+      parentElement: { clientWidth: 800, clientHeight: 600 }
+    } as unknown as HTMLCanvasElement;
+    new PrepBoard(canvas, createMapState(MAP_OVERRIDES) as MapState, {
+      getRoster: () => [], onChange: () => {}, onInvalid: () => {}
+    });
+    return ctx;
+  }
+
+  it('marker 登记就绪：render 含标识贴图（计数高于剥除基线），绿高亮保留', () => {
+    const withMarker = makeCtxBoard();
+    expect(withMarker.drawImageCalls).toBeGreaterThan(0);
+    const saved = MARKER_ART.deploy;
+    MARKER_ART.deploy = undefined as unknown as string;
+    spriteCache.clear();
+    const without = makeCtxBoard();
+    MARKER_ART.deploy = saved;
+    expect(withMarker.drawImageCalls).toBeGreaterThan(without.drawImageCalls);
+    expect(without.fillStyles).toContain('#4ade80');   // 剥除标识后绿高亮仍在（叠加不替代）
   });
 });

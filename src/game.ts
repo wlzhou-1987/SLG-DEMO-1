@@ -39,6 +39,7 @@ import { checkVictory, startPlayerPhase, applyTerrainRegen } from './core/turn';
 import type { VictoryState } from './core/turn';
 import { decideEnemyAction, checkGroupActivation, provokeGroup } from './core/ai';
 import { checkReinforcements } from './core/reinforce';
+import { REINFORCEMENTS } from './config/reinforcements';
 import { interruptChant, tickStatuses } from './core/status';
 import { canAfford, payCost, tickResources } from './core/resources';
 import { showNotice } from './ui/notice';
@@ -59,6 +60,11 @@ type Phase =
 
 const ENEMY_ACTION_DELAY_MS = 300;
 const RESOURCE_SHORT: Record<string, string> = { rage: '怒', focus: '专', mp: 'MP' };  // R5-1 菜单消耗标签
+
+/** R16-4 增援刷新点集合（hexKey 去重，常驻标识用，§7.4） */
+const REINFORCEMENT_POINT_KEYS = new Set(
+  REINFORCEMENTS.flatMap(e => e.units.map(u => hexKey(u.point)))
+);
 
 export class Game {
   private canvas: HTMLCanvasElement;
@@ -1072,6 +1078,7 @@ export class Game {
 
     this.renderer.drawTerrain(this.map, this.camera, width, height);
     this.renderer.drawGrid(this.map, this.camera, width, height);
+    this.renderer.drawMarkers(REINFORCEMENT_POINT_KEYS, this.camera, width, height, 'reinforce');   // R16-4 增援点常驻标识（战前画布不显示）
 
     if (this.phase.mode === 'unitSelected') {
       this.renderer.drawRangeOverlay(this.phase.moveRange, this.camera, '#4a90d9', width, height);

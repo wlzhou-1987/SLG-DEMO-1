@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { HexRenderer, RESOURCE_COLORS } from '../../src/render/hex-renderer';
 import { Camera } from '../../src/render/camera';
 import { spriteCache } from '../../src/render/sprite-cache';
-import { ART_ASSETS, TERRAIN_ART } from '../../src/config/art';
+import { ART_ASSETS, TERRAIN_ART, MARKER_ART } from '../../src/config/art';
 import { createUnitState } from '../../src/core/unit';
 import type { GhostView } from '../../src/render/animator';
 import type { MapState } from '../../src/core/map';
@@ -144,5 +144,35 @@ describe('R20 棋子资源条（HP 条下方，职业主资源）', () => {
     const resFg = c.fillRectCalls[3];
     expect(resFg.w).toBe(0);
     expect(resFg.style).toBe(RESOURCE_COLORS.rage);
+  });
+});
+
+describe('R16-4 战场标识绘制（drawMarkers，§7.4）', () => {
+  let ctx: FakeCtx;
+  const camera = new Camera();
+  const savedDeploy = MARKER_ART.deploy;
+
+  beforeEach(() => {
+    ctx = new FakeCtx();
+    (globalThis as { Image?: unknown }).Image = FakeImage as unknown as typeof Image;
+  });
+  afterEach(() => {
+    (globalThis as { Image?: unknown }).Image = originalImage;
+    MARKER_ART.deploy = savedDeploy;
+    spriteCache.clear();
+  });
+
+  it('就绪：格集内每格 drawImage 一次（视口裁剪外不计）', () => {
+    const r = new HexRenderer(ctx as unknown as CanvasRenderingContext2D);
+    const keys = new Set(['0,0', '1,0', '40,40']);   // 40,40 远超视口 → 裁剪
+    r.drawMarkers(keys, camera, 400, 400, 'deploy');
+    expect(ctx.drawImageCalls).toBe(2);
+  });
+
+  it('未登记/未就绪：不画（缺失 = 不画回落无标识）', () => {
+    MARKER_ART.deploy = undefined as unknown as string;
+    const r = new HexRenderer(ctx as unknown as CanvasRenderingContext2D);
+    r.drawMarkers(new Set(['0,0']), camera, 400, 400, 'deploy');
+    expect(ctx.drawImageCalls).toBe(0);
   });
 });

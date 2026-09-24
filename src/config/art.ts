@@ -212,3 +212,14 @@ export function iconPath(key: string): string | null {
   const file = ICON_ART[key];
   return file ? `${ART_ROOT}/icon/${file}` : null;
 }
+
+/** 战场标识登记（R16-4，§7.4/§7.5）：deploy = 战前部署区叠加（绿高亮保留）、reinforce = 增援点常驻（仅战斗画布） */
+export const MARKER_ART: Partial<Record<'deploy' | 'reinforce', string>> = {
+  deploy: 'marker-deploy.png',
+  reinforce: 'marker-reinforce.png'
+};
+
+export function markerPath(marker: 'deploy' | 'reinforce'): string | null {
+  const file = MARKER_ART[marker];
+  return file ? `${ART_ROOT}/marker/${file}` : null;
+}
