@@ -5,6 +5,8 @@
  * 路径为相对路径：vite base './'（Electron file:// 加载 dist），绝对路径会失效。
  */
 
+import type { TerrainType } from '../core/types';
+
 export type ArtKind = 'standing' | 'portrait' | 'sprite';
 
 export interface ArtAssets {
@@ -40,4 +42,17 @@ export const ART_ASSETS: Record<string, ArtAssets> = {
 export function artPath(kind: ArtKind, templateId: string): string | null {
   const file = ART_ASSETS[templateId]?.[kind];
   return file ? `${ART_ROOT}/${kind}/${file}` : null;
+}
+
+/** 地形贴图登记（R16）：满铺方图无需透明底；缺失/未登记 = null → 渲染层回落矢量图案（R9 资产） */
+export const TERRAIN_ART: Partial<Record<TerrainType, string>> = {
+  plain: 'plain.png',
+  forest: 'forest.png',
+  mountain: 'mountain.png',
+  base: 'base.png'
+};
+
+export function terrainArtPath(terrain: TerrainType): string | null {
+  const file = TERRAIN_ART[terrain];
+  return file ? `${ART_ROOT}/terrain/${file}` : null;
 }

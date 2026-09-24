@@ -2,9 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { HexRenderer, RESOURCE_COLORS } from '../../src/render/hex-renderer';
 import { Camera } from '../../src/render/camera';
 import { spriteCache } from '../../src/render/sprite-cache';
-import { ART_ASSETS } from '../../src/config/art';
+import { ART_ASSETS, TERRAIN_ART } from '../../src/config/art';
 import { createUnitState } from '../../src/core/unit';
 import type { GhostView } from '../../src/render/animator';
+import type { MapState } from '../../src/core/map';
+import type { TerrainType } from '../../src/core/types';
 
 /** R15-4 棋子盘心贴图分支：FakeCtx 记录 drawImage 调用（剪影回落=无 drawImage） */
 class FakeCtx {
@@ -82,6 +84,40 @@ describe('R15-4 棋子贴图管线（hex-renderer 盘心分支）', () => {
     const ghost: GhostView = { templateId: 'lord', color: '#4a90d9', x: 0, y: 0, scale: 1, alpha: 0.5 };
     r.drawGhosts([ghost], new Camera());
     expect(ctx.drawImageCalls).toBe(1);
+  });
+});
+
+describe('R16 地形贴图（drawTerrain 六边形满铺 + 矢量图案回落）', () => {
+  /** 4 地形各一格的单行小地图（原点起，Camera 默认视口内全可见） */
+  const tinyMap = (): MapState => ({
+    width: 4,
+    height: 1,
+    terrain: [['plain', 'forest', 'mountain', 'base'] as TerrainType[]],
+  });
+  const savedTerrain = { ...TERRAIN_ART };
+
+  afterEach(() => {
+    (globalThis as { Image?: unknown }).Image = originalImage;
+    Object.keys(TERRAIN_ART).forEach(k => delete (TERRAIN_ART as Record<string, string | undefined>)[k]);
+    Object.assign(TERRAIN_ART, savedTerrain);
+    spriteCache.clear();
+  });
+
+  it('贴图登记且就绪：每地形格 drawImage 满铺（4 格 4 次）', () => {
+    (globalThis as { Image?: unknown }).Image = FakeImage as unknown as typeof Image;
+    const c = new FakeCtx();
+    const r = new HexRenderer(c as unknown as CanvasRenderingContext2D);
+    r.drawTerrain(tinyMap(), new Camera(), 800, 600);
+    expect(c.drawImageCalls).toBe(4);
+  });
+
+  it('未登记：回落矢量图案（无 drawImage，R9 图案层保留为回落）', () => {
+    (globalThis as { Image?: unknown }).Image = FakeImage as unknown as typeof Image;
+    Object.keys(TERRAIN_ART).forEach(k => delete (TERRAIN_ART as Record<string, string | undefined>)[k]);
+    const c = new FakeCtx();
+    const r = new HexRenderer(c as unknown as CanvasRenderingContext2D);
+    r.drawTerrain(tinyMap(), new Camera(), 800, 600);
+    expect(c.drawImageCalls).toBe(0);
   });
 });
 

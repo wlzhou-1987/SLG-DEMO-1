@@ -7,6 +7,7 @@ import { axialToPixel, hexCorners, facingToAngle } from '../core/hex';
 import { getTerrain } from '../core/map';
 import { TERRAIN_CONFIGS } from '../config/terrain';
 import { TERRAIN_PATTERNS } from './terrain-patterns';
+import { terrainArtPath } from '../config/art';
 import { SILHOUETTE_SHAPES, getShapeId, BOSS_SHAPE } from './silhouettes';
 import { spriteCache } from './sprite-cache';
 import type { LoadedImage } from './sprite-cache';
@@ -72,7 +73,17 @@ export class HexRenderer {
         const config = TERRAIN_CONFIGS[terrain];
 
         this.drawHex(world.x, world.y, config.color, true);
-        TERRAIN_PATTERNS[terrain](this.ctx, world.x, world.y, this.hexSize);
+        // R16 地形贴图：就绪时六边形裁切满铺；未登记/加载中/失败回落 R9 矢量图案
+        const texture = spriteCache.get(terrainArtPath(terrain));
+        if (texture) {
+          this.ctx.save();
+          this.traceHex(world.x, world.y, this.hexSize);
+          this.ctx.clip();
+          this.ctx.drawImage(texture as CanvasImageSource, world.x - this.hexSize, world.y - this.hexSize, this.hexSize * 2, this.hexSize * 2);
+          this.ctx.restore();
+        } else {
+          TERRAIN_PATTERNS[terrain](this.ctx, world.x, world.y, this.hexSize);
+        }
       }
     }
   }
@@ -291,7 +302,7 @@ export class HexRenderer {
     this.ctx.stroke();
   }
 
-  private drawHex(cx: number, cy: number, color: string, fill: boolean, size: number = this.hexSize) {
+  private traceHex(cx: number, cy: number, size: number) {
     const corners = hexCorners(cx, cy, size);
     this.ctx.beginPath();
     this.ctx.moveTo(corners[0].x, corners[0].y);
@@ -299,6 +310,10 @@ export class HexRenderer {
       this.ctx.lineTo(corners[i].x, corners[i].y);
     }
     this.ctx.closePath();
+  }
+
+  private drawHex(cx: number, cy: number, color: string, fill: boolean, size: number = this.hexSize) {
+    this.traceHex(cx, cy, size);
 
     if (fill) {
       this.ctx.fillStyle = color;

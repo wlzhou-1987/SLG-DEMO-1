@@ -58,7 +58,7 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | src/config/spells.ts | 法术定义：SpellTemplate（继承 SkillTemplate 含 desc 功能描述，id/target/learnable；释放方式×生效方式）、SPELLS 六法术（陨石术 armorResist heavy ×1.5——法术破重甲钥匙，R4-8）、getSpell/isSpell | §4.12 | —（tests/core/spell 间接） |
 | src/config/traits.ts | 特性修正：TRAIT_CONFIGS（再移动/背刺/沉稳/真实视野〔revealRange 声明，R3-8 结算〕/鹰眼〔R7-2 rangedHitBonus 远程命中+溢出转暴击〕/虔诚〔R12-1 溅射：消费点 spell.ts〕，learnable 标记、weaponType 声明、firstStrikeThreshold 先攻降阈声明〔R4-7〕、critCapBonus 上限突破声明位〔R7-2〕）、getTrait | §4.7 | —（tests/core/combat 间接） |
 | src/config/pool.ts | 通用技能池：getPool（三表 learnable 条目 union 视图）、learnBlockReason/canLearn（双过滤；**R2-3 武器判据 = 装备原子并集**，签名带 equipment 参数；R2-4 资源判据读 JobConfig.resourceType）、SLOT_LIMITS、findRegisteredEntry（三表全量查）、validateLoadoutForTemplate（装填合法性：未注册/分组/双约束；R2-3 第三参 equipment 缺省回落模板默认，敌方关卡装备覆盖同源） | §4.9/§4.14 | tests/config/pool.test.ts |
-| src/config/art.ts | 美术资源登记（R15，§7.5）：ART_ASSETS 显式登记表（templateId → {standing?, portrait?, sprite?}，只登记已迁入 public/art/ 的资源）+ artPath 查询（相对路径 base './' 兼容 Electron file://，未登记返 null 走回落链）；新增美术 = 放文件 + 加登记行 | §7.5 | tests/config/art.test.ts |
+| src/config/art.ts | 美术资源登记（R15，§7.5）：ART_ASSETS 显式登记表（templateId → {standing?, portrait?, sprite?}，只登记已迁入 public/art/ 的资源）+ artPath 查询（相对路径 base './' 兼容 Electron file://，未登记返 null 走回落链）；地形扩展（R16）= TERRAIN_ART（TerrainType → 文件名，Partial 登记制）+ terrainArtPath 查询（未登记返 null 回落矢量图案）；新增美术 = 放文件 + 加登记行 | §7.5 | tests/config/art.test.ts |
 | src/config/map.ts | 关卡布局：MAP_OVERRIDES（地形）、PLAYER_UNITS（我方 10 人站位）、DEPLOY_ZONE（部署区）、ENEMY_GROUPS（9 敌组含 aiType；UnitPlacement 可选 loadout/**equipment 关卡覆盖默认装备**〔R2-2〕——敌方首版：弓手×4 狙击+真实视野、BOSS 重锤+横扫+真实视野）、GroupAiType | §3/§5.2/§6/§7.0 | tests/config/map.test.ts |
 | src/config/reinforcements.ts | 增援事件：ReinforcementEvent、REINFORCEMENTS（回合触发/BOSS 半血触发） | §6 | —（tests/core/reinforce 间接） |
 
@@ -67,10 +67,10 @@ electron/main.cjs  桌面壳，仅创建窗口加载页面，不含游戏逻辑
 | 文件 | 职责（关键导出） | 设计章节 | 测试 |
 | --- | --- | --- | --- |
 | src/render/camera.ts | Camera 类：平移/以屏幕点为中心缩放/居中、屏幕↔世界坐标换算；R19 顺滑缩放补间（setZoomTarget 目标倍率+光标不动点、tick 指数趋近、pan/zoomAt/centerOn 打断） | §5.3/§7.1 | tests/render/camera.test.ts |
-| src/render/hex-renderer.ts | HexRenderer 类：地形（色块+图案）/网格/单位（R9-1 底座圆盘 drawToken——BOSS 金环双圈+深盘心+阵营色环+盘心内**剪影/贴图**〔R15-4：sprite 登记且就绪则盘心 drawImage 圆窗满铺，未登记/未就绪/失败回落剪影〕、朝向三角 A 案、HP 条贴盘下缘+**R20 主资源条（MP/怒气/专注，RESOURCE_COLORS）**、状态图标）/阵亡幽灵（圆盘+剪影/贴图同源）/范围覆盖/选中指示分层绘制；**R19 世界系绘制**（applyView/resetView 变换 + 世界包围盒视口裁剪，全要素随 zoom 等比）；HEX_SIZE、FACTION_COLORS、R9 视觉常量 | §5.3/§7.1/§7.4/§7.5 | tests/render/hex-renderer.test.ts |
+| src/render/hex-renderer.ts | HexRenderer 类：地形（色块 + **R16 贴图优先**——terrainArtPath 登记且就绪则六边形裁切满铺 drawImage〔traceHex 复用路径〕，未登记/未就绪/失败回落矢量图案）/网格/单位（R9-1 底座圆盘 drawToken——BOSS 金环双圈+深盘心+阵营色环+盘心内**剪影/贴图**〔R15-4：sprite 登记且就绪则盘心 drawImage 圆窗满铺，未登记/未就绪/失败回落剪影〕、朝向三角 A 案、HP 条贴盘下缘+**R20 主资源条（MP/怒气/专注，RESOURCE_COLORS）**、状态图标）/阵亡幽灵（圆盘+剪影/贴图同源）/范围覆盖/选中指示分层绘制；**R19 世界系绘制**（applyView/resetView 变换 + 世界包围盒视口裁剪，全要素随 zoom 等比）；HEX_SIZE、FACTION_COLORS、R9 视觉常量 | §5.3/§7.1/§7.4/§7.5 | tests/render/hex-renderer.test.ts |
 | src/render/sprite-cache.ts | 棋子贴图资源管理器（R15-4）：SpriteCache 按 URL 懒加载+缓存（loader 可注入、node 可测），未就绪/失败恒 null（失败=缺失同回落；无 Image 全局环境〔node 测试〕给永不就绪桩同回落）+ spriteCache 单例；clear 供测试/HMR | §5.3/§7.5 | tests/render/sprite-cache.test.ts |
 | src/render/silhouettes.ts | R9-1 兵种矢量剪影：14 形状绘制函数（SILHOUETTE_SHAPES，颜色由调用方预设）、SILHOUETTE_MAP 17 模板映射（敌我斧/弓/法共用）、getShapeId 未知回退剑士形、BOSS_SHAPE | §5.3 | tests/render/silhouettes.test.ts |
-| src/render/terrain-patterns.ts | R9-1 地形矢量图案：TERRAIN_PATTERNS 四地形各一绘制函数（草簇/双树/双峰/堡垒垛口拱门），图案色为模块常量 | §5.3 | tests/render/terrain-patterns.test.ts |
+| src/render/terrain-patterns.ts | R9-1 地形矢量图案（R16 起为贴图缺失/未就绪/失败的回落层）：TERRAIN_PATTERNS 四地形各一绘制函数（草簇/双树/双峰/堡垒垛口拱门），图案色为模块常量 | §5.3 | tests/render/terrain-patterns.test.ts |
 | src/render/animator.ts | Animator 类：逐格移动滑行（途经点序列多段插值，R9-2）/受击抖动+闪烁/突进/登场渐入/阵亡幽灵动画状态机（GhostView 携 templateId 供剪影渲染），随时间自衰减；时长常量 STEP_MOVE_MS/SHAKE_MS/SHAKE_AMP 等 | §7.4 | tests/render/animator.test.ts |
 | src/render/effects.ts | EffectSystem 类：战场飘字（伤害/MISS/治疗/盾吸收/**暴击 R7-2 亮橙前缀「暴击-」**），世界坐标锚定（R19 世界系绘制，字号随 zoom 等比）；FLOAT_COLOR | §7.4 | tests/render/effects.test.ts |
 | src/render/input.ts | InputHandler 类：画布鼠标事件（点击/拖动/滚轮/双击/悬停），拖动阈值区分点击与平移；dispose 移除全部监听（战前画布让位时用） | §7.1 | — |
