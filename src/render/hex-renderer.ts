@@ -32,23 +32,44 @@ export class HexRenderer {
     this.ctx = ctx;
   }
 
+  /** 世界坐标系变换（R19）：各层在世界坐标下绘制，格子/棋子/文字随 zoom 等比缩放 */
+  applyView(camera: Camera): void {
+    this.ctx.save();
+    this.ctx.setTransform(camera.zoom, 0, 0, camera.zoom, -camera.x * camera.zoom, -camera.y * camera.zoom);
+  }
+
+  resetView(): void {
+    this.ctx.restore();
+  }
+
+  /** 世界系视口包围盒（外扩 2 格余量容纳棋子出露） */
+  private viewBounds(camera: Camera, canvasWidth: number, canvasHeight: number) {
+    const m = this.hexSize * 2;
+    return {
+      x0: camera.x - m,
+      y0: camera.y - m,
+      x1: camera.x + canvasWidth / camera.zoom + m,
+      y1: camera.y + canvasHeight / camera.zoom + m,
+    };
+  }
+
   /** 绘制地形层 */
   drawTerrain(map: MapState, camera: Camera, canvasWidth: number, canvasHeight: number) {
+    const vb = this.viewBounds(camera, canvasWidth, canvasHeight);
     for (let r = 0; r < map.height; r++) {
       for (let q = 0; q < map.width; q++) {
         const world = axialToPixel({ q, r }, this.hexSize);
-        const screen = camera.worldToScreen(world);
 
-        // 视口裁剪
-        if (screen.x < -this.hexSize * 2 || screen.x > canvasWidth + this.hexSize * 2) continue;
-        if (screen.y < -this.hexSize * 2 || screen.y > canvasHeight + this.hexSize * 2) continue;
+        // 视口裁剪（世界系）
+        if (world.x < vb.x0 || world.x > vb.x1) continue;
+        if (world.y < vb.y0 || world.y > vb.y1) continue;
 
         const terrain = getTerrain(map, { q, r });
         if (terrain === undefined) continue;
         const config = TERRAIN_CONFIGS[terrain];
 
-        this.drawHex(screen.x, screen.y, config.color, true);
-        TERRAIN_PATTERNS[terrain](this.ctx, screen.x, screen.y, this.hexSize);
+        this.drawHex(world.x, world.y, config.color, true);
+        TERRAIN_PATTERNS[terrain](this.ctx, world.x, world.y, this.hexSize);
       }
     }
   }
@@ -58,15 +79,15 @@ export class HexRenderer {
     this.ctx.strokeStyle = GRID_COLOR;
     this.ctx.lineWidth = 1;
 
+    const vb = this.viewBounds(camera, canvasWidth, canvasHeight);
     for (let r = 0; r < map.height; r++) {
       for (let q = 0; q < map.width; q++) {
         const world = axialToPixel({ q, r }, this.hexSize);
-        const screen = camera.worldToScreen(world);
 
-        if (screen.x < -this.hexSize * 2 || screen.x > canvasWidth + this.hexSize * 2) continue;
-        if (screen.y < -this.hexSize * 2 || screen.y > canvasHeight + this.hexSize * 2) continue;
+        if (world.x < vb.x0 || world.x > vb.x1) continue;
+        if (world.y < vb.y0 || world.y > vb.y1) continue;
 
-        this.drawHexOutline(screen.x, screen.y);
+        this.drawHexOutline(world.x, world.y);
       }
     }
   }
@@ -80,6 +101,7 @@ export class HexRenderer {
     animator?: Animator,
     now: number = performance.now()
   ) {
+    const vb = this.viewBounds(camera, canvasWidth, canvasHeight);
     for (const unit of units) {
       const world = axialToPixel(unit.position, this.hexSize);
       let wx = world.x, wy = world.y;
@@ -91,10 +113,9 @@ export class HexRenderer {
         const sh = animator.shakeDelta(unit.id, now);
         if (sh) { wx += sh.dx; wy += sh.dy; }
       }
-      const screen = camera.worldToScreen({ x: wx, y: wy });
 
-      if (screen.x < -this.hexSize * 2 || screen.x > canvasWidth + this.hexSize * 2) continue;
-      if (screen.y < -this.hexSize * 2 || screen.y > canvasHeight + this.hexSize * 2) continue;
+      if (wx < vb.x0 || wx > vb.x1) continue;
+      if (wy < vb.y0 || wy > vb.y1) continue;
 
       const shapeId = getShapeId(unit.templateId);
       const ringColor = unit.faction === 'player' ? FACTION_COLORS.player : FACTION_COLORS.enemy;
@@ -106,18 +127,18 @@ export class HexRenderer {
       const R = this.hexSize * 0.75 * appear;
 
       this.ctx.globalAlpha = alpha * appear;
-      this.drawToken(screen.x, screen.y, R, ringColor, shapeId, this.resolveSprite(unit.templateId));
+      this.drawToken(wx, wy, R, ringColor, shapeId, this.resolveSprite(unit.templateId));
 
       // 朝向三角（A 案：盘缘内侧，指向朝向）
       const angle = facingToAngle(unit.facing as Facing) * Math.PI / 180;
-      this.drawFacingTriangle(screen.x, screen.y, R, angle);
+      this.drawFacingTriangle(wx, wy, R, angle);
 
       // HP 条（贴盘下缘，三档色）
       const hpRatio = unit.hp / unit.maxHp;
       const barWidth = R * 1.5;
       const barHeight = 4;
-      const barX = screen.x - barWidth / 2;
-      const barY = screen.y + R + 3;
+      const barX = wx - barWidth / 2;
+      const barY = wy + R + 3;
 
       this.ctx.fillStyle = '#333333';
       this.ctx.fillRect(barX, barY, barWidth, barHeight);
@@ -137,14 +158,14 @@ export class HexRenderer {
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'alphabetic';
         this.ctx.fillStyle = '#ffd75e';
-        this.ctx.fillText(labels.join(' '), screen.x, screen.y - R - 6);
+        this.ctx.fillText(labels.join(' '), wx, wy - R - 6);
       }
 
       // 受击闪烁：白色圆盘覆盖随强度衰减
       if (flash > 0) {
         this.ctx.globalAlpha = flash;
         this.ctx.beginPath();
-        this.ctx.arc(screen.x, screen.y, R, 0, Math.PI * 2);
+        this.ctx.arc(wx, wy, R, 0, Math.PI * 2);
         this.ctx.fillStyle = '#ffffff';
         this.ctx.fill();
       }
@@ -154,12 +175,11 @@ export class HexRenderer {
   }
 
   /** 绘制阵亡幽灵（圆盘+剪影，缩小淡出） */
-  drawGhosts(ghosts: GhostView[], camera: Camera) {
+  drawGhosts(ghosts: GhostView[], _camera: Camera) {
     for (const g of ghosts) {
-      const screen = camera.worldToScreen({ x: g.x, y: g.y });
       const R = this.hexSize * 0.75 * g.scale;
       this.ctx.globalAlpha = g.alpha;
-      this.drawToken(screen.x, screen.y, R, g.color, getShapeId(g.templateId), this.resolveSprite(g.templateId));
+      this.drawToken(g.x, g.y, R, g.color, getShapeId(g.templateId), this.resolveSprite(g.templateId));
       this.ctx.globalAlpha = 1;
     }
   }
@@ -175,29 +195,28 @@ export class HexRenderer {
     this.ctx.fillStyle = color;
     this.ctx.globalAlpha = 0.3;
 
+    const vb = this.viewBounds(camera, canvasWidth, canvasHeight);
     for (const key of range) {
       const [qStr, rStr] = key.split(',');
       const pos: HexCoord = { q: parseInt(qStr), r: parseInt(rStr) };
       const world = axialToPixel(pos, this.hexSize);
-      const screen = camera.worldToScreen(world);
 
-      if (screen.x < -this.hexSize * 2 || screen.x > canvasWidth + this.hexSize * 2) continue;
-      if (screen.y < -this.hexSize * 2 || screen.y > canvasHeight + this.hexSize * 2) continue;
+      if (world.x < vb.x0 || world.x > vb.x1) continue;
+      if (world.y < vb.y0 || world.y > vb.y1) continue;
 
-      this.drawHex(screen.x, screen.y, color, true);
+      this.drawHex(world.x, world.y, color, true);
     }
 
     this.ctx.globalAlpha = 1;
   }
 
   /** 绘制选中指示器 */
-  drawSelectionIndicator(pos: HexCoord, camera: Camera) {
+  drawSelectionIndicator(pos: HexCoord, _camera: Camera) {
     const world = axialToPixel(pos, this.hexSize);
-    const screen = camera.worldToScreen(world);
 
     this.ctx.strokeStyle = '#fbbf24';
     this.ctx.lineWidth = 3;
-    this.drawHexOutline(screen.x, screen.y);
+    this.drawHexOutline(world.x, world.y);
   }
 
   /** R15-4 棋子贴图：登记且已加载才返回（未登记/未就绪/失败均 null → 剪影回落） */

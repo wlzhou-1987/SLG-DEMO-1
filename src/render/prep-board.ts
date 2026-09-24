@@ -59,12 +59,15 @@ export class PrepBoard {
     // 整幅背景填充先于任何绘制（与 Game.render 一致），否则拖动画布时旧帧残影
     this.ctx.fillStyle = '#0d0f13';
     this.ctx.fillRect(0, 0, w, h);
+    // R19 世界系变换：与 Game.render 同构（格子/棋子随 zoom 等比缩放）
+    this.renderer.applyView(this.camera);
     this.renderer.drawTerrain(this.map, this.camera, w, h);
     this.renderer.drawGrid(this.map, this.camera, w, h);
     this.renderer.drawRangeOverlay(this.zoneKeys(), this.camera, '#4ade80', w, h);
     const viewUnits = this.cb.getRoster().map(e => createUnitState(e.templateId, 'player', e.position));
     this.renderer.drawUnits(viewUnits, this.camera, w, h);
     if (this.selected) this.renderer.drawSelectionIndicator(this.selected, this.camera);
+    this.renderer.resetView();
   }
 
   handleClick(screenX: number, screenY: number): void {

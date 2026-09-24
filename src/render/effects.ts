@@ -60,18 +60,18 @@ export class EffectSystem {
     this.items = this.items.filter(i => now < i.bornMs + i.durationMs);
   }
 
-  draw(ctx: CanvasRenderingContext2D, camera: Camera, now: number): void {
+  draw(ctx: CanvasRenderingContext2D, _camera: Camera, now: number): void {
+    // R19 世界系绘制：v.x/v.y 为世界坐标，字号随 zoom 等比缩放（变换由调用方 applyView 设置）
     for (const v of this.visible(now)) {
-      const screen = camera.worldToScreen({ x: v.x, y: v.y });
       ctx.globalAlpha = v.alpha;
       ctx.font = 'bold 15px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.lineWidth = 3;
       ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-      ctx.strokeText(v.text, screen.x, screen.y);
+      ctx.strokeText(v.text, v.x, v.y);
       ctx.fillStyle = v.color;
-      ctx.fillText(v.text, screen.x, screen.y);
+      ctx.fillText(v.text, v.x, v.y);
     }
     ctx.globalAlpha = 1;
   }

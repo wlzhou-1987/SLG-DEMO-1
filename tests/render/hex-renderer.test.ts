@@ -25,6 +25,7 @@ class FakeCtx {
   clip(): void {}
   save(): void {}
   restore(): void {}
+  setTransform(): void {}
   translate(): void {}
   moveTo(): void {}
   lineTo(): void {}

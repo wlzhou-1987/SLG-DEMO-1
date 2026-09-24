@@ -103,8 +103,8 @@ export class Game {
       onClick: (sx, sy) => { this.handleClick(sx, sy); this.render(); },
       onDrag: (dx, dy) => { this.camera.pan(dx, dy); this.render(); },
       onWheel: (sx, sy, deltaY) => {
-        this.camera.zoomAt(sx, sy, Math.pow(1.1, -deltaY / 100));
-        this.render();
+        this.camera.setZoomTarget(sx, sy, Math.pow(1.1, -deltaY / 100));
+        this.kickAnimLoop();
       },
       onDblClick: (sx, sy) => { this.handleDblClick(sx, sy); this.render(); },
       onHover: (sx, sy) => this.handleHover(sx, sy)
@@ -617,14 +617,17 @@ export class Game {
     return getTemplate(u.templateId)?.name ?? u.templateId;
   }
 
-  /** 动画活跃时 rAF 重绘，静止即停（不跑常驻循环） */
+  /** 动画或缩放补间活跃时 rAF 重绘，静止即停（不跑常驻循环） */
   private kickAnimLoop(): void {
     if (this.animating) return;
     this.animating = true;
+    let lastMs = performance.now();
     const step = () => {
       const now = performance.now();
+      this.camera.tick(now - lastMs);
+      lastMs = now;
       this.effects.prune(now);
-      if (!this.effects.active(now) && !this.animator.active(now)) {
+      if (!this.effects.active(now) && !this.animator.active(now) && !this.camera.animating()) {
         this.animating = false;
         this.render();
         return;
@@ -1020,6 +1023,9 @@ export class Game {
     this.ctx.fillStyle = '#0d0f13';
     this.ctx.fillRect(0, 0, width, height);
 
+    // R19 世界系变换：所有层在世界坐标绘制，随 zoom 等比缩放
+    this.renderer.applyView(this.camera);
+
     this.renderer.drawTerrain(this.map, this.camera, width, height);
     this.renderer.drawGrid(this.map, this.camera, width, height);
 
@@ -1059,5 +1065,6 @@ export class Game {
     }
 
     this.effects.draw(this.ctx, this.camera, performance.now());
+    this.renderer.resetView();
   };
 }
